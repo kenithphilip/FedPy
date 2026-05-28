@@ -19,7 +19,7 @@ import pLimit from 'p-limit';
 
 import { KSI_MAP, SUPPORTED_KSIS } from './ksi-map.ts';
 import type { KsiEntry } from './ksi-map.ts';
-import { makeRollup, type EvidenceFile, type ProviderBlock } from './envelope.ts';
+import { makeRollup, type EvidenceFile, type ProviderBlock, type ThirdPartyToolMatch } from './envelope.ts';
 import { relatedKsisFor } from './cross-ksi.ts';
 import { buildPvaEvidence } from './pva-collector.ts';
 import type { ImpactTier } from './envelope.ts';
@@ -469,6 +469,8 @@ interface RunResult {
   schema_errors?: string;
   /** True for requirements that obligate FedRAMP/agency/3PAO (not the provider). */
   awareness_only?: boolean;
+  /** Third-party tools detected by this KSI's collectors (aggregated for process satisfiers). */
+  detected_tools?: ThirdPartyToolMatch[];
 }
 
 async function runOneKsi(
@@ -606,6 +608,7 @@ async function runOneKsi(
     duration_ms,
     schema_valid: validation.valid,
     schema_errors: validation.valid ? undefined : formatErrors(validation.errors),
+    detected_tools: providers.flatMap((p) => p.third_party_tools_detected ?? []),
   };
 }
 
@@ -795,6 +798,11 @@ export async function main(): Promise<void> {
   if (!args.ksiFilter) {
     try {
       const attestations = loadAttestations(process.env.CLOUD_EVIDENCE_ATTESTATIONS ?? null);
+      // Aggregate third-party tools detected across all collectors (dedupe by name)
+      // so the process tracker can flip matching alternative_satisfiers to detected.
+      const detectedTools = Array.from(
+        new Map(results.flatMap((r) => r.detected_tools ?? []).map((t) => [t.name, t])).values(),
+      );
       const sel = selectForLevel(impactLevel);
       const alreadyWritten = new Set<string>([...inScopeKsis.map((k) => k.id), 'KSI-AFR-PVA', 'KSI-CSX-SUM']);
       const toEmit: RequirementEntry[] = [...sel.inScope, ...sel.awareness]
@@ -804,7 +812,7 @@ export async function main(): Promise<void> {
       for (const req of toEmit) {
         const ev = buildProcessArtifactEvidence(req, {
           tier: impactLevel, runId, frmrVersion: config.frmr_version, attestations,
-          playbooks: REQUIREMENT_PLAYBOOKS,
+          playbooks: REQUIREMENT_PLAYBOOKS, detectedTools,
         });
         const validation = validateEvidenceFile(JSON.parse(JSON.stringify(ev)));
         const outPath = resolve(args.outDir, `${req.id}.json`);

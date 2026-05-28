@@ -4,6 +4,16 @@
 
 frmr_version: "0.9.43-beta"
 
+# FedRAMP impact tier to evaluate against: low | moderate | high.
+#   - low / moderate come from the 20x machine-readable requirements.
+#   - high is DERIVED from the NIST 800-53 Rev5 baseline (no 20x High is published);
+#     High findings are labeled `derived-rev5` so an assessor never mistakes them for
+#     a published 20x High obligation.
+# The selected tier decides which of the 223 requirements are in scope and at what
+# obligation strength (MUST/SHOULD/MAY). Override at runtime with --impact-level
+# or the CLOUD_EVIDENCE_IMPACT_LEVEL env var. Defaults to moderate if omitted.
+impact_level: moderate
+
 # AWS configuration
 aws:
   enabled: true

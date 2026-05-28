@@ -116,6 +116,16 @@ Most operators don't need these. They exist for incident response, debugging, an
 | `LLM_MODEL` | `claude-opus-4-5` | Model selection. Use `claude-haiku-4-5` for cost-sensitive runs (see COST.md). |
 | `CLOUD_EVIDENCE_DISABLE_GCP_GUARDRAIL` | `0` | Set to `1` to bypass the GCP read-only Proxy. Use ONLY for diagnosing why a collector throws ReadOnlyGcpViolationError — never in production. |
 | `CLOUD_EVIDENCE_K8S_TIMEOUT_MS` | `10000` | Per-call timeout for Kubernetes API requests. Lower in CI so an unreachable cluster fails fast instead of hanging the run. |
+| `CLOUD_EVIDENCE_IMPACT_LEVEL` | `moderate` | FedRAMP impact tier: `low`/`moderate`/`high`. Overrides `config.yaml` `impact_level`; `--impact-level` overrides this. High is DERIVED from NIST 800-53 Rev5. |
+| `CLOUD_EVIDENCE_ATTESTATIONS` | (none) | Path to a JSON attestation register (array of `{requirement_id, artifact_url, attested_by, attested_at, expires_at}` or an object keyed by requirement id). Proves the ~99 process requirements are met; a fresh attestation makes the requirement PASS. |
+| `CLOUD_EVIDENCE_KEV_PATH` | (none) | Path to a cached CISA Known-Exploited-Vulnerabilities JSON (`known_exploited_vulnerabilities.json`) for offline VDR KEV-deadline checks. |
+| `CLOUD_EVIDENCE_ADS_URLS` | (none) | Comma-separated public Trust Center / CSO / OSCAL URLs the ADS probe checks for reachability + required fields (read-only GET). |
+
+**Impact level selection:** pick the tier at setup via `config.yaml` (`impact_level: low|moderate|high`)
+or per-run via `--impact-level high`. The collector then scopes all 223 FedRAMP 20x requirements
+to that tier: cloud-testable KSIs run their collectors; the ~99 governance requirements emit
+process-artifact evidence (tracked via the attestation register); requirements that obligate
+FedRAMP/an agency/a 3PAO are recorded as awareness-only and excluded from your pass/fail.
 
 ### Tracker environment variables
 
