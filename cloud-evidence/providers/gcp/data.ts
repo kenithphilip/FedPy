@@ -87,6 +87,49 @@ export async function collectSvcRud(c: CollectorContext): Promise<ProviderBlock>
     },
   ];
 
+  // Demonstrate the deletion mechanism with real evidence: query Cloud Audit Logs
+  // (Admin Activity) for recent delete events. Read-only: logging entries.list.
+  const DELETION_METHODS = [
+    'storage.objects.delete',
+    'storage.buckets.delete',
+    'cloudsql.backupRuns.delete',
+    'cloudkms.cryptoKeyVersions.destroy',
+    'bigquery.tables.delete',
+    'bigquery.datasets.delete',
+    'compute.disks.delete',
+    'compute.snapshots.delete',
+  ];
+  const WINDOW_DAYS = 90;
+  let deletionEvents = 0;
+  const deletionSamples: Array<{ method: string; resource: string | null; timestamp: string | null }> = [];
+  const deletionMethodCounts: Record<string, number> = {};
+  let deletionQueryOk = false;
+  try {
+    const logging = await gcpAuth.googleClient<any>('logging', 'v2');
+    const since = new Date(Date.now() - WINDOW_DAYS * 86400_000).toISOString();
+    const methodFilter = DELETION_METHODS.map((m) => `protoPayload.methodName="${m}"`).join(' OR ');
+    const filter = `logName:"cloudaudit.googleapis.com" AND (${methodFilter}) AND timestamp>="${since}"`;
+    const r = await logging.entries.list({
+      requestBody: { resourceNames: [`projects/${ctx.project}`], filter, orderBy: 'timestamp desc', pageSize: 100 },
+    });
+    deletionQueryOk = true;
+    for (const entry of r.data.entries ?? []) {
+      const method = entry.protoPayload?.methodName ?? 'unknown';
+      deletionEvents++;
+      deletionMethodCounts[method] = (deletionMethodCounts[method] ?? 0) + 1;
+      if (deletionSamples.length < 10) {
+        deletionSamples.push({
+          method,
+          resource: entry.protoPayload?.resourceName ?? entry.resource?.type ?? null,
+          timestamp: entry.timestamp ?? null,
+        });
+      }
+    }
+    evidence.push(ev('logging.deletion_events', { window_days: WINDOW_DAYS, total: deletionEvents, by_method: deletionMethodCounts, samples: deletionSamples }));
+  } catch (e) {
+    warnings.push(diagnoseGcpError(e, 'logging.entries.list (deletion events)', 'logging.entries.list (roles/logging.viewer or roles/logging.privateLogViewer)'));
+  }
+
   const findings = [
     finding({
       rule: 'gcp.storage.buckets_have_lifecycle_or_retention',
@@ -150,16 +193,29 @@ export async function collectSvcRud(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'gcp.deletion_mechanism_demonstrated',
+      // Informational: a found deletion event proves the mechanism works; finding
+      // none isn't a failure (may simply be a quiet window), so this never fails.
       passed: true,
       severity: 'info',
       current: {
-        summary: 'Deletion mechanism evidence via Cloud Audit Logs (Admin Activity) — sample query needed.',
-        observations: { note: 'Audit log filter for storage.objects.delete + sqladmin.backupRuns.delete + cloudkms.cryptoKeyVersions.destroy.' },
+        summary: !deletionQueryOk
+          ? `Could not query Cloud Audit Logs for deletion events (see warnings); supply evidence via a SIEM saved query.`
+          : (deletionEvents > 0
+            ? `Deletion mechanism demonstrated: ${deletionEvents} delete event(s) in the last ${WINDOW_DAYS} days across ${Object.keys(deletionMethodCounts).length} method(s) (${Object.entries(deletionMethodCounts).map(([m, n]) => `${m}=${n}`).join(', ')}).`
+            : `No delete events in the last ${WINDOW_DAYS} days (audit logs reachable). Mechanism is in place; no recent deletions to show.`),
+        observations: {
+          window_days: WINDOW_DAYS,
+          query_succeeded: deletionQueryOk,
+          total_deletion_events: deletionEvents,
+          by_method: deletionMethodCounts,
+          samples: deletionSamples,
+          methods_checked: DELETION_METHODS,
+        },
       },
-      target: { summary: 'Past deletion events visible in audit logs.', rationale: 'NIST MP-6.' },
+      target: { summary: 'Past deletion events are visible in audit logs (Admin Activity), demonstrating the data-removal mechanism.', rationale: 'NIST MP-6.' },
       alternative_satisfiers: altSatisfiers,
       nist_controls: ['mp-6'],
-      note: 'Audit log filtering deferred; reference SIEM saved query for production evidence.',
+      note: deletionQueryOk ? undefined : 'Audit-log query failed (permission/availability); fall back to a SIEM saved query for production evidence.',
     }),
   ];
 

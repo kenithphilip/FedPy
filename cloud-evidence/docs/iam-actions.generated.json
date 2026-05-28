@@ -1,6 +1,6 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T11:13:57.136Z",
+  "_generated_at": "2026-05-28T11:16:53.570Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
     "action_count": 137,
@@ -396,7 +396,7 @@
     }
   },
   "gcp": {
-    "role_count": 41,
+    "role_count": 42,
     "roles": [
       "roles/accesscontextmanager.policyReader",
       "roles/artifactregistry.reader",
@@ -425,6 +425,7 @@
       "roles/iap.settingsAdmin",
       "roles/iap.tunnelResourceAccessor",
       "roles/identitytoolkit.viewer",
+      "roles/logging.privateLogViewer",
       "roles/logging.viewer",
       "roles/monitoring.viewer",
       "roles/orgpolicy.policyAdmin",
@@ -467,6 +468,8 @@
         "roles/gkehub.viewer",
         "roles/iap.admin",
         "roles/iap.settingsAdmin",
+        "roles/logging.privateLogViewer",
+        "roles/logging.viewer",
         "roles/run.viewer",
         "roles/storage.admin",
         "roles/viewer"

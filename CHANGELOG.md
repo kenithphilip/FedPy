@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — turn the four deferred in-collector TODOs into real detectors
+- **AWS Security Lake** (MLA-OSM): `collectMlaOsm` now probes `securitylake:ListDataLakes`
+  (+ `ListSubscribers`) directly — a configured data lake counts as SIEM plumbing and
+  grounds the Security Lake alternative-satisfier. Added `@aws-sdk/client-securitylake`
+  + a read-only auth factory.
+- **AWS EKS service mesh** (SVC-VCM): `collectSvcVcm` enumerates EKS clusters and their
+  managed add-ons (`eks:ListClusters` + `eks:ListAddons`) and detects mesh add-ons
+  (istio/linkerd/cilium/appmesh/consul); the Istio/Linkerd alternative-satisfier is now
+  evidence-grounded instead of "deferred", pointing Helm-installed-mesh validation at the
+  K8s collector.
+- **GCP deletion events** (SVC-RUD): `collectSvcRud` queries Cloud Audit Logs
+  (`logging.entries.list`) over a 90-day window for delete methods (storage/SQL/KMS/
+  BigQuery/Compute) and reports real counts + samples, replacing the "sample query needed"
+  placeholder. Degrades to a warning on permission/availability error.
+- **IAM-permission auto-inventory**: `scripts/extract-iam-actions.mjs` +
+  `docs/iam-actions.generated.json` (137 AWS actions / 39 services, 42 GCP roles) statically
+  derive the permissions the code references — turning the catalog's "future enhancement"
+  note into real, unit-tested tooling (`npm run gen:iam-actions`, `--check` for CI drift).
+
 ## [0.2.0] - 2026-05-28
 
 ### Changed — documentation accuracy
