@@ -9,6 +9,9 @@ export function CollectorRuns() {
   const summary = parseSummary(run?.summary_json);
   const impact = summary?.impact_level as string | undefined;
   const awareness = summary?.rollup?.awareness_tracked as number | undefined;
+  const bench = summary?.control_benchmark as
+    | { framework?: string; control_source?: string; totals?: any }
+    | undefined;
 
   return (
     <div>
@@ -37,6 +40,7 @@ export function CollectorRuns() {
             {run.token_name ? <> · pushed via API token <span className="mono">{run.token_name}</span></> : null}
             {run.pushed_by_name ? <> · pushed by {run.pushed_by_name}</> : null}
           </p>
+          {bench?.totals ? <ControlBenchmark bench={bench} /> : null}
         </div>
       ) : (
         <div className="card muted">No collector runs yet. Run <span className="mono">npx tsx core/orchestrator.ts --push-tracker</span> from cloud-evidence.</div>
@@ -87,6 +91,35 @@ function Stat({ label, value, color }: { label: string; value: number; color?: s
     <div>
       <div style={{ fontSize: 24, fontWeight: 600, color }}>{value}</div>
       <div className="small muted" style={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>{label}</div>
+    </div>
+  );
+}
+
+/** NIST 800-53 control-benchmark headline for the latest run. */
+function ControlBenchmark({ bench }: { bench: { framework?: string; control_source?: string; totals?: any } }) {
+  const t = bench.totals ?? {};
+  const pct = (n: unknown) => `${Math.round((Number(n) || 0) * 100)}%`;
+  return (
+    <div style={{ marginTop: 14, borderTop: '1px solid var(--border, #2a2a2a)', paddingTop: 12 }}>
+      <div className="row" style={{ alignItems: 'baseline' }}>
+        <strong className="small">NIST 800-53 benchmark</strong>
+        <span style={{ marginLeft: 8, border: '1px solid var(--accent, #4a90d9)', color: 'var(--accent, #4a90d9)', borderRadius: 6, padding: '1px 7px', fontSize: 11, fontWeight: 600 }}>
+          {bench.framework === 'rev5' ? 'Rev5 baseline' : '20x-referenced'}
+        </span>
+        <span className="spacer" />
+        <span className="muted small">{bench.control_source}</span>
+      </div>
+      <div className="grid cols-4" style={{ marginTop: 10 }}>
+        <Stat label="Controls in scope" value={Number(t.in_scope) || 0} />
+        <Stat label="Satisfied" value={Number(t.satisfied) || 0} color="var(--ok)" />
+        <Stat label="Not satisfied" value={Number(t.not_satisfied) || 0} color={(Number(t.not_satisfied) || 0) > 0 ? 'var(--err)' : undefined} />
+        <Stat label="Not assessed" value={Number(t.not_assessed) || 0} />
+      </div>
+      <p className="muted small" style={{ marginTop: 8 }}>
+        Baseline coverage {pct(t.baseline_coverage_rate)} (satisfied ÷ in-scope) ·
+        {' '}Assessed pass rate {pct(t.assessed_pass_rate)} (satisfied ÷ controls with evidence) ·
+        {' '}Partially satisfied {Number(t.partially_satisfied) || 0}
+      </p>
     </div>
   );
 }

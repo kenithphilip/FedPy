@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — NIST 800-53 control benchmark (Low / Moderate / High, for both 20x and Rev5)
+- **`core/control-benchmark.ts` + `control-benchmark.json`:** every run now rolls the cloud
+  findings UP to NIST 800-53 controls and scores each control at the chosen impact level, so a
+  user can benchmark their cloud infrastructure against the baseline. Per-control status is
+  `satisfied` / `partially-satisfied` / `not-satisfied` / `not-assessed`, derived from the
+  findings that map to it (via each finding's / file's `nist_controls`); awareness-only
+  attestations are listed but never satisfy a control on their own. `totals` report both
+  `assessed_pass_rate` (of controls with evidence) and `baseline_coverage_rate` (of the whole
+  in-scope set).
+- **Two framings (`--framework`, env `CLOUD_EVIDENCE_FRAMEWORK`, default `20x`):**
+  `20x` scores only the controls the evaluated 20x KSIs/FRRs reference; `rev5` scores the full
+  NIST SP 800-53B Rev5 baseline for the level (Low 149 / Moderate 287 / High 370 controls),
+  honestly surfacing which baseline controls have automated cloud evidence vs. which still need
+  manual assessment.
+- **Committed baseline membership** (`docs/nist-r5-baselines.generated.json`) + reproducible
+  extractor (`scripts/extract-nist-baselines.mjs`) sourced from NIST's official OSCAL
+  resolved-profile catalogs (usnistgov/oscal-content). No network at runtime; re-run to refresh.
+- Orchestrator emits the benchmark after the family roll-up (covered by the signed manifest),
+  records a `control_benchmark.complete` ledger event, and adds `framework` to the run summary.
+  21 new unit tests in `tests/core/control-benchmark.test.ts`.
+
 ### Added — Completeness, NIST grounding, production hardening, Bun runtime
 - **Corrected KSI count to 63** (was 60): `KSI-CSX-SUM/MAS/ORD` live under the `FRR.KSI`
   family and were mis-classified — they are KSIs. Registry now reports 63 KSIs; a

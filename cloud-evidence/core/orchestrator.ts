@@ -27,6 +27,7 @@ import { selectForLevel, getRequirement, appliesAtLevel, actorScopeOf, type Requ
 import { buildProcessArtifactEvidence, type AttestationRecord } from './process-artifact-tracker.ts';
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
+import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -71,6 +72,12 @@ interface Args {
   ksiFilter: string[] | null;
   /** FedRAMP impact tier to evaluate against. Resolved from CLI > config > 'moderate'. */
   impactLevel: ImpactTier | null;
+  /**
+   * NIST 800-53 control-benchmark framing. 'rev5' scores the full SP 800-53B
+   * baseline for the level; '20x' scores only the controls the evaluated 20x
+   * KSIs/FRRs reference. Resolved from CLI > env > '20x'.
+   */
+  framework: BenchmarkFramework;
   outDir: string;
   configPath: string;
   dryRun: boolean;
@@ -125,6 +132,7 @@ function parseArgs(argv: string[]): Args {
     providers: ['aws', 'gcp'],
     ksiFilter: null,
     impactLevel: (process.env.CLOUD_EVIDENCE_IMPACT_LEVEL as ImpactTier) || null,
+    framework: (process.env.CLOUD_EVIDENCE_FRAMEWORK as BenchmarkFramework) === 'rev5' ? 'rev5' : '20x',
     outDir: resolve(PROJECT_ROOT, 'out'),
     configPath: resolve(PROJECT_ROOT, 'config.yaml'),
     dryRun: false,
@@ -170,6 +178,15 @@ function parseArgs(argv: string[]): Args {
           process.exit(2);
         }
         args.impactLevel = v as ImpactTier;
+        break;
+      }
+      case '--framework': {
+        const v = (argv[++i] ?? '').toLowerCase();
+        if (!['rev5', '20x'].includes(v)) {
+          console.error(`--framework must be one of: rev5, 20x (got: ${v})`);
+          process.exit(2);
+        }
+        args.framework = v as BenchmarkFramework;
         break;
       }
       case '--out':
@@ -305,6 +322,9 @@ Post-run artifacts:
   --oscal                Emit OSCAL 1.1 Assessment Results (out/assessment-results.json)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
   --crosswalk            Emit crosswalk-report.json (NIST → SOC2/ISO27001/HIPAA mapping)
+  --framework <fw>       NIST 800-53 control-benchmark framing: rev5 (full 800-53B baseline) or 20x
+                         (only controls the 20x KSIs reference). Default 20x. Emits control-benchmark.json
+                         (env: CLOUD_EVIDENCE_FRAMEWORK)
 
 Multi-account (AWS Organizations):
   --aws-org-fanout       Discover member accounts and collect across all of them
@@ -789,6 +809,7 @@ export async function main(): Promise<void> {
 
   console.log(`cloud-evidence run ${runId}`);
   console.log(`  impact level: ${impactLevel}${impactLevel === 'high' ? ' (High applicability DERIVED from NIST 800-53 Rev5)' : ''}`);
+  console.log(`  benchmark framework: ${args.framework}${args.framework === 'rev5' ? ' (full NIST SP 800-53B baseline)' : ' (controls referenced by 20x KSIs)'}`);
   console.log(`  providers: ${args.providers.join(', ')}`);
   console.log(`  ksis (${inScopeKsis.length}): ${inScopeKsis.map((k) => k.id).join(', ')}`);
   console.log(`  out: ${args.outDir}`);
@@ -1049,6 +1070,17 @@ export async function main(): Promise<void> {
     console.error(`  [KSI-CSX-SUM] failed: ${e.message}`);
   }
 
+  // ---- NIST 800-53 control benchmark (computed here so a compact headline can
+  // ride along in the run summary; the full report is written below, before
+  // signing, so it's covered by the manifest). ----
+  let benchmark: import('./control-benchmark.ts').ControlBenchmark | null = null;
+  try {
+    benchmark = buildControlBenchmark(args.outDir, { framework: args.framework, level: impactLevel });
+  } catch (e: any) {
+    console.error(`Control benchmark failed: ${e?.message ?? e}`);
+    log.error({ event: 'control_benchmark.fail', err_message: e?.message });
+  }
+
   // Emit pva-run-summary.json
   const finishedAt = new Date().toISOString();
   const summary = {
@@ -1061,6 +1093,12 @@ export async function main(): Promise<void> {
     gcp_projects: config.gcp.projects,
     results,
     impact_level: impactLevel,
+    framework: args.framework,
+    // Compact control-benchmark headline for downstream consumers (the tracker).
+    // The full per-control report is control-benchmark.json.
+    control_benchmark: benchmark
+      ? { framework: benchmark.framework, impact_level: benchmark.impact_level, control_source: benchmark.control_source, totals: benchmark.totals }
+      : null,
     rollup: {
       // The provider's own requirements (excludes awareness items that obligate
       // FedRAMP / an agency / a 3PAO — those can't be "failed" by the provider).
@@ -1099,6 +1137,34 @@ export async function main(): Promise<void> {
       (worst.length ? ` (lowest: ${worst.map((f) => `${f.family} ${Math.round(f.pass_rate * 100)}%`).join(', ')})` : ''));
   } catch (e: any) {
     console.error(`Family roll-up failed: ${e?.message ?? e}`);
+  }
+
+  // ---- NIST 800-53 control benchmark (written BEFORE signing so it's covered
+  // by the manifest). The object was computed above the summary; here we just
+  // persist the full per-control report and log/record the headline. ----
+  if (benchmark) {
+    try {
+      writeFileSafe(resolve(args.outDir, 'control-benchmark.json'), JSON.stringify(benchmark, null, 2));
+      const t = benchmark.totals;
+      console.log(
+        `Control benchmark [${benchmark.framework} / ${impactLevel}]: ` +
+          `${t.satisfied}/${t.in_scope} controls satisfied ` +
+          `(${Math.round(t.baseline_coverage_rate * 100)}% baseline coverage, ` +
+          `${Math.round(t.assessed_pass_rate * 100)}% of assessed; ` +
+          `${t.not_assessed} not-assessed)`,
+      );
+      ledger.record('control_benchmark.complete', {
+        status: 'info',
+        framework: benchmark.framework,
+        impact_level: impactLevel,
+        in_scope: t.in_scope,
+        satisfied: t.satisfied,
+        not_assessed: t.not_assessed,
+      });
+    } catch (e: any) {
+      console.error(`Control benchmark write failed: ${e?.message ?? e}`);
+      log.error({ event: 'control_benchmark.write_fail', err_message: e?.message });
+    }
   }
 
   console.log();

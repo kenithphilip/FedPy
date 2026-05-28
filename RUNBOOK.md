@@ -135,6 +135,7 @@ Most operators don't need these. They exist for incident response, debugging, an
 | `CLOUD_EVIDENCE_DISABLE_GCP_GUARDRAIL` | `0` | Set to `1` to bypass the GCP read-only Proxy. Use ONLY for diagnosing why a collector throws ReadOnlyGcpViolationError — never in production. |
 | `CLOUD_EVIDENCE_K8S_TIMEOUT_MS` | `10000` | Per-call timeout for Kubernetes API requests. Lower in CI so an unreachable cluster fails fast instead of hanging the run. |
 | `CLOUD_EVIDENCE_IMPACT_LEVEL` | `moderate` | FedRAMP impact tier: `low`/`moderate`/`high`. Overrides `config.yaml` `impact_level`; `--impact-level` overrides this. High is DERIVED from NIST 800-53 Rev5. |
+| `CLOUD_EVIDENCE_FRAMEWORK` | `20x` | NIST 800-53 control-benchmark framing: `20x` (score only the controls the evaluated 20x KSIs reference) or `rev5` (score the full SP 800-53B baseline for the level). `--framework` overrides this. Drives `control-benchmark.json`. |
 | `CLOUD_EVIDENCE_ATTESTATIONS` | (none) | Path to a JSON attestation register (array of `{requirement_id, artifact_url, attested_by, attested_at, expires_at}` or an object keyed by requirement id). Proves the ~99 process requirements are met; a fresh attestation makes the requirement PASS. |
 | `CLOUD_EVIDENCE_KEV_PATH` | (none) | Path to a cached CISA Known-Exploited-Vulnerabilities JSON (`known_exploited_vulnerabilities.json`) for offline VDR KEV-deadline checks. |
 | `CLOUD_EVIDENCE_ADS_URLS` | (none) | Comma-separated public Trust Center / CSO / OSCAL URLs the ADS probe checks for reachability + required fields (read-only GET). Emits `ADS-CSO-PUB` evidence. |
@@ -148,6 +149,33 @@ or per-run via `--impact-level high`. The collector then scopes all 223 FedRAMP 
 to that tier: cloud-testable KSIs run their collectors; the ~99 governance requirements emit
 process-artifact evidence (tracked via the attestation register); requirements that obligate
 FedRAMP/an agency/a 3PAO are recorded as awareness-only and excluded from your pass/fail.
+
+**NIST 800-53 control benchmark (`control-benchmark.json`):** every run rolls the findings UP to
+NIST 800-53 controls and scores each control at the chosen impact level, so you can benchmark your
+cloud infrastructure against the baseline. Two framings (`--framework`, env `CLOUD_EVIDENCE_FRAMEWORK`):
+
+- `--framework 20x` (default) — the in-scope control set is the controls the evaluated 20x KSIs/FRRs
+  reference. Answers "how covered are the controls 20x actually cares about, at this level?"
+- `--framework rev5` — the in-scope control set is the *full* NIST SP 800-53B Rev5 baseline for the
+  level (Low 149 / Moderate 287 / High 370 controls). Honestly shows which baseline controls have
+  automated cloud evidence vs which still need manual assessment (most of a baseline is not
+  cloud-API-testable, so expect a large `not-assessed` count — that is the point).
+
+Each control gets a status: `satisfied` (all mapping findings passed), `partially-satisfied` (mixed),
+`not-satisfied` (all failed), or `not-assessed` (no automated evidence maps to it). The report's
+`totals` give `assessed_pass_rate` (satisfied ÷ controls-with-evidence) and `baseline_coverage_rate`
+(satisfied ÷ whole in-scope set). Awareness-only attestations are listed under a control's
+`addressed_by` but do not by themselves make it `satisfied`. Examples:
+
+```bash
+npm run collect -- --impact-level high --framework rev5    # full High 800-53B baseline benchmark
+npm run collect -- --impact-level moderate --framework 20x # default: 20x-referenced controls @ Moderate
+```
+
+The baseline membership lookup ships committed at `cloud-evidence/docs/nist-r5-baselines.generated.json`
+(no network at runtime). Refresh it from NIST's official OSCAL content with
+`node scripts/extract-nist-baselines.mjs` (the control names/families come from
+`docs/nist-r5-controls.generated.json`).
 
 ### Tracker environment variables
 
