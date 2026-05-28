@@ -16,6 +16,9 @@ import {
   identifiersMatch,
   dedupeAssets,
   buildInventorySnapshot,
+  deriveEol,
+  applyTagGovernance,
+  deriveEdges,
   type CloudAsset,
 } from '../../core/inventory-workbook.ts';
 
@@ -217,6 +220,64 @@ describe('dedupeAssets', () => {
       { provider: 'aws', uniqueId: 'a', tags: { Env: 'prod' } },
     ]);
     expect(merged[0]!.tags).toEqual({ Owner: 'alice', Env: 'prod' });
+  });
+});
+
+describe('deriveEol', () => {
+  it('derives EOL from a known Lambda runtime', () => {
+    expect(deriveEol({ provider: 'aws', uniqueId: 'x', softwareDatabaseNameVersion: 'nodejs16.x' })).toBe('2024-06-12');
+  });
+  it('derives EOL from a known DB engine version', () => {
+    expect(deriveEol({ provider: 'aws', uniqueId: 'x', softwareDatabaseNameVersion: 'mysql 5.7' })).toBe('2024-02-29');
+  });
+  it('derives EOL from OS string', () => {
+    expect(deriveEol({ provider: 'aws', uniqueId: 'x', osNameVersion: 'Ubuntu 18.04' })).toBe('2023-05-31');
+  });
+  it('returns null for unknown software and respects a pre-set value', () => {
+    expect(deriveEol({ provider: 'aws', uniqueId: 'x', softwareDatabaseNameVersion: 'futuredb 99' })).toBeNull();
+    expect(deriveEol({ provider: 'aws', uniqueId: 'x', endOfLife: '2030-01-01' })).toBe('2030-01-01');
+  });
+});
+
+describe('applyTagGovernance', () => {
+  it('fills env/criticality/cost-center/app/classification from tags', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'x', tags: { Owner: 'alice', Environment: 'prod', Criticality: 'high', CostCenter: 'CC-1', Application: 'billing', DataClassification: 'PII' } };
+    applyTagGovernance(a);
+    expect(a.environment).toBe('prod');
+    expect(a.criticality).toBe('high');
+    expect(a.costCenter).toBe('CC-1');
+    expect(a.application).toBe('billing');
+    expect(a.dataClassification).toBe('PII');
+    expect(a.missingRequiredTags).toEqual([]);
+  });
+  it('flags missing required tags (case-insensitive)', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'x', tags: { owner: 'alice' } };
+    applyTagGovernance(a, ['Owner', 'Environment', 'CostCenter']);
+    expect(a.missingRequiredTags).toEqual(['Environment', 'CostCenter']);
+  });
+  it('reports all required tags missing when there are no tags', () => {
+    const a: CloudAsset = { provider: 'gcp', uniqueId: 'x' };
+    applyTagGovernance(a, ['Owner']);
+    expect(a.missingRequiredTags).toEqual(['Owner']);
+  });
+});
+
+describe('deriveEdges', () => {
+  it('emits in-network and uses-kms-key edges from asset fields', () => {
+    const edges = deriveEdges([
+      { provider: 'aws', uniqueId: 'i-1', vlanNetworkId: 'vpc-1/subnet-1', kmsKeyId: 'key-1' },
+    ]);
+    expect(edges).toContainEqual({ from: 'i-1', to: 'vpc-1', type: 'in-network' });
+    expect(edges).toContainEqual({ from: 'i-1', to: 'subnet-1', type: 'in-network' });
+    expect(edges).toContainEqual({ from: 'i-1', to: 'key-1', type: 'uses-kms-key' });
+  });
+  it('dedupes identical edges and skips assets without network/kms', () => {
+    const edges = deriveEdges([
+      { provider: 'aws', uniqueId: 'a', kmsKeyId: 'k' },
+      { provider: 'aws', uniqueId: 'a', kmsKeyId: 'k' },
+      { provider: 'aws', uniqueId: 'b' },
+    ]);
+    expect(edges).toHaveLength(1);
   });
 });
 

@@ -14,9 +14,10 @@
  * Every SDK client comes from `core/auth/aws.ts`, which wraps it in the
  * read-only guardrail, so no mutating call is possible from here.
  */
-import { DescribeInstancesCommand, DescribeVolumesCommand } from '@aws-sdk/client-ec2';
+import { DescribeInstancesCommand, DescribeVolumesCommand, DescribeSecurityGroupsCommand } from '@aws-sdk/client-ec2';
 import { DescribeDBInstancesCommand } from '@aws-sdk/client-rds';
-import { ListBucketsCommand, GetBucketLocationCommand } from '@aws-sdk/client-s3';
+import { ListBucketsCommand, GetBucketLocationCommand, GetPublicAccessBlockCommand, GetBucketEncryptionCommand } from '@aws-sdk/client-s3';
+import { GetInventoryCommand } from '@aws-sdk/client-ssm';
 import { ListFunctionsCommand } from '@aws-sdk/client-lambda';
 import { DescribeLoadBalancersCommand } from '@aws-sdk/client-elastic-load-balancing-v2';
 import { ListTablesCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
@@ -58,6 +59,31 @@ export async function collectAwsAssets(
   const region = auth.region;
   const arn = (svc: string, resource: string) => `arn:aws:${svc}:${region}:${account ?? ''}:${resource}`;
 
+  // Network exposure (INV-15): map security-group id → ports open to the internet
+  // (ingress from 0.0.0.0/0 or ::/0). Used to populate each instance's openPorts.
+  const sgOpenPorts = new Map<string, string[]>();
+  try {
+    const ec2 = aws.ec2(auth);
+    let token: string | undefined; let pages = 0;
+    do {
+      const r = await ec2.send(new DescribeSecurityGroupsCommand({ NextToken: token, MaxResults: 200 }));
+      for (const sg of r.SecurityGroups ?? []) {
+        if (!sg.GroupId) continue;
+        const open: string[] = [];
+        for (const p of sg.IpPermissions ?? []) {
+          const anyV4 = (p.IpRanges ?? []).some((r2) => r2.CidrIp === '0.0.0.0/0');
+          const anyV6 = (p.Ipv6Ranges ?? []).some((r2) => r2.CidrIpv6 === '::/0');
+          if (!anyV4 && !anyV6) continue;
+          const proto = p.IpProtocol === '-1' ? 'all' : (p.IpProtocol ?? 'tcp');
+          const range = p.FromPort == null ? 'all' : (p.FromPort === p.ToPort ? `${p.FromPort}` : `${p.FromPort}-${p.ToPort}`);
+          open.push(`${proto}/${range}`);
+        }
+        if (open.length) sgOpenPorts.set(sg.GroupId, [...new Set(open)]);
+      }
+      token = r.NextToken && r.NextToken !== token ? r.NextToken : undefined;
+    } while (token && ++pages < MAX_PAGES);
+  } catch (e: any) { warnings.push(`Security groups (ec2:DescribeSecurityGroups): ${e.message}`); }
+
   // EC2 instances — IPs + MACs come straight from the NetworkInterfaces field.
   try {
     const ec2 = aws.ec2(auth);
@@ -68,18 +94,23 @@ export async function collectAwsAssets(
         for (const inst of res.Instances ?? []) {
           if (!inst.InstanceId) continue;
           const ips: string[] = []; const macs: string[] = [];
+          const sgIds = new Set<string>();
+          for (const g of inst.SecurityGroups ?? []) if (g.GroupId) sgIds.add(g.GroupId);
           for (const ni of inst.NetworkInterfaces ?? []) {
+            for (const g of ni.Groups ?? []) if (g.GroupId) sgIds.add(g.GroupId);
             for (const pip of ni.PrivateIpAddresses ?? []) {
               if (pip.PrivateIpAddress) { ips.push(pip.PrivateIpAddress); macs.push(ni.MacAddress ?? ''); }
               if (pip.Association?.PublicIp) { ips.push(pip.Association.PublicIp); macs.push(ni.MacAddress ?? ''); }
             }
           }
+          const openPorts = [...new Set([...sgIds].flatMap((id) => sgOpenPorts.get(id) ?? []))];
           assets.push({
             provider: 'aws',
             uniqueId: arn('ec2', `instance/${inst.InstanceId}`),
             resourceType: 'AWS::EC2::Instance',
             ips,
             macs,
+            openPorts: openPorts.length ? openPorts : undefined,
             virtual: true,
             publicFacing: Boolean(inst.PublicIpAddress),
             dns: inst.PublicDnsName || inst.PrivateDnsName || null,
@@ -172,14 +203,33 @@ export async function collectAwsAssets(
         const l = await s3.send(new GetBucketLocationCommand({ Bucket: b.Name }));
         loc = (l.LocationConstraint as string) || 'us-east-1';
       } catch { /* keep null on per-bucket error */ }
+      // Public-exposure (col E): if a Public Access Block is fully on, not public.
+      let publicFacing: boolean | undefined;
+      try {
+        const pab = await s3.send(new GetPublicAccessBlockCommand({ Bucket: b.Name }));
+        const c = pab.PublicAccessBlockConfiguration;
+        const fullyBlocked = Boolean(c?.BlockPublicAcls && c?.BlockPublicPolicy && c?.IgnorePublicAcls && c?.RestrictPublicBuckets);
+        publicFacing = !fullyBlocked;
+      } catch { /* no PAB config / no perm → leave unknown */ }
+      // Encryption at rest (+ KMS key) from the default encryption config.
+      let encryptionAtRest: boolean | undefined; let kmsKeyId: string | null = null;
+      try {
+        const enc = await s3.send(new GetBucketEncryptionCommand({ Bucket: b.Name }));
+        const rule = enc.ServerSideEncryptionConfiguration?.Rules?.[0]?.ApplyServerSideEncryptionByDefault;
+        encryptionAtRest = Boolean(rule);
+        kmsKeyId = rule?.KMSMasterKeyID ?? null;
+      } catch { /* none / no perm */ }
       assets.push({
         provider: 'aws',
         uniqueId: `arn:aws:s3:::${b.Name}`,
         resourceType: 'AWS::S3::Bucket',
         virtual: true,
+        publicFacing,
         location: loc,
         assetType: 'Object Storage Bucket',
         createdAt: b.CreationDate ? new Date(b.CreationDate).toISOString() : null,
+        encryptionAtRest,
+        kmsKeyId,
         function: b.Name,
       });
     }
@@ -332,6 +382,33 @@ export async function collectAwsAssets(
       marker = r.DistributionList?.NextMarker && r.DistributionList.NextMarker !== marker ? r.DistributionList.NextMarker : undefined;
     } while (marker && ++pages < MAX_PAGES);
   } catch (e: any) { warnings.push(`CloudFront (cloudfront:ListDistributions): ${e.message}`); }
+
+  // SSM Inventory (INV-12): enrich EC2 instances with real OS name/version from
+  // managed-instance information (the API-reported OS, richer than PlatformDetails).
+  try {
+    const ssm = aws.ssm(auth);
+    const osById = new Map<string, string>();
+    let token: string | undefined; let pages = 0;
+    do {
+      const r = await ssm.send(new GetInventoryCommand({ NextToken: token, MaxResults: 50 }));
+      for (const ent of r.Entities ?? []) {
+        const content = ent.Data?.['AWS:InstanceInformation']?.Content?.[0];
+        if (ent.Id && content) {
+          const os = [content.PlatformName, content.PlatformVersion].filter(Boolean).join(' ');
+          if (os) osById.set(ent.Id, os);
+        }
+      }
+      token = r.NextToken && r.NextToken !== token ? r.NextToken : undefined;
+    } while (token && ++pages < MAX_PAGES);
+    if (osById.size) {
+      for (const a of assets) {
+        if (a.resourceType !== 'AWS::EC2::Instance') continue;
+        const id = a.uniqueId.split('/').pop();
+        const os = id ? osById.get(id) : undefined;
+        if (os) a.osNameVersion = os; // SSM-reported OS is authoritative over PlatformDetails
+      }
+    }
+  } catch (e: any) { warnings.push(`SSM Inventory (ssm:GetInventory): ${e.message}`); }
 
   // Stamp common provenance on every asset (account / collected-at / source).
   const now = new Date().toISOString();

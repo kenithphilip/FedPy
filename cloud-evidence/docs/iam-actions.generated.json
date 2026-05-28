@@ -1,6 +1,6 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T15:39:06.165Z",
+  "_generated_at": "2026-05-28T15:44:34.877Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
     "action_count": 142,
@@ -306,6 +306,7 @@
         "dynamodb:DescribeTable",
         "dynamodb:ListTables",
         "ec2:DescribeInstances",
+        "ec2:DescribeSecurityGroups",
         "ec2:DescribeVolumes",
         "ecr:DescribeRepositories",
         "eks:DescribeCluster",
@@ -313,8 +314,11 @@
         "elasticloadbalancing:DescribeLoadBalancers",
         "lambda:ListFunctions",
         "rds:DescribeDBInstances",
+        "s3:GetBucketEncryption",
         "s3:GetBucketLocation",
-        "s3:ListBuckets"
+        "s3:GetPublicAccessBlock",
+        "s3:ListBuckets",
+        "ssm:GetInventory"
       ],
       "aws/inventory.ts": [
         "config:DescribeConfigurationAggregators",

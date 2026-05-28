@@ -448,6 +448,89 @@ export function annotateWithFindings(assets: CloudAsset[], findings: FindingRef[
   return annotated;
 }
 
+// ---- INV-11: End-of-life derivation (maintained static map) ----
+
+/**
+ * Known end-of-life / end-of-support dates for common runtimes/engines, keyed by
+ * a lowercase substring matched against an asset's software/OS string. Maintained
+ * by hand (these dates move slowly); unknowns return null rather than guessing.
+ */
+export const EOL_MAP: Record<string, string> = {
+  // AWS Lambda runtimes (deprecation dates)
+  'nodejs14.x': '2023-12-04', 'nodejs16.x': '2024-06-12', 'nodejs18.x': '2025-09-01',
+  'python3.7': '2023-12-04', 'python3.8': '2024-10-14', 'python3.9': '2025-12-15',
+  'go1.x': '2024-01-08', 'ruby2.7': '2024-01-08', 'dotnet6': '2024-12-20', 'java8': '2024-01-08',
+  // Database engines (major-version EOL, approximate community/RDS dates)
+  'mysql 5.7': '2024-02-29', 'mysql 8.0': '2026-04-30',
+  'postgres 11': '2024-02-29', 'postgres 12': '2024-11-14', 'postgres 13': '2025-11-13',
+  'mariadb 10.4': '2024-06-18', 'mariadb 10.5': '2025-06-24',
+  // Kubernetes (EKS/GKE) minor versions (EKS end-of-standard-support, approximate)
+  'eks 1.23': '2024-10-11', 'eks 1.24': '2025-01-31', 'eks 1.25': '2025-05-01',
+  'eks 1.26': '2025-06-01', 'eks 1.27': '2025-07-01', 'eks 1.28': '2025-11-01',
+  // Operating systems
+  'amazon linux': '2025-06-30', 'amazon linux 2': '2026-06-30',
+  'ubuntu 18.04': '2023-05-31', 'ubuntu 20.04': '2025-05-31',
+  'windows server 2012': '2023-10-10', 'windows server 2016': '2027-01-12',
+};
+
+/** Derive an end-of-life date from an asset's software/OS strings, if known. */
+export function deriveEol(asset: CloudAsset): string | null {
+  if (asset.endOfLife) return asset.endOfLife;
+  const hay = `${asset.softwareDatabaseNameVersion ?? ''} ${asset.osNameVersion ?? ''}`.toLowerCase();
+  for (const [needle, date] of Object.entries(EOL_MAP)) {
+    if (hay.includes(needle)) return date;
+  }
+  return null;
+}
+
+// ---- INV-14: Tag governance (ownership columns + required-tag compliance) ----
+
+/** Default required-tag policy for an org inventory (override via config). */
+export const DEFAULT_REQUIRED_TAGS = ['Owner', 'Environment', 'CostCenter', 'DataClassification'];
+
+const ENV_KEYS = ['Environment', 'environment', 'Env', 'env', 'stage', 'tier'];
+const CRIT_KEYS = ['Criticality', 'criticality', 'severity', 'tier'];
+const COST_KEYS = ['CostCenter', 'cost_center', 'costcenter', 'BillingCode', 'billing'];
+const APP_KEYS = ['Application', 'application', 'App', 'app', 'service', 'Service', 'project'];
+const CLASS_KEYS = ['DataClassification', 'data_classification', 'classification', 'sensitivity'];
+
+/**
+ * Fill ownership/governance columns from tags and record any required tags that
+ * are missing (tag-governance). Mutates and returns the asset.
+ */
+export function applyTagGovernance(asset: CloudAsset, requiredTags: string[] = DEFAULT_REQUIRED_TAGS): CloudAsset {
+  asset.environment ??= firstTag(asset.tags, ENV_KEYS) ?? null;
+  asset.criticality ??= firstTag(asset.tags, CRIT_KEYS) ?? null;
+  asset.costCenter ??= firstTag(asset.tags, COST_KEYS) ?? null;
+  asset.application ??= firstTag(asset.tags, APP_KEYS) ?? null;
+  asset.dataClassification ??= firstTag(asset.tags, CLASS_KEYS) ?? null;
+  const present = new Set(Object.keys(asset.tags ?? {}).map((k) => k.toLowerCase()));
+  asset.missingRequiredTags = requiredTags.filter((t) => !present.has(t.toLowerCase()));
+  return asset;
+}
+
+// ---- INV-13: Relationship graph (topology / blast-radius) ----
+
+/**
+ * Derive directed edges from the fields we hold: each asset → its VPC/network and
+ * → its KMS key. Targets may be implicit graph nodes (not themselves listed
+ * assets). Extensible — richer edges (instance→volume, lb→target) need attachment
+ * data the depth enrichers can add later.
+ */
+export function deriveEdges(assets: CloudAsset[]): InventoryEdge[] {
+  const edges: InventoryEdge[] = [];
+  const seen = new Set<string>();
+  const add = (from: string, to: string, type: string) => {
+    const k = `${from}|${to}|${type}`;
+    if (to && !seen.has(k)) { seen.add(k); edges.push({ from, to, type }); }
+  };
+  for (const a of assets) {
+    if (a.vlanNetworkId) for (const net of a.vlanNetworkId.split('/').filter(Boolean)) add(a.uniqueId, net, 'in-network');
+    if (a.kmsKeyId) add(a.uniqueId, a.kmsKeyId, 'uses-kms-key');
+  }
+  return edges;
+}
+
 /**
  * Merge assets that share a uniqueId (e.g. one from the discovery backbone, one
  * from a depth-enricher; or the same global resource seen in two region passes).

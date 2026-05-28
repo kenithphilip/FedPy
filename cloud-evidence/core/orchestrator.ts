@@ -28,7 +28,7 @@ import { buildProcessArtifactEvidence, type AttestationRecord } from './process-
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
-import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, type CloudAsset } from './inventory-workbook.ts';
+import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, type CloudAsset } from './inventory-workbook.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { discoverAwsAssets } from '../providers/aws/discover.ts';
@@ -1214,12 +1214,17 @@ export async function main(): Promise<void> {
       // FedPy-native enrichment: tags → owner/function/baseline; reconcile against
       // our own scan evidence (column O/I); cross-link each asset to the KSI
       // findings that touch it (Comments).
-      for (const a of assets) enrichFromTags(a);
+      for (const a of assets) {
+        enrichFromTags(a);
+        applyTagGovernance(a);             // env/criticality/cost-center + required-tag compliance
+        a.endOfLife ??= deriveEol(a);      // lifecycle EOL from runtime/engine/OS
+      }
       const invCtx = readInventoryContext(args.outDir);
       const scanned = reconcileScans(assets, invCtx.scannedIdentifiers);
       const linked = annotateWithFindings(assets, invCtx.findings);
-      // Rich superset JSON (source of truth) + the FedRAMP workbook projection.
-      const snapshot = buildInventorySnapshot(assets, []);
+      // Rich superset JSON (source of truth) + relationship graph + workbook projection.
+      const edges = deriveEdges(assets);
+      const snapshot = buildInventorySnapshot(assets, edges);
       writeInventoryJson(snapshot, resolve(args.outDir, 'inventory.json'));
       const res = writeInventoryWorkbook(assets, {
         csvPath: resolve(args.outDir, 'inventory-workbook.csv'),
