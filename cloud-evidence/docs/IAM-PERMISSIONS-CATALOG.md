@@ -40,7 +40,7 @@ Organizations).
 | `secrets.ts` | SVC-ASM | Secrets Manager, KMS | `secretsmanager:ListSecrets`, `secretsmanager:DescribeSecret`, `kms:ListKeys`, `kms:DescribeKey`, `kms:GetKeyRotationStatus` |
 | `data.ts` | SVC-RUD, SVC-VCM, SVC-VRI | S3, KMS, ACM, App Mesh, EKS, SSM | `s3:ListAllMyBuckets`, `s3:GetBucketVersioning`, `s3:GetBucketLifecycleConfiguration`, `s3:GetObjectLockConfiguration`, `kms:ListKeys`, `acm:ListCertificates`, `acm:DescribeCertificate`, `appmesh:ListMeshes`, `appmesh:ListVirtualNodes`, `eks:ListClusters`, `eks:ListAddons`, `ssm:GetPatchBaseline`, `lambda:GetFunctionCodeSigningConfig`, `signer:ListSigningProfiles` |
 | `inventory.ts` | PIY-GIV | Config (aggregators) | `config:DescribeConfigurationAggregators`, `config:DescribeConfigurationRecorders` |
-| `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | EC2, RDS, S3, Lambda, ELBv2 | `ec2:DescribeInstances`, `ec2:DescribeVolumes`, `rds:DescribeDBInstances`, `s3:ListAllMyBuckets`, `s3:GetBucketLocation`, `lambda:ListFunctions`, `elasticloadbalancing:DescribeLoadBalancers` |
+| `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | EC2, RDS, S3, Lambda, ELBv2, DynamoDB, ECR, EKS, CloudFront | `ec2:DescribeInstances`, `ec2:DescribeVolumes`, `rds:DescribeDBInstances`, `s3:ListAllMyBuckets`, `s3:GetBucketLocation`, `lambda:ListFunctions`, `elasticloadbalancing:DescribeLoadBalancers`, `dynamodb:ListTables`, `dynamodb:DescribeTable`, `ecr:DescribeRepositories`, `eks:ListClusters`, `eks:DescribeCluster`, `cloudfront:ListDistributions` |
 
 ### AWS-supplement (actions `ReadOnlyAccess` omits)
 

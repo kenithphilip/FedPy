@@ -18,7 +18,8 @@
  *
  * Read-only: this module only formats data; collection lives in the providers.
  */
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { crc32 } from 'node:zlib';
 
 // ---- The Appendix M column contract (Inventory sheet, header row 2) ----
@@ -102,6 +103,12 @@ export interface CloudAsset {
   function?: string | null;
   endOfLife?: string | null;
   comments?: string | null;
+  /** Raw resource tags/labels — drive tag→column enrichment (owner/function/baseline). */
+  tags?: Record<string, string>;
+  /** Column O — set by scan reconciliation against our own VDR/Inspector evidence. */
+  inLatestScan?: boolean;
+  /** Column I — Inspector/agent scans are authenticated. */
+  authenticatedScan?: boolean;
 }
 
 const yn = (b: boolean | undefined): string => (b === true ? 'Yes' : b === false ? 'No' : '');
@@ -120,13 +127,13 @@ export function assetToRows(a: CloudAsset): Array<Record<string, string>> {
     'DNS Name or URL': a.dns ?? '',
     'NetBIOS Name': '',
     'MAC Address': a.macs?.[i] ?? '',
-    'Authenticated Scan': '',
+    'Authenticated Scan': yn(a.authenticatedScan),
     'Baseline Configuration Name': a.baselineConfig ?? '',
     'OS Name and Version': a.osNameVersion ?? '',
     'Location': a.location ?? '',
     'Asset Type': a.assetType ?? '',
     'Hardware Make/Model': a.hardwareMakeModel ?? '',
-    'In Latest Scan': '',
+    'In Latest Scan': yn(a.inLatestScan),
     'Software/Database Vendor': a.softwareDatabaseVendor ?? '',
     'Software/Database Name & Version': a.softwareDatabaseNameVersion ?? '',
     'Patch Level': a.patchLevel ?? '',
@@ -279,6 +286,104 @@ export function rowsToXlsx(rows: Array<Record<string, string>>): Buffer {
   return zipStore(files);
 }
 
+// ---- FedPy-native enrichment (our own mechanics on top of the base inventory) ----
+
+/** Which resource tags map to which inventory columns. Config-overridable. */
+export interface TagColumnMap {
+  systemOwner: string[];
+  applicationOwner: string[];
+  function: string[];
+  baselineConfig: string[];
+}
+
+export const DEFAULT_TAG_MAP: TagColumnMap = {
+  systemOwner: ['Owner', 'owner', 'SystemOwner', 'system_owner', 'team'],
+  applicationOwner: ['AppOwner', 'ApplicationOwner', 'app_owner', 'application_owner'],
+  function: ['Function', 'function', 'Role', 'role', 'Name', 'service'],
+  baselineConfig: ['Baseline', 'BaselineConfig', 'STIG', 'CIS', 'HardeningBaseline', 'baseline'],
+};
+
+function firstTag(tags: Record<string, string> | undefined, keys: string[]): string | undefined {
+  if (!tags) return undefined;
+  const lower: Record<string, string> = {};
+  for (const [k, v] of Object.entries(tags)) lower[k.toLowerCase()] = v;
+  for (const k of keys) { const v = lower[k.toLowerCase()]; if (v) return v; }
+  return undefined;
+}
+
+/**
+ * Fill owner / application-owner / function / baseline columns from resource tags
+ * (only where not already set by the collector). Mutates and returns the asset.
+ */
+export function enrichFromTags(asset: CloudAsset, map: TagColumnMap = DEFAULT_TAG_MAP): CloudAsset {
+  asset.systemOwner ??= firstTag(asset.tags, map.systemOwner) ?? null;
+  asset.applicationOwner ??= firstTag(asset.tags, map.applicationOwner) ?? null;
+  asset.function ??= firstTag(asset.tags, map.function) ?? null;
+  asset.baselineConfig ??= firstTag(asset.tags, map.baselineConfig) ?? null;
+  return asset;
+}
+
+/** Meaningful match tokens for a resource identifier (full + last segment, len ≥ 6). */
+export function idTokens(id: string): Set<string> {
+  const out = new Set<string>();
+  const full = id.toLowerCase().trim();
+  if (full.length >= 6) out.add(full);
+  const seg = full.split(/[/:]/).filter(Boolean).pop();
+  if (seg && seg.length >= 6) out.add(seg);
+  return out;
+}
+
+/** True if two identifiers share a meaningful token (ARN-equality or resource-id match). */
+export function identifiersMatch(a: string, b: string): boolean {
+  const ta = idTokens(a); const tb = idTokens(b);
+  for (const t of ta) if (tb.has(t)) return true;
+  return false;
+}
+
+/**
+ * Scan reconciliation (column O + I) — our twist: cross-reference each asset
+ * against identifiers that appeared in OUR vulnerability-scan evidence (Inspector
+ * / ECR / VDR). A match ⇒ the asset is in the latest scan, authenticated.
+ * Returns the number of assets matched. Mutates assets.
+ */
+export function reconcileScans(assets: CloudAsset[], scannedIdentifiers: Iterable<string>): number {
+  const scanned = [...scannedIdentifiers];
+  let matched = 0;
+  for (const a of assets) {
+    if (scanned.some((s) => identifiersMatch(a.uniqueId, s))) {
+      a.inLatestScan = true;
+      a.authenticatedScan = true;
+      matched++;
+    }
+  }
+  return matched;
+}
+
+export interface FindingRef { identifier: string; ksiId: string; rule: string; passed: boolean; }
+
+/**
+ * KSI cross-linking — our twist: annotate each asset's Comments with the
+ * compliance findings (from this run's evidence) whose affected resource matches
+ * it, so the inventory doubles as a posture map. Failing findings are listed
+ * first. Mutates assets; returns the number of assets annotated.
+ */
+export function annotateWithFindings(assets: CloudAsset[], findings: FindingRef[]): number {
+  let annotated = 0;
+  for (const a of assets) {
+    const hits = findings.filter((f) => identifiersMatch(a.uniqueId, f.identifier));
+    if (hits.length === 0) continue;
+    const fails = [...new Set(hits.filter((h) => !h.passed).map((h) => `${h.ksiId}/${h.rule}`))];
+    const passes = [...new Set(hits.filter((h) => h.passed).map((h) => h.ksiId))];
+    const parts: string[] = [];
+    if (fails.length) parts.push(`failing KSI findings: ${fails.slice(0, 8).join(', ')}${fails.length > 8 ? ` (+${fails.length - 8} more)` : ''}`);
+    if (passes.length) parts.push(`passing: ${[...new Set(passes)].slice(0, 8).join(', ')}`);
+    const note = `FedPy ${parts.join('; ')}`;
+    a.comments = a.comments ? `${a.comments} | ${note}` : note;
+    annotated++;
+  }
+  return annotated;
+}
+
 // ---- Top-level writer ----
 
 export interface InventoryWorkbookResult {
@@ -286,6 +391,46 @@ export interface InventoryWorkbookResult {
   row_count: number;
   csv_path?: string;
   xlsx_path?: string;
+}
+
+/** VDR / vulnerability-scan KSIs whose affected resources count as "scanned". */
+const SCAN_KSI = /VDR|SVC-VRI|SCR-MON|SCR-MIT/i;
+
+const SKIP_FILES = new Set([
+  'pva-run-summary.json', 'manifest.json', 'coverage-report.json', 'family-rollup.json',
+  'vdr-report.json', 'crosswalk-report.json', 'diff-report.json', 'anomaly-report.json',
+  'sbom-report.json', 'llm-prs.json', 'control-benchmark.json', 'assessment-results.json',
+]);
+
+export interface InventoryContext { findings: FindingRef[]; scannedIdentifiers: Set<string>; }
+
+/**
+ * Read this run's evidence files from `outDir` and extract (a) every finding's
+ * affected-resource identifiers (for KSI cross-linking) and (b) the subset that
+ * came from vulnerability-scan KSIs (for scan reconciliation). Read-only.
+ */
+export function readInventoryContext(outDir: string): InventoryContext {
+  const findings: FindingRef[] = [];
+  const scannedIdentifiers = new Set<string>();
+  let names: string[] = [];
+  try { names = readdirSync(outDir); } catch { return { findings, scannedIdentifiers }; }
+  for (const name of names) {
+    if (!name.endsWith('.json') || SKIP_FILES.has(name)) continue;
+    let data: any;
+    try { data = JSON.parse(readFileSync(join(outDir, name), 'utf8')); } catch { continue; }
+    if (!data || typeof data !== 'object' || !data.ksi_id || !Array.isArray(data.providers)) continue;
+    const isScanKsi = SCAN_KSI.test(String(data.ksi_id));
+    for (const p of data.providers) {
+      for (const f of p.findings ?? []) {
+        for (const r of f.gap?.affected_resources ?? []) {
+          if (!r?.identifier || r.identifier === 'none') continue;
+          findings.push({ identifier: r.identifier, ksiId: data.ksi_id, rule: f.rule, passed: f.passed });
+          if (isScanKsi) scannedIdentifiers.add(r.identifier);
+        }
+      }
+    }
+  }
+  return { findings, scannedIdentifiers };
 }
 
 /**

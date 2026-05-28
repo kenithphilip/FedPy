@@ -19,6 +19,10 @@ import { DescribeDBInstancesCommand } from '@aws-sdk/client-rds';
 import { ListBucketsCommand, GetBucketLocationCommand } from '@aws-sdk/client-s3';
 import { ListFunctionsCommand } from '@aws-sdk/client-lambda';
 import { DescribeLoadBalancersCommand } from '@aws-sdk/client-elastic-load-balancing-v2';
+import { ListTablesCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
+import { DescribeRepositoriesCommand } from '@aws-sdk/client-ecr';
+import { ListClustersCommand, DescribeClusterCommand } from '@aws-sdk/client-eks';
+import { ListDistributionsCommand } from '@aws-sdk/client-cloudfront';
 import * as aws from '../../core/auth/aws.ts';
 import type { CloudAsset } from '../../core/inventory-workbook.ts';
 
@@ -26,8 +30,16 @@ const MAX_PAGES = 200;
 
 export interface AwsAssetResult { assets: CloudAsset[]; warnings: string[]; }
 
-function tag(tags: Array<{ Key?: string; Value?: string }> | undefined, key: string): string | undefined {
+type AwsTag = { Key?: string; Value?: string };
+function tag(tags: AwsTag[] | undefined, key: string): string | undefined {
   return tags?.find((t) => (t.Key ?? '').toLowerCase() === key.toLowerCase())?.Value || undefined;
+}
+/** AWS `[{Key,Value}]` tag list → plain record for tag-driven enrichment. */
+function tagsToRecord(tags: AwsTag[] | undefined): Record<string, string> | undefined {
+  if (!tags || tags.length === 0) return undefined;
+  const r: Record<string, string> = {};
+  for (const t of tags) if (t.Key) r[t.Key] = t.Value ?? '';
+  return r;
 }
 
 /** Enumerate AWS assets in one region and normalize to workbook rows. */
@@ -66,8 +78,7 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
             assetType: 'Compute Instance',
             hardwareMakeModel: `AWS EC2 ${inst.InstanceType ?? ''}`.trim(),
             vlanNetworkId: [inst.VpcId, inst.SubnetId].filter(Boolean).join('/') || null,
-            systemOwner: tag(inst.Tags, 'Owner') ?? null,
-            function: tag(inst.Tags, 'Name') ?? tag(inst.Tags, 'Function') ?? null,
+            tags: tagsToRecord(inst.Tags),
           });
         }
       }
@@ -90,7 +101,7 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
           location: v.AvailabilityZone ?? region,
           assetType: 'Storage Volume',
           hardwareMakeModel: `AWS EBS ${v.VolumeType ?? ''}`.trim(),
-          function: tag(v.Tags, 'Name') ?? null,
+          tags: tagsToRecord(v.Tags),
           comments: v.Encrypted ? 'Encrypted' : 'Not encrypted',
         });
       }
@@ -194,6 +205,105 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
       marker = r.NextMarker && r.NextMarker !== marker ? r.NextMarker : undefined;
     } while (marker && ++pages < MAX_PAGES);
   } catch (e: any) { warnings.push(`ELBv2 (elasticloadbalancing:DescribeLoadBalancers): ${e.message}`); }
+
+  // DynamoDB tables
+  try {
+    const ddb = aws.dynamodb(auth);
+    let start: string | undefined; let pages = 0;
+    do {
+      const r = await ddb.send(new ListTablesCommand({ ExclusiveStartTableName: start, Limit: 100 }));
+      for (const name of r.TableNames ?? []) {
+        let dArn: string | undefined;
+        try { const d = await ddb.send(new DescribeTableCommand({ TableName: name })); dArn = d.Table?.TableArn; } catch { /* keep null */ }
+        assets.push({
+          provider: 'aws',
+          uniqueId: dArn ?? arn('dynamodb', `table/${name}`),
+          virtual: true,
+          location: region,
+          assetType: 'Database',
+          softwareDatabaseVendor: 'AWS',
+          softwareDatabaseNameVersion: 'Amazon DynamoDB',
+          function: name,
+        });
+      }
+      start = r.LastEvaluatedTableName && r.LastEvaluatedTableName !== start ? r.LastEvaluatedTableName : undefined;
+    } while (start && ++pages < MAX_PAGES);
+  } catch (e: any) { warnings.push(`DynamoDB (dynamodb:ListTables): ${e.message}`); }
+
+  // ECR repositories
+  try {
+    const ecr = aws.ecr(auth);
+    let token: string | undefined; let pages = 0;
+    do {
+      const r = await ecr.send(new DescribeRepositoriesCommand({ nextToken: token, maxResults: 100 }));
+      for (const repo of r.repositories ?? []) {
+        if (!repo.repositoryArn) continue;
+        assets.push({
+          provider: 'aws',
+          uniqueId: repo.repositoryArn,
+          virtual: true,
+          dns: repo.repositoryUri ?? null,
+          location: region,
+          assetType: 'Container Registry',
+          function: repo.repositoryName ?? null,
+        });
+      }
+      token = r.nextToken && r.nextToken !== token ? r.nextToken : undefined;
+    } while (token && ++pages < MAX_PAGES);
+  } catch (e: any) { warnings.push(`ECR (ecr:DescribeRepositories): ${e.message}`); }
+
+  // EKS clusters
+  try {
+    const eks = aws.eks(auth);
+    let token: string | undefined; let pages = 0;
+    do {
+      const r = await eks.send(new ListClustersCommand({ nextToken: token, maxResults: 100 }));
+      for (const name of r.clusters ?? []) {
+        let version: string | null = null; let cArn: string | undefined; let cVpc: string | null = null; let endpoint: string | null = null;
+        try {
+          const d = await eks.send(new DescribeClusterCommand({ name }));
+          version = d.cluster?.version ?? null; cArn = d.cluster?.arn;
+          cVpc = d.cluster?.resourcesVpcConfig?.vpcId ?? null; endpoint = d.cluster?.endpoint ?? null;
+        } catch { /* keep nulls */ }
+        assets.push({
+          provider: 'aws',
+          uniqueId: cArn ?? arn('eks', `cluster/${name}`),
+          virtual: true,
+          dns: endpoint,
+          location: region,
+          assetType: 'Kubernetes Cluster',
+          softwareDatabaseVendor: 'AWS',
+          softwareDatabaseNameVersion: version ? `Amazon EKS ${version}` : 'Amazon EKS',
+          vlanNetworkId: cVpc,
+          function: name,
+        });
+      }
+      token = r.nextToken && r.nextToken !== token ? r.nextToken : undefined;
+    } while (token && ++pages < MAX_PAGES);
+  } catch (e: any) { warnings.push(`EKS (eks:ListClusters): ${e.message}`); }
+
+  // CloudFront distributions (global)
+  try {
+    const cf = aws.cloudfront(auth);
+    let marker: string | undefined; let pages = 0;
+    do {
+      const r = await cf.send(new ListDistributionsCommand({ Marker: marker, MaxItems: 100 }));
+      for (const d of r.DistributionList?.Items ?? []) {
+        if (!d.ARN) continue;
+        assets.push({
+          provider: 'aws',
+          uniqueId: d.ARN,
+          virtual: true,
+          publicFacing: true, // CloudFront distributions are internet-facing CDN edges
+          dns: d.DomainName ?? null,
+          location: 'global',
+          assetType: 'CDN Distribution',
+          function: d.Comment || d.Id || null,
+        });
+      }
+      marker = r.DistributionList?.NextMarker && r.DistributionList.NextMarker !== marker ? r.DistributionList.NextMarker : undefined;
+    } while (marker && ++pages < MAX_PAGES);
+  } catch (e: any) { warnings.push(`CloudFront (cloudfront:ListDistributions): ${e.message}`); }
 
   return { assets, warnings };
 }

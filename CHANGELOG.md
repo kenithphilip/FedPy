@@ -16,9 +16,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   heavy spreadsheet lib). AWS enumeration (`providers/aws/inventory-assets.ts`) covers
   EC2+ENIs (IP/MAC), EBS, RDS, S3, Lambda, ELBv2; GCP (`providers/gcp/inventory-assets.ts`)
   uses Cloud Asset Inventory. ~16/25 columns auto-fill; unknowns are honest blanks. All
-  new SDK calls are read-only and guardrail-wrapped. 11 unit tests. Field mapping is
-  clean-room from the Apache-2.0 reference designs (aws-samples / google), per the locked
-  Path A licensing decision (the GPL-3.0 `manywho/awsinventory` is reference-only).
+  new SDK calls are read-only and guardrail-wrapped. Field mapping is clean-room from the
+  Apache-2.0 reference designs (aws-samples / google), per the locked Path A licensing
+  decision (the GPL-3.0 `manywho/awsinventory` is reference-only — and reimplementing its
+  *functionality* clean-room is fine; only its code expression is off-limits).
+- **FedPy-native enrichment (twists no analog has):** (1) **tag-driven** owner / app-owner /
+  function / baseline columns (`enrichFromTags`, config-overridable `TagColumnMap`);
+  (2) **scan reconciliation** — columns "In Latest Scan" / "Authenticated Scan" are set by
+  cross-referencing each asset against the resources in *our own* VDR/Inspector evidence
+  (`reconcileScans` + `readInventoryContext`); (3) **KSI-finding cross-linking** — each asset's
+  Comments are annotated with the compliance findings whose affected resource matches it
+  (`annotateWithFindings`), so the inventory doubles as a posture map.
+- **Expanded AWS coverage:** added DynamoDB, ECR, EKS, and CloudFront to the enumerator
+  (EC2/EBS/RDS/S3/Lambda/ELBv2 + these). 19 unit tests total.
 
 ### Added — turn the four deferred in-collector TODOs into real detectors
 - **AWS Security Lake** (MLA-OSM): `collectMlaOsm` now probes `securitylake:ListDataLakes`

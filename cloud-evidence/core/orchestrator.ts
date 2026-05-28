@@ -28,7 +28,7 @@ import { buildProcessArtifactEvidence, type AttestationRecord } from './process-
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
-import { writeInventoryWorkbook, type CloudAsset } from './inventory-workbook.ts';
+import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, type CloudAsset } from './inventory-workbook.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
@@ -1195,14 +1195,22 @@ export async function main(): Promise<void> {
           assets.push(...r.assets); invWarnings.push(...r.warnings);
         }
       }
+      // FedPy-native enrichment: tags → owner/function/baseline; reconcile against
+      // our own scan evidence (column O/I); cross-link each asset to the KSI
+      // findings that touch it (Comments).
+      for (const a of assets) enrichFromTags(a);
+      const invCtx = readInventoryContext(args.outDir);
+      const scanned = reconcileScans(assets, invCtx.scannedIdentifiers);
+      const linked = annotateWithFindings(assets, invCtx.findings);
       const res = writeInventoryWorkbook(assets, {
         csvPath: resolve(args.outDir, 'inventory-workbook.csv'),
         xlsxPath: resolve(args.outDir, 'inventory-workbook.xlsx'),
       });
-      console.log(`Inventory workbook: ${res.asset_count} asset(s) → ${res.row_count} row(s) (inventory-workbook.{csv,xlsx})` +
+      console.log(`Inventory workbook: ${res.asset_count} asset(s) → ${res.row_count} row(s) ` +
+        `(${scanned} in-scan, ${linked} linked to KSI findings) (inventory-workbook.{csv,xlsx})` +
         (invWarnings.length ? ` · ${invWarnings.length} warning(s)` : ''));
       for (const w of invWarnings) console.error(`  ! inventory: ${w}`);
-      ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, warnings: invWarnings.length });
+      ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, scanned, finding_linked: linked, warnings: invWarnings.length });
     } catch (e: any) {
       console.error(`Inventory workbook failed: ${e?.message ?? e}`);
       log.error({ event: 'inventory_workbook.fail', err_message: e?.message });

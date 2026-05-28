@@ -10,6 +10,10 @@ import {
   assetsToRows,
   rowsToCsv,
   rowsToXlsx,
+  enrichFromTags,
+  reconcileScans,
+  annotateWithFindings,
+  identifiersMatch,
   type CloudAsset,
 } from '../../core/inventory-workbook.ts';
 
@@ -122,5 +126,70 @@ describe('rowsToXlsx', () => {
     const buf = rowsToXlsx(assetToRows({ provider: 'aws', uniqueId: 'a&b<c>"d"' }));
     const s = buf.toString('latin1');
     expect(s).toContain('a&amp;b&lt;c&gt;&quot;d&quot;');
+  });
+});
+
+describe('enrichFromTags', () => {
+  it('fills owner / function / baseline from tags when unset', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'x', tags: { Owner: 'alice', Function: 'web', STIG: 'RHEL9 STIG', AppOwner: 'bob' } };
+    enrichFromTags(a);
+    expect(a.systemOwner).toBe('alice');
+    expect(a.applicationOwner).toBe('bob');
+    expect(a.function).toBe('web');
+    expect(a.baselineConfig).toBe('RHEL9 STIG');
+  });
+  it('does not overwrite values the collector already set', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'x', function: 'set-by-collector', tags: { Function: 'tag-value' } };
+    enrichFromTags(a);
+    expect(a.function).toBe('set-by-collector');
+  });
+  it('is case-insensitive on tag keys', () => {
+    const a: CloudAsset = { provider: 'gcp', uniqueId: 'x', tags: { owner: 'carol' } };
+    enrichFromTags(a);
+    expect(a.systemOwner).toBe('carol');
+  });
+});
+
+describe('identifiersMatch', () => {
+  it('matches identical ARNs and shared resource-id tokens', () => {
+    expect(identifiersMatch('arn:aws:ec2:us-east-1:111:instance/i-0abcdef123', 'arn:aws:ec2:us-east-1:111:instance/i-0abcdef123')).toBe(true);
+    expect(identifiersMatch('arn:aws:ec2:us-east-1:111:instance/i-0abcdef123', 'i-0abcdef123')).toBe(true);
+  });
+  it('does not match on trivial / short tokens', () => {
+    expect(identifiersMatch('arn:aws:s3:::a', 'arn:aws:ec2:::b')).toBe(false);
+  });
+});
+
+describe('reconcileScans', () => {
+  it('marks assets in the scanned set as in-scan + authenticated', () => {
+    const assets: CloudAsset[] = [
+      { provider: 'aws', uniqueId: 'arn:aws:ec2:us-east-1:111:instance/i-0abcdef123' },
+      { provider: 'aws', uniqueId: 'arn:aws:s3:::unscanned-bucket' },
+    ];
+    const matched = reconcileScans(assets, ['i-0abcdef123']);
+    expect(matched).toBe(1);
+    expect(assets[0]!.inLatestScan).toBe(true);
+    expect(assets[0]!.authenticatedScan).toBe(true);
+    expect(assets[1]!.inLatestScan).toBeUndefined();
+  });
+});
+
+describe('annotateWithFindings', () => {
+  it('appends failing + passing KSI findings to Comments for matching assets', () => {
+    const assets: CloudAsset[] = [{ provider: 'aws', uniqueId: 'arn:aws:rds:us-east-1:111:db:prod-db-001' }];
+    const n = annotateWithFindings(assets, [
+      { identifier: 'arn:aws:rds:us-east-1:111:db:prod-db-001', ksiId: 'KSI-SVC-VRI', rule: 'scan_on', passed: false },
+      { identifier: 'prod-db-001', ksiId: 'KSI-SVC-RUD', rule: 'retention', passed: true },
+      { identifier: 'arn:aws:ec2:::other', ksiId: 'KSI-IAM-MFA', rule: 'mfa', passed: false },
+    ]);
+    expect(n).toBe(1);
+    expect(assets[0]!.comments).toContain('failing KSI findings: KSI-SVC-VRI/scan_on');
+    expect(assets[0]!.comments).toContain('passing: KSI-SVC-RUD');
+    expect(assets[0]!.comments).not.toContain('KSI-IAM-MFA'); // different resource
+  });
+  it('leaves non-matching assets untouched', () => {
+    const assets: CloudAsset[] = [{ provider: 'gcp', uniqueId: '//compute.googleapis.com/x', comments: 'orig' }];
+    annotateWithFindings(assets, [{ identifier: 'unrelated-resource-id', ksiId: 'K', rule: 'r', passed: false }]);
+    expect(assets[0]!.comments).toBe('orig');
   });
 });

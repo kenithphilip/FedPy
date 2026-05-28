@@ -18,6 +18,16 @@ Raw clones live under `research/clones/` and downloads under `research/downloads
 > (`oscalkit`, `GoComply/fedramp`), or **MIT** (`python-ssp`, oscalkit/cybercraft
 > submodules) — with attribution in `NOTICE` when we port. Implementation status is
 > tracked at the bottom of this file.
+>
+> **Clean-room of copyleft *ideas* is fine.** Copyright protects *expression* (the
+> actual code), not ideas, functionality, or facts. So we may freely reimplement
+> *what* a GPL/AGPL tool does — including drawing on its good ideas (e.g.
+> awsinventory's breadth of services) — and add our own mechanics, as long as we
+> write **independent code** and don't transliterate theirs. The "twist" isn't the
+> legal shield; independent expression is. Our inventory workbook does exactly this:
+> a from-scratch build that adds FedPy-native mechanics absent from every analog —
+> **scan reconciliation** (column O/I from our own VDR evidence) and **KSI-finding
+> cross-linking** (each asset annotated with the compliance findings touching it).
 
 ---
 
