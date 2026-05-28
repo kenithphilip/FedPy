@@ -1,0 +1,36 @@
+FedRAMP 20x Compliance Tooling
+Copyright 2026 Kenith Philip
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+Third-party data and source acknowledgements
+------------------------------------------------------------------------------
+
+This repository derives committed lookup files from the following public
+sources. These sources are NOT covered by this repository's Apache-2.0 license
+and remain governed by their own terms. They are referenced/regenerated, not
+re-licensed.
+
+1. FedRAMP Machine-Readable (FRMR) documentation
+   Source: https://github.com/FedRAMP/docs  (FRMR.documentation.json)
+   Status: U.S. Government work; authoritative source of truth for FedRAMP 20x
+   and Rev5 requirements, definitions, and Key Security Indicators.
+   Used by: tracker ingest; cloud-evidence requirement extraction
+   (scripts/extract-frmr-requirements.mjs -> docs/frmr-requirements.generated.json).
+
+2. NIST SP 800-53 Rev5 control catalog (control names / families)
+   Source: GovReady nist-sp-800-53-r5-data
+   (https://github.com/GovReady/nist-sp-800-53-r5-data)
+   Used by: scripts/extract-nist-r5.mjs -> docs/nist-r5-controls.generated.json.
+
+3. NIST SP 800-53B Rev5 baselines (Low / Moderate / High membership)
+   Source: NIST OSCAL content (https://github.com/usnistgov/oscal-content),
+   resolved-profile catalogs for SP 800-53 Rev5.
+   Status: U.S. Government work.
+   Used by: scripts/extract-nist-baselines.mjs ->
+   docs/nist-r5-baselines.generated.json.
+
+The reference clones under docs/ (FedRAMP FRMR) and nist-r5-data/ (NIST control
+data) are external checkouts and are intentionally git-ignored; they are not
+part of this repository's licensed code.
