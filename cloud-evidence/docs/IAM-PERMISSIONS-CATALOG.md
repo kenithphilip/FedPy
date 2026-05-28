@@ -40,6 +40,7 @@ Organizations).
 | `secrets.ts` | SVC-ASM | Secrets Manager, KMS | `secretsmanager:ListSecrets`, `secretsmanager:DescribeSecret`, `kms:ListKeys`, `kms:DescribeKey`, `kms:GetKeyRotationStatus` |
 | `data.ts` | SVC-RUD, SVC-VCM, SVC-VRI | S3, KMS, ACM, App Mesh, EKS, SSM | `s3:ListAllMyBuckets`, `s3:GetBucketVersioning`, `s3:GetBucketLifecycleConfiguration`, `s3:GetObjectLockConfiguration`, `kms:ListKeys`, `acm:ListCertificates`, `acm:DescribeCertificate`, `appmesh:ListMeshes`, `appmesh:ListVirtualNodes`, `eks:ListClusters`, `eks:ListAddons`, `ssm:GetPatchBaseline`, `lambda:GetFunctionCodeSigningConfig`, `signer:ListSigningProfiles` |
 | `inventory.ts` | PIY-GIV | Config (aggregators) | `config:DescribeConfigurationAggregators`, `config:DescribeConfigurationRecorders` |
+| `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | EC2, RDS, S3, Lambda, ELBv2 | `ec2:DescribeInstances`, `ec2:DescribeVolumes`, `rds:DescribeDBInstances`, `s3:ListAllMyBuckets`, `s3:GetBucketLocation`, `lambda:ListFunctions`, `elasticloadbalancing:DescribeLoadBalancers` |
 
 ### AWS-supplement (actions `ReadOnlyAccess` omits)
 
@@ -107,6 +108,7 @@ Bind these predefined roles to the runner principal at the **org or folder** lev
 | `secrets.ts` | SVC-ASM | Secret Manager, Cloud KMS | `roles/secretmanager.viewer`, `roles/cloudkms.viewer` |
 | `data.ts` | SVC-RUD, SVC-VCM, SVC-VRI | Cloud Storage, KMS, Certificate Manager, Cloud Logging | `roles/storage.objectViewer` (bucket metadata), `roles/cloudkms.viewer`, `roles/certificatemanager.viewer`, `roles/logging.viewer` (deletion-event audit-log query; `roles/logging.privateLogViewer` if data-access logs) |
 | `inventory.ts` | PIY-GIV | Cloud Asset Inventory | `roles/cloudasset.viewer` (`cloudasset.assets.listResource`) |
+| `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | Cloud Asset Inventory (RESOURCE) | `roles/cloudasset.viewer` (`cloudasset.assets.list`) |
 
 ### GCP auth notes
 
@@ -233,6 +235,6 @@ node scripts/extract-iam-actions.mjs --check   # CI-style: exit 1 if stale
 
 Use it to spot drift between this curated catalog and the live call sites (e.g.
 a newly added collector that calls an action not yet documented here). It
-currently inventories **137 AWS actions across 39 services** and **42 GCP roles**.
+currently inventories **139 AWS actions across 39 services** and **42 GCP roles**.
 The extractor's pure helpers are unit-tested in
 `tests/core/iam-actions-extract.test.ts`.

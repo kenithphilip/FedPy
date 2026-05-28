@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — FedRAMP Integrated Inventory Workbook generator (AWS + GCP)
+- **`--inventory-workbook`** (env `CLOUD_EVIDENCE_INVENTORY_WORKBOOK`) enumerates cloud
+  assets and emits the FedRAMP **Appendix M Integrated Inventory Workbook** as
+  `out/inventory-workbook.csv` and `out/inventory-workbook.xlsx` (covered by the signed
+  manifest). `core/inventory-workbook.ts` encodes the official 25-column contract, a
+  normalized `CloudAsset` model, the resource→row mapper (one-row-per-IP fan-out), and a
+  **dependency-free** store-only `.xlsx` writer (`zlib.crc32` + inline-string OOXML — no
+  heavy spreadsheet lib). AWS enumeration (`providers/aws/inventory-assets.ts`) covers
+  EC2+ENIs (IP/MAC), EBS, RDS, S3, Lambda, ELBv2; GCP (`providers/gcp/inventory-assets.ts`)
+  uses Cloud Asset Inventory. ~16/25 columns auto-fill; unknowns are honest blanks. All
+  new SDK calls are read-only and guardrail-wrapped. 11 unit tests. Field mapping is
+  clean-room from the Apache-2.0 reference designs (aws-samples / google), per the locked
+  Path A licensing decision (the GPL-3.0 `manywho/awsinventory` is reference-only).
+
 ### Added — turn the four deferred in-collector TODOs into real detectors
 - **AWS Security Lake** (MLA-OSM): `collectMlaOsm` now probes `securitylake:ListDataLakes`
   (+ `ListSubscribers`) directly — a configured data lake counts as SIEM plumbing and

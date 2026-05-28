@@ -28,6 +28,9 @@ import { buildProcessArtifactEvidence, type AttestationRecord } from './process-
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
+import { writeInventoryWorkbook, type CloudAsset } from './inventory-workbook.ts';
+import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
+import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -101,6 +104,8 @@ interface Args {
   oscalOrgName: string | null;
   /** When true, emit crosswalk-report.json mapping NIST controls to SOC2/ISO27001/HIPAA. */
   crosswalk: boolean;
+  /** When true, enumerate cloud assets and emit the FedRAMP Integrated Inventory Workbook (CSV + XLSX). */
+  inventoryWorkbook: boolean;
   /** When true, fan out collection across all AWS Organizations member accounts. */
   awsOrgFanout: boolean;
   /** When fanout is on: only collect these account IDs. */
@@ -149,6 +154,7 @@ function parseArgs(argv: string[]): Args {
     oscal: process.env.CLOUD_EVIDENCE_OSCAL === '1',
     oscalOrgName: process.env.CLOUD_EVIDENCE_ORG_NAME ?? null,
     crosswalk: process.env.CLOUD_EVIDENCE_CROSSWALK === '1',
+    inventoryWorkbook: process.env.CLOUD_EVIDENCE_INVENTORY_WORKBOOK === '1',
     awsOrgFanout: process.env.CLOUD_EVIDENCE_AWS_ORG_FANOUT === '1',
     awsFanoutInclude: (process.env.CLOUD_EVIDENCE_AWS_INCLUDE ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     awsFanoutExclude: (process.env.CLOUD_EVIDENCE_AWS_EXCLUDE ?? '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -239,6 +245,9 @@ function parseArgs(argv: string[]): Args {
       case '--crosswalk':
         args.crosswalk = true;
         break;
+      case '--inventory-workbook':
+        args.inventoryWorkbook = true;
+        break;
       case '--aws-org-fanout':
         args.awsOrgFanout = true;
         break;
@@ -322,6 +331,9 @@ Post-run artifacts:
   --oscal                Emit OSCAL 1.1 Assessment Results (out/assessment-results.json)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
   --crosswalk            Emit crosswalk-report.json (NIST → SOC2/ISO27001/HIPAA mapping)
+  --inventory-workbook   Enumerate cloud assets and emit the FedRAMP Integrated Inventory
+                         Workbook (out/inventory-workbook.{csv,xlsx}) for AWS + GCP
+                         (env: CLOUD_EVIDENCE_INVENTORY_WORKBOOK)
   --framework <fw>       NIST 800-53 control-benchmark framing: rev5 (full 800-53B baseline) or 20x
                          (only controls the 20x KSIs reference). Default 20x. Emits control-benchmark.json
                          (env: CLOUD_EVIDENCE_FRAMEWORK)
@@ -1164,6 +1176,36 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`Control benchmark write failed: ${e?.message ?? e}`);
       log.error({ event: 'control_benchmark.write_fail', err_message: e?.message });
+    }
+  }
+
+  // ---- FedRAMP Integrated Inventory Workbook (written BEFORE signing) ----
+  if (args.inventoryWorkbook && !args.dryRun) {
+    try {
+      const assets: CloudAsset[] = [];
+      const invWarnings: string[] = [];
+      if (args.providers.includes('aws') && config.aws.enabled) {
+        const region = config.aws.regions[0] ?? 'us-east-1';
+        const r = await collectAwsAssets(aws.makeAwsAuth(region), awsAccount);
+        assets.push(...r.assets); invWarnings.push(...r.warnings);
+      }
+      if (args.providers.includes('gcp') && config.gcp.enabled) {
+        for (const project of config.gcp.projects) {
+          const r = await collectGcpAssets(project);
+          assets.push(...r.assets); invWarnings.push(...r.warnings);
+        }
+      }
+      const res = writeInventoryWorkbook(assets, {
+        csvPath: resolve(args.outDir, 'inventory-workbook.csv'),
+        xlsxPath: resolve(args.outDir, 'inventory-workbook.xlsx'),
+      });
+      console.log(`Inventory workbook: ${res.asset_count} asset(s) → ${res.row_count} row(s) (inventory-workbook.{csv,xlsx})` +
+        (invWarnings.length ? ` · ${invWarnings.length} warning(s)` : ''));
+      for (const w of invWarnings) console.error(`  ! inventory: ${w}`);
+      ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, warnings: invWarnings.length });
+    } catch (e: any) {
+      console.error(`Inventory workbook failed: ${e?.message ?? e}`);
+      log.error({ event: 'inventory_workbook.fail', err_message: e?.message });
     }
   }
 

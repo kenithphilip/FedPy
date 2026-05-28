@@ -1,9 +1,9 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T11:16:53.570Z",
+  "_generated_at": "2026-05-28T14:41:53.620Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
-    "action_count": 137,
+    "action_count": 139,
     "service_count": 39,
     "services": [
       "access-analyzer",
@@ -92,6 +92,7 @@
       "ec2:DescribeSecurityGroups",
       "ec2:DescribeSubnets",
       "ec2:DescribeTransitGateways",
+      "ec2:DescribeVolumes",
       "ec2:DescribeVpcEndpoints",
       "ec2:DescribeVpcPeeringConnections",
       "ec2:DescribeVpcs",
@@ -157,6 +158,7 @@
       "rds:DescribeDBInstances",
       "s3:GetBucketEncryption",
       "s3:GetBucketLifecycleConfiguration",
+      "s3:GetBucketLocation",
       "s3:GetBucketPolicy",
       "s3:GetBucketPolicyStatus",
       "s3:GetBucketVersioning",
@@ -288,6 +290,15 @@
         "sso:ListAccountAssignments",
         "sso:ListInstances",
         "sso:ListPermissionSets"
+      ],
+      "aws/inventory-assets.ts": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "lambda:ListFunctions",
+        "rds:DescribeDBInstances",
+        "s3:GetBucketLocation",
+        "s3:ListBuckets"
       ],
       "aws/inventory.ts": [
         "config:DescribeConfigurationAggregators",
@@ -494,6 +505,9 @@
         "roles/resourcemanager.projectIamAdmin",
         "roles/run.developer",
         "roles/viewer"
+      ],
+      "gcp/inventory-assets.ts": [
+        "roles/cloudasset.viewer"
       ],
       "gcp/inventory.ts": [
         "roles/cloudasset.viewer"

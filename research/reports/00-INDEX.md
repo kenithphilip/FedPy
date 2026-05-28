@@ -159,7 +159,7 @@ larger follow-on bets.
 | Backlog ID | Status | Notes |
 |---|---|---|
 | (licensing) | ✅ locked | Path A — Apache-2.0 stays; GPL/AGPL sources spec-only |
-| INV-1..4 | 🚧 in progress | `core/inventory-workbook.ts` + AWS/GCP asset enumerators + xlsx/CSV + `--inventory-workbook` |
+| INV-1..4 | ✅ done | `core/inventory-workbook.ts` + AWS/GCP asset enumerators + dependency-free xlsx/CSV + `--inventory-workbook` (11 tests) |
 | OSC-1 | ⏳ next | validate emitted OSCAL with `ajv` |
 | AWS-CHK / GCP-CHK | ⏳ backlog | batch Coalfire-derived checks into existing collectors |
 | SSP-1 / SSP-2 | ⏳ backlog | OSCAL SSP emitter → Word render |

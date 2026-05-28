@@ -258,6 +258,7 @@ A single run writes to `./out/`:
 | `pva-run-summary.json` | Run roll-up + impact level + framework + benchmark headline |
 | `family-rollup.json` | Per-control-family posture |
 | `control-benchmark.json` | NIST 800-53 control benchmark (this run's framing/level) |
+| `inventory-workbook.{csv,xlsx}` *(`--inventory-workbook`)* | FedRAMP Appendix M Integrated Inventory Workbook (AWS + GCP assets) |
 | `manifest.json` + `manifest.sig` | Ed25519-signed inventory of every output file |
 | `manifest.tsr` *(optional)* | RFC 3161 trusted timestamp token |
 | `assessment-results.json` *(`--oscal`)* | OSCAL 1.1 Assessment Results |
