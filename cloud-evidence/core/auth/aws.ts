@@ -52,6 +52,8 @@ import { AppMeshClient } from '@aws-sdk/client-app-mesh';
 import { SecurityLakeClient } from '@aws-sdk/client-securitylake';
 import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { ResourceGroupsTaggingAPIClient } from '@aws-sdk/client-resource-groups-tagging-api';
+import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
+import { Macie2Client } from '@aws-sdk/client-macie2';
 
 import { wrapAwsClient } from '../readonly-guardrail.ts';
 
@@ -148,3 +150,5 @@ export const appmesh = (a: AwsAuth) => wrapAwsClient(new AppMeshClient({ region:
 export const securitylake = (a: AwsAuth) => wrapAwsClient(new SecurityLakeClient({ region: a.region, credentials: a.credentials }));
 export const resourceExplorer = (a: AwsAuth) => wrapAwsClient(new ResourceExplorer2Client({ region: a.region, credentials: a.credentials }));
 export const taggingApi = (a: AwsAuth) => wrapAwsClient(new ResourceGroupsTaggingAPIClient({ region: a.region, credentials: a.credentials }));
+export const costExplorer = (a: AwsAuth) => wrapAwsClient(new CostExplorerClient({ region: a.region, credentials: a.credentials }));
+export const macie = (a: AwsAuth) => wrapAwsClient(new Macie2Client({ region: a.region, credentials: a.credentials }));

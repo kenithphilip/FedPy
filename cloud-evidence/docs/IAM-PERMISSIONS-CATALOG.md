@@ -42,6 +42,7 @@ Organizations).
 | `inventory.ts` | PIY-GIV | Config (aggregators) | `config:DescribeConfigurationAggregators`, `config:DescribeConfigurationRecorders` |
 | `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | EC2, RDS, S3, Lambda, ELBv2, DynamoDB, ECR, EKS, CloudFront, SSM | `ec2:DescribeInstances`, `ec2:DescribeVolumes`, `ec2:DescribeSecurityGroups`, `rds:DescribeDBInstances`, `s3:ListAllMyBuckets`, `s3:GetBucketLocation`, `s3:GetBucketPublicAccessBlock`, `s3:GetEncryptionConfiguration`, `lambda:ListFunctions`, `elasticloadbalancing:DescribeLoadBalancers`, `dynamodb:ListTables`, `dynamodb:DescribeTable`, `ecr:DescribeRepositories`, `eks:ListClusters`, `eks:DescribeCluster`, `cloudfront:ListDistributions`, `ssm:GetInventory` |
 | `discover.ts` | Inventory backbone (`--inventory-workbook`) | Config, Resource Explorer, Tagging API | `config:SelectResourceConfig`, `resource-explorer-2:Search`, `tag:GetResources` (any one suffices; best-effort fallback chain) |
+| `inventory-cost.ts` | Inventory cost + data-class (`--inventory-workbook`) | Cost Explorer, Macie | `ce:GetCostAndUsage`, `macie2:ListFindings`, `macie2:GetFindings` (both optional; degrade to warning if not enabled) |
 
 ### AWS-supplement (actions `ReadOnlyAccess` omits)
 
@@ -237,6 +238,6 @@ node scripts/extract-iam-actions.mjs --check   # CI-style: exit 1 if stale
 
 Use it to spot drift between this curated catalog and the live call sites (e.g.
 a newly added collector that calls an action not yet documented here). It
-currently inventories **142 AWS actions across 41 services** and **42 GCP roles**.
+currently inventories **145 AWS actions across 43 services** and **42 GCP roles**.
 The extractor's pure helpers are unit-tested in
 `tests/core/iam-actions-extract.test.ts`.

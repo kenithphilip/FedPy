@@ -1,10 +1,10 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T15:44:34.877Z",
+  "_generated_at": "2026-05-28T16:06:36.063Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
-    "action_count": 142,
-    "service_count": 41,
+    "action_count": 145,
+    "service_count": 43,
     "services": [
       "access-analyzer",
       "acm",
@@ -12,6 +12,7 @@
       "athena",
       "autoscaling",
       "backup",
+      "ce",
       "cloudformation",
       "cloudfront",
       "cloudtrail",
@@ -33,6 +34,7 @@
       "kms",
       "lambda",
       "logs",
+      "macie2",
       "network-firewall",
       "organizations",
       "rds",
@@ -63,6 +65,7 @@
       "backup:ListBackupJobs",
       "backup:ListBackupPlans",
       "backup:ListRestoreJobs",
+      "ce:GetCostAndUsage",
       "cloudformation:DescribeStacks",
       "cloudfront:GetDistribution",
       "cloudfront:ListDistributions",
@@ -152,6 +155,8 @@
       "lambda:ListFunctions",
       "logs:DescribeLogGroups",
       "logs:DescribeSubscriptionFilters",
+      "macie2:GetFindings",
+      "macie2:ListFindings",
       "network-firewall:ListFirewalls",
       "organizations:DescribeOrganization",
       "organizations:DescribePolicy",
@@ -319,6 +324,11 @@
         "s3:GetPublicAccessBlock",
         "s3:ListBuckets",
         "ssm:GetInventory"
+      ],
+      "aws/inventory-cost.ts": [
+        "ce:GetCostAndUsage",
+        "macie2:GetFindings",
+        "macie2:ListFindings"
       ],
       "aws/inventory.ts": [
         "config:DescribeConfigurationAggregators",

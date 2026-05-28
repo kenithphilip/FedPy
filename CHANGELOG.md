@@ -6,29 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added — FedRAMP Integrated Inventory Workbook generator (AWS + GCP)
-- **`--inventory-workbook`** (env `CLOUD_EVIDENCE_INVENTORY_WORKBOOK`) enumerates cloud
-  assets and emits the FedRAMP **Appendix M Integrated Inventory Workbook** as
-  `out/inventory-workbook.csv` and `out/inventory-workbook.xlsx` (covered by the signed
-  manifest). `core/inventory-workbook.ts` encodes the official 25-column contract, a
-  normalized `CloudAsset` model, the resource→row mapper (one-row-per-IP fan-out), and a
-  **dependency-free** store-only `.xlsx` writer (`zlib.crc32` + inline-string OOXML — no
-  heavy spreadsheet lib). AWS enumeration (`providers/aws/inventory-assets.ts`) covers
-  EC2+ENIs (IP/MAC), EBS, RDS, S3, Lambda, ELBv2; GCP (`providers/gcp/inventory-assets.ts`)
-  uses Cloud Asset Inventory. ~16/25 columns auto-fill; unknowns are honest blanks. All
-  new SDK calls are read-only and guardrail-wrapped. Field mapping is clean-room from the
-  Apache-2.0 reference designs (aws-samples / google), per the locked Path A licensing
-  decision (the GPL-3.0 `manywho/awsinventory` is reference-only — and reimplementing its
-  *functionality* clean-room is fine; only its code expression is off-limits).
-- **FedPy-native enrichment (twists no analog has):** (1) **tag-driven** owner / app-owner /
-  function / baseline columns (`enrichFromTags`, config-overridable `TagColumnMap`);
-  (2) **scan reconciliation** — columns "In Latest Scan" / "Authenticated Scan" are set by
-  cross-referencing each asset against the resources in *our own* VDR/Inspector evidence
-  (`reconcileScans` + `readInventoryContext`); (3) **KSI-finding cross-linking** — each asset's
-  Comments are annotated with the compliance findings whose affected resource matches it
-  (`annotateWithFindings`), so the inventory doubles as a posture map.
-- **Expanded AWS coverage:** added DynamoDB, ECR, EKS, and CloudFront to the enumerator
-  (EC2/EBS/RDS/S3/Lambda/ELBv2 + these). 19 unit tests total.
+### Added — Organization-grade cloud inventory (FedRAMP workbook + full asset inventory)
+A complete cloud asset inventory for any org, not just FedRAMP — enabled by
+`--inventory-workbook` (env `CLOUD_EVIDENCE_INVENTORY_WORKBOOK`) or the fast
+`--inventory-only`. Emits, all under the signed manifest:
+`inventory.json` (rich superset, source of truth), `inventory-workbook.{csv,xlsx}`
+(FedRAMP **Appendix M** 25-column projection), `inventory-oscal.json` (OSCAL
+inventory-items), `inventory-cmdb.json` (ServiceNow/CSDM CI records),
+`inventory-diff.json` (run-over-run change tracking), and `inventory-cost.json`
+(month-to-date cost by service).
+
+- **Generic discovery backbone** (breadth = *every* resource type): AWS
+  `providers/aws/discover.ts` (Config Advanced Query → Resource Explorer → Tagging
+  API fallback chain) and GCP `providers/gcp/discover.ts` (Cloud Asset Inventory
+  `searchAllResources`); merged with per-service **depth enrichers** via
+  `dedupeAssets`.
+- **Depth enrichers** (`providers/aws/inventory-assets.ts`): EC2(+ENI IP/MAC), EBS,
+  RDS, S3, Lambda, ELBv2, DynamoDB, ECR, EKS, CloudFront — with multi-region sweep
+  (global-once), security-group **network exposure** (open-to-internet ports), S3
+  **public-access + encryption/KMS**, and **SSM Inventory** OS enrichment.
+- **Rich data model + FedPy-native enrichment** (`core/inventory-workbook.ts`):
+  lifecycle (created/state/**EOL**), security (KMS/encryption/exposure), ownership
+  (tag-driven env/criticality/cost-center + **required-tag governance**), **scan
+  reconciliation** vs our own VDR evidence, **KSI-finding cross-linking**, **data
+  classification** (tags + AWS **Macie**), a **relationship graph** (`edges`), and
+  a dependency-free `.xlsx` writer (`zlib.crc32` + inline-string OOXML).
+- **Cost** (`providers/aws/inventory-cost.ts`): month-to-date by service via Cost
+  Explorer (honest service-level summary). **Change tracking** + **OSCAL/CMDB**
+  emitters in `core/inventory-emit.ts`. Tracker collector-runs view surfaces the
+  inventory headline.
+- All new SDK clients are read-only + guardrail-wrapped. Field mapping is clean-room
+  from the Apache-2.0 reference designs (aws-samples / google) per the Path A
+  licensing decision. ~50 inventory unit tests; design in
+  `research/reports/12-inventory-completeness.md`.
 
 ### Added — turn the four deferred in-collector TODOs into real detectors
 - **AWS Security Lake** (MLA-OSM): `collectMlaOsm` now probes `securitylake:ListDataLakes`

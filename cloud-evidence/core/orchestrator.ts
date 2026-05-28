@@ -28,12 +28,13 @@ import { buildProcessArtifactEvidence, type AttestationRecord } from './process-
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
-import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, type CloudAsset } from './inventory-workbook.ts';
+import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, applyDataClassification, type CloudAsset } from './inventory-workbook.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { discoverAwsAssets } from '../providers/aws/discover.ts';
 import { discoverGcpAssets } from '../providers/gcp/discover.ts';
 import { readPreviousInventory, diffInventory, writeInventoryDiff, writeInventoryOscal, writeInventoryCmdb } from './inventory-emit.ts';
+import { collectAwsCost, collectMacieSensitiveBuckets } from '../providers/aws/inventory-cost.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -1199,6 +1200,7 @@ export async function main(): Promise<void> {
     try {
       let assets: CloudAsset[] = [];
       const invWarnings: string[] = [];
+      const sensitiveBuckets = new Set<string>();   // Macie-flagged S3 (across regions)
       if (args.providers.includes('aws') && config.aws.enabled) {
         // Sweep ALL configured regions; collect account-global services (S3,
         // CloudFront) only on the first region pass.
@@ -1211,8 +1213,16 @@ export async function main(): Promise<void> {
           assets.push(...disc.assets); invWarnings.push(...disc.warnings);
           const r = await collectAwsAssets(auth, awsAccount, { includeGlobal: first });
           assets.push(...r.assets); invWarnings.push(...r.warnings);
+          const macie = await collectMacieSensitiveBuckets(auth);   // data classification
+          for (const b of macie.buckets) sensitiveBuckets.add(b); invWarnings.push(...macie.warnings);
           first = false;
         }
+        // Month-to-date cost by service (account-global; one call via us-east-1).
+        try {
+          const cost = await collectAwsCost(aws.makeAwsAuth(config.aws.regions[0] ?? 'us-east-1'));
+          writeFileSafe(resolve(args.outDir, 'inventory-cost.json'), JSON.stringify(cost, null, 2));
+          invWarnings.push(...cost.warnings);
+        } catch (e: any) { invWarnings.push(`Cost summary: ${e.message}`); }
       }
       if (args.providers.includes('gcp') && config.gcp.enabled) {
         for (const project of config.gcp.projects) {
@@ -1232,6 +1242,7 @@ export async function main(): Promise<void> {
         applyTagGovernance(a);             // env/criticality/cost-center + required-tag compliance
         a.endOfLife ??= deriveEol(a);      // lifecycle EOL from runtime/engine/OS
       }
+      applyDataClassification(assets, sensitiveBuckets);   // Macie-flagged S3 → dataClassification
       const invCtx = readInventoryContext(args.outDir);
       const scanned = reconcileScans(assets, invCtx.scannedIdentifiers);
       const linked = annotateWithFindings(assets, invCtx.findings);

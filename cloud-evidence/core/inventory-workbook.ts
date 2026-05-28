@@ -509,6 +509,28 @@ export function applyTagGovernance(asset: CloudAsset, requiredTags: string[] = D
   return asset;
 }
 
+// ---- INV-17: data classification from a detector (e.g. AWS Macie) ----
+
+/**
+ * Mark S3-bucket assets whose bucket name is in `sensitiveBucketNames` with a
+ * data-classification label (only where not already tag-classified). Returns the
+ * number labeled. Pure.
+ */
+export function applyDataClassification(
+  assets: CloudAsset[],
+  sensitiveBucketNames: Set<string>,
+  label = 'Sensitive (Macie)',
+): number {
+  if (sensitiveBucketNames.size === 0) return 0;
+  let n = 0;
+  for (const a of assets) {
+    if (a.dataClassification) continue;
+    const name = a.uniqueId.startsWith('arn:aws:s3:::') ? a.uniqueId.slice('arn:aws:s3:::'.length) : null;
+    if (name && sensitiveBucketNames.has(name)) { a.dataClassification = label; n++; }
+  }
+  return n;
+}
+
 // ---- INV-13: Relationship graph (topology / blast-radius) ----
 
 /**

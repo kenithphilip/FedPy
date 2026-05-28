@@ -53,6 +53,8 @@ const SLUG_TO_IAM = {
   'codepipeline': 'codepipeline',
   'cognito-identity-provider': 'cognito-idp',
   'config-service': 'config',
+  'cost-explorer': 'ce',
+  'macie2': 'macie2',
   'dynamodb': 'dynamodb',
   'ec2': 'ec2',
   'ecr': 'ecr',

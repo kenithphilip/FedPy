@@ -19,6 +19,7 @@ import {
   deriveEol,
   applyTagGovernance,
   deriveEdges,
+  applyDataClassification,
   type CloudAsset,
 } from '../../core/inventory-workbook.ts';
 
@@ -278,6 +279,27 @@ describe('deriveEdges', () => {
       { provider: 'aws', uniqueId: 'b' },
     ]);
     expect(edges).toHaveLength(1);
+  });
+});
+
+describe('applyDataClassification', () => {
+  it('labels S3 buckets flagged by the detector, not already classified', () => {
+    const assets: CloudAsset[] = [
+      { provider: 'aws', uniqueId: 'arn:aws:s3:::sensitive-bucket' },
+      { provider: 'aws', uniqueId: 'arn:aws:s3:::clean-bucket' },
+      { provider: 'aws', uniqueId: 'arn:aws:s3:::already', dataClassification: 'PII (tag)' },
+      { provider: 'aws', uniqueId: 'arn:aws:ec2:::i-1' },
+    ];
+    const n = applyDataClassification(assets, new Set(['sensitive-bucket', 'already']));
+    expect(n).toBe(1);
+    expect(assets[0]!.dataClassification).toBe('Sensitive (Macie)');
+    expect(assets[1]!.dataClassification).toBeUndefined();
+    expect(assets[2]!.dataClassification).toBe('PII (tag)'); // not overwritten
+    expect(assets[3]!.dataClassification).toBeUndefined();   // not an S3 bucket
+  });
+  it('no-ops on an empty detector set', () => {
+    const assets: CloudAsset[] = [{ provider: 'aws', uniqueId: 'arn:aws:s3:::b' }];
+    expect(applyDataClassification(assets, new Set())).toBe(0);
   });
 });
 
