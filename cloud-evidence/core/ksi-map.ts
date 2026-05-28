@@ -69,6 +69,8 @@ import * as awsCrypto from '../providers/aws/crypto.ts';
 import * as gcpCrypto from '../providers/gcp/crypto.ts';
 import * as awsHybrids from '../providers/aws/ksi-hybrids.ts';
 import * as gcpHybrids from '../providers/gcp/ksi-hybrids.ts';
+import * as awsVdrScan from '../providers/aws/vdr-scan.ts';
+import * as gcpVdrScan from '../providers/gcp/vdr-scan.ts';
 
 export const KSI_MAP: Record<string, KsiEntry> = {
   'KSI-IAM-AAM': {
@@ -520,6 +522,25 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     aws: awsHybrids.collectSvcPrr,
     gcp: gcpHybrids.collectSvcPrr,
     process_artifacts_required: ['Data-isolation/tenancy design doc', 'Public-exposure review record'],
+  },
+
+  // ---- AFR technical pointer: Vulnerability Detection & Response ----
+  // KSI-AFR-VDR points at the VDR process; the live-scan collector supplies the
+  // automated evidence (Inspector v2 / Container Analysis findings, KEV join, SLA
+  // breach detection). The detailed VDR-* FRR requirements are additionally tracked
+  // via process attestation.
+  'KSI-AFR-VDR': {
+    id: 'KSI-AFR-VDR',
+    name: 'Vulnerability Detection and Response',
+    scope: 'HYBRID',
+    statement: 'Document the vulnerability detection and vulnerability response methodology used within the cloud service offering in alignment with the FedRAMP Vulnerability Detection and Response (VDR) process and persistently address all related requirements and recommendations.',
+    nist_controls: ['ra-5', 'ra-5.2', 'si-2', 'si-3', 'si-5', 'ir-4', 'ca-7'],
+    aws: awsVdrScan.collectVdrScan,
+    gcp: gcpVdrScan.collectVdrScan,
+    process_artifacts_required: [
+      'Documented VDR methodology (detection sources + response timeframes)',
+      'CISA KEV catalog source/path used for the run (CLOUD_EVIDENCE_KEV_PATH)',
+    ],
   },
 
   // KSI-AFR-PVA and KSI-CSX-SUM are SPECIAL: invoked by the orchestrator after all
