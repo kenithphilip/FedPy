@@ -169,7 +169,9 @@ larger follow-on bets.
 | Backlog ID | Status | Notes |
 |---|---|---|
 | (licensing) | ✅ locked | Path A — Apache-2.0 stays; GPL/AGPL sources spec-only |
-| INV-1..4 | ✅ done | `core/inventory-workbook.ts` + AWS/GCP asset enumerators + dependency-free xlsx/CSV + `--inventory-workbook` (11 tests) |
+| INV-1..4 | ✅ done | `core/inventory-workbook.ts` + AWS/GCP asset enumerators + dependency-free xlsx/CSV + `--inventory-workbook` |
+| INV-5 (enrich) | ✅ done | tag enrichment + scan reconciliation + KSI-finding cross-link + DynamoDB/ECR/EKS/CloudFront (19 tests) |
+| INV-6..21 | 📋 designed | **org-grade completeness roadmap → see [`12-inventory-completeness.md`](12-inventory-completeness.md)**: generic discovery backbone (AWS Config Advanced Query / Resource Explorer; GCP `searchAllResources`), rich `inventory.json` superset, multi-region sweep, cost/software/data-class/relationship/lifecycle/tag-governance enrichment, change snapshots, OSCAL + CMDB emitters |
 | OSC-1 | ⏳ next | validate emitted OSCAL with `ajv` |
 | AWS-CHK / GCP-CHK | ⏳ backlog | batch Coalfire-derived checks into existing collectors |
 | SSP-1 / SSP-2 | ⏳ backlog | OSCAL SSP emitter → Word render |
