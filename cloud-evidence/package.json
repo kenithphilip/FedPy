@@ -1,7 +1,7 @@
 {
   "name": "fedramp-20x-cloud-evidence",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Read-only collector that captures AWS and GCP evidence for FedRAMP 20x KSIs.",
   "scripts": {

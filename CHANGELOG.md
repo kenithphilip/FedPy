@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-28
+
 ### Changed — documentation accuracy
 - Refreshed stale docs to match the shipped code: `cloud-evidence/README.md`
   (was "35+ KSIs / Phase 1 — IAM only"; now reflects 63 KSIs / 44 cloud collectors
