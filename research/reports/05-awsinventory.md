@@ -10,6 +10,15 @@
 - **Activity / maturity:** Last commit `e2d6844` 2021-03-19 (a Dependabot testify bump). Effectively dormant for ~4 years; pre-1.0; no tags in the shallow clone but the README points at GitHub releases. Mature *design*, stale *dependencies* (AWS SDK Go v1, now in maintenance mode). Small, clean, well-tested.
 - **One-line:** A Go CLI that enumerates AWS resources across 17 services and emits a CSV that matches the **FedRAMP Integrated Inventory Workbook (SSP Appendix A-13)** column layout.
 
+> **🔒 Licensing decision (locked 2026-05-28):** FedPy stays **Apache-2.0** (Path A).
+> awsinventory's **GPL-3.0** is strong copyleft — pulling its code (even *ported*
+> Go→TS, which is still a derivative work) would force the combined work to GPL-3.0.
+> So this repo is used as a **spec/reference only** (column contract + per-service
+> field mapping — largely facts dictated by the FedRAMP format + AWS API names),
+> **never as a code source**. The actual code is ported from the **Apache-2.0**
+> analogs instead: `aws-samples/fedramp-integrated-inventory-workbook` (AWS) and
+> `google/asset-inventory-worksheet` (GCP). See `00-INDEX.md` → "Licensing".
+
 ## 1. What it does
 
 `awsinventory` is a single-purpose command-line tool: point it at one or more AWS regions, give it AWS credentials via the standard default-credential chain (`~/.aws/credentials`, `~/.aws/config`, SSO, env vars), and it walks 17 AWS services, describing every resource it finds and writing one CSV row per asset. The CSV header is hand-built to mirror the columns of the official [FedRAMP Integrated Inventory Workbook template](https://www.fedramp.gov/assets/resources/templates/SSP-A13-FedRAMP-Integrated-Inventory-Workbook-Template.xlsx) (`README.md` line 12). The intended user is a CSP engineer assembling the asset-inventory artifact that 3PAOs and the JAB/agency expect as part of an SSP package.

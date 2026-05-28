@@ -8,6 +8,17 @@ or only the idea?), and the source report.
 Raw clones live under `research/clones/` and downloads under `research/downloads/`
 (both git-ignored). The reports are the durable artifact.
 
+> **🔒 Licensing decision (locked 2026-05-28) — "Path A".** FedPy stays
+> **Apache-2.0**. Copyleft sources are **spec/reference only, never a code source**:
+> `manywho/awsinventory` (**GPL-3.0**, report 05) and `huntridge-labs/argus`
+> (**AGPL-3.0**, report 08) — including ported code, since a translation is still a
+> derivative work. Where we want actual code, we take it from the permissive
+> analogs: **Apache-2.0** (`aws-samples/fedramp-integrated-inventory-workbook`,
+> `google/asset-inventory-worksheet`, `oscal-content-generation`), **CC0**
+> (`oscalkit`, `GoComply/fedramp`), or **MIT** (`python-ssp`, oscalkit/cybercraft
+> submodules) — with attribution in `NOTICE` when we port. Implementation status is
+> tracked at the bottom of this file.
+
 ---
 
 ## The 11 sources at a glance
@@ -140,3 +151,17 @@ larger follow-on bets.
 - **Read-only guardrail must extend to any new cloud** (Azure) and any new AWS/GCP
   service client added for the inventory mappers — every new SDK client goes
   through `wrapAwsClient` / the GCP Proxy.
+
+---
+
+## Implementation status
+
+| Backlog ID | Status | Notes |
+|---|---|---|
+| (licensing) | ✅ locked | Path A — Apache-2.0 stays; GPL/AGPL sources spec-only |
+| INV-1..4 | 🚧 in progress | `core/inventory-workbook.ts` + AWS/GCP asset enumerators + xlsx/CSV + `--inventory-workbook` |
+| OSC-1 | ⏳ next | validate emitted OSCAL with `ajv` |
+| AWS-CHK / GCP-CHK | ⏳ backlog | batch Coalfire-derived checks into existing collectors |
+| SSP-1 / SSP-2 | ⏳ backlog | OSCAL SSP emitter → Word render |
+| AZ-1 / AZ-2 | ⏳ backlog | net-new Azure collector |
+| SCN-1 | ⏳ backlog | significant-change-notification classifier |
