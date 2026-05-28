@@ -1,10 +1,10 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T15:10:22.257Z",
+  "_generated_at": "2026-05-28T15:39:06.165Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
-    "action_count": 139,
-    "service_count": 39,
+    "action_count": 142,
+    "service_count": 41,
     "services": [
       "access-analyzer",
       "acm",
@@ -36,6 +36,7 @@
       "network-firewall",
       "organizations",
       "rds",
+      "resource-explorer-2",
       "s3",
       "secretsmanager",
       "securityhub",
@@ -44,6 +45,7 @@
       "signer",
       "ssm",
       "sso",
+      "tag",
       "wafv2"
     ],
     "actions": [
@@ -81,6 +83,7 @@
       "config:DescribeConformancePackCompliance",
       "config:DescribeConformancePacks",
       "config:DescribeRemediationConfigurations",
+      "config:SelectResourceConfig",
       "dynamodb:DescribeContinuousBackups",
       "dynamodb:DescribeTable",
       "dynamodb:ListTables",
@@ -156,6 +159,7 @@
       "organizations:ListPolicies",
       "rds:DescribeDBClusters",
       "rds:DescribeDBInstances",
+      "resource-explorer-2:Search",
       "s3:GetBucketEncryption",
       "s3:GetBucketLifecycleConfiguration",
       "s3:GetBucketLocation",
@@ -184,6 +188,7 @@
       "sso:ListAccountAssignments",
       "sso:ListInstances",
       "sso:ListPermissionSets",
+      "tag:GetResources",
       "wafv2:GetWebACL",
       "wafv2:ListWebACLs"
     ],
@@ -244,6 +249,11 @@
         "signer:ListSigningProfiles",
         "ssm:DescribePatchBaselines",
         "ssm:GetPatchBaseline"
+      ],
+      "aws/discover.ts": [
+        "config:SelectResourceConfig",
+        "resource-explorer-2:Search",
+        "tag:GetResources"
       ],
       "aws/iam.ts": [
         "access-analyzer:ListAnalyzers",
@@ -490,6 +500,9 @@
         "roles/run.viewer",
         "roles/storage.admin",
         "roles/viewer"
+      ],
+      "gcp/discover.ts": [
+        "roles/cloudasset.viewer"
       ],
       "gcp/iam.ts": [
         "roles/accesscontextmanager.policyReader",

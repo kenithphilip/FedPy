@@ -31,6 +31,8 @@ import { buildControlBenchmark, type BenchmarkFramework } from './control-benchm
 import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, type CloudAsset } from './inventory-workbook.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
+import { discoverAwsAssets } from '../providers/aws/discover.ts';
+import { discoverGcpAssets } from '../providers/gcp/discover.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -1190,13 +1192,19 @@ export async function main(): Promise<void> {
         const regions = config.aws.regions.length ? config.aws.regions : ['us-east-1'];
         let first = true;
         for (const region of regions) {
-          const r = await collectAwsAssets(aws.makeAwsAuth(region), awsAccount, { includeGlobal: first });
+          const auth = aws.makeAwsAuth(region);
+          // Backbone (breadth: all resource types) + per-service depth enrichers.
+          const disc = await discoverAwsAssets(auth, awsAccount);
+          assets.push(...disc.assets); invWarnings.push(...disc.warnings);
+          const r = await collectAwsAssets(auth, awsAccount, { includeGlobal: first });
           assets.push(...r.assets); invWarnings.push(...r.warnings);
           first = false;
         }
       }
       if (args.providers.includes('gcp') && config.gcp.enabled) {
         for (const project of config.gcp.projects) {
+          const disc = await discoverGcpAssets(project);
+          assets.push(...disc.assets); invWarnings.push(...disc.warnings);
           const r = await collectGcpAssets(project);
           assets.push(...r.assets); invWarnings.push(...r.warnings);
         }

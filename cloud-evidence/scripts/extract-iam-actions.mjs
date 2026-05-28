@@ -69,6 +69,8 @@ const SLUG_TO_IAM = {
   'network-firewall': 'network-firewall',
   'organizations': 'organizations',
   'rds': 'rds',
+  'resource-explorer-2': 'resource-explorer-2',
+  'resource-groups-tagging-api': 'tag',
   's3': 's3',
   'secrets-manager': 'secretsmanager',
   'securityhub': 'securityhub',

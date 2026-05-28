@@ -50,6 +50,8 @@ import { KMSClient } from '@aws-sdk/client-kms';
 import { ACMClient } from '@aws-sdk/client-acm';
 import { AppMeshClient } from '@aws-sdk/client-app-mesh';
 import { SecurityLakeClient } from '@aws-sdk/client-securitylake';
+import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
+import { ResourceGroupsTaggingAPIClient } from '@aws-sdk/client-resource-groups-tagging-api';
 
 import { wrapAwsClient } from '../readonly-guardrail.ts';
 
@@ -144,3 +146,5 @@ export const kms = (a: AwsAuth) => wrapAwsClient(new KMSClient({ region: a.regio
 export const acm = (a: AwsAuth) => wrapAwsClient(new ACMClient({ region: a.region, credentials: a.credentials }));
 export const appmesh = (a: AwsAuth) => wrapAwsClient(new AppMeshClient({ region: a.region, credentials: a.credentials }));
 export const securitylake = (a: AwsAuth) => wrapAwsClient(new SecurityLakeClient({ region: a.region, credentials: a.credentials }));
+export const resourceExplorer = (a: AwsAuth) => wrapAwsClient(new ResourceExplorer2Client({ region: a.region, credentials: a.credentials }));
+export const taggingApi = (a: AwsAuth) => wrapAwsClient(new ResourceGroupsTaggingAPIClient({ region: a.region, credentials: a.credentials }));
