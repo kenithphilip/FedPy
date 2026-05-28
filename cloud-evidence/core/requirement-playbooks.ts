@@ -2109,6 +2109,97 @@ export const REQUIREMENT_PLAYBOOKS: Record<string, RequirementPlaybook> = {
     nist_controls: ['ca-7', 'ca-7.6', 'ir-4', 'ir-6', 'ir-6.2', 'ra-3', 'ra-5', 'ra-5.2', 'ra-5.4', 'ra-5.5', 'si-2', 'si-3', 'si-4', 'si-4.7'],
     references: [REF.afr, REF.vdr],
   },
+
+  // ── CSX (Continuous reporting / KSI applicability) — process KSIs ──
+  'KSI-CSX-MAS': {
+    artifacts_required: [
+      'Attestation that ALL Key Security Indicators are applied to ALL aspects of the cloud service offering within the Minimum Assessment Scope',
+      'Coverage matrix: each KSI × each in-scope information-resource group (cross-referenced to the MAS-CSO-IIR scope + the discovered inventory)',
+    ],
+    remediation_steps: [
+      'Confirm the assessment scope (MAS-CSO-IIR) and the discovered inventory (KSI-PIY-GIV) are reconciled.',
+      'Map every KSI to the in-scope resource groups it applies to; flag any resource group a KSI does not yet cover.',
+      'Close coverage gaps (extend a collector’s scope or add a process attestation), then record the coverage matrix.',
+      'Re-run cloud-evidence to confirm full KSI coverage across the MAS.',
+    ],
+    alternative_satisfiers: [grcAlt('A GRC platform can hold the KSI×resource coverage matrix and flag gaps continuously.')],
+    nist_controls: ['ca-2', 'pl-2'],
+    references: [REF.mas],
+  },
+  'KSI-CSX-ORD': {
+    artifacts_required: [
+      'Record of the risk-based order of criticality used to approach the Authorization-by-FedRAMP KSIs for the initial authorization package (this is a MAY — informational)',
+    ],
+    remediation_steps: [
+      'Document the order in which AFR KSIs were prioritized for the initial package (the FedRAMP-suggested order may be adopted or a justified alternative).',
+      'Keep it as a planning artifact; it is optional (MAY) and not a pass/fail gate.',
+    ],
+    alternative_satisfiers: [grcAlt('A GRC platform’s remediation-prioritization backlog records the order of criticality.')],
+    nist_controls: ['pm-9'],
+    references: [REF.afr],
+  },
+
+  // ── PIY (Policy & Inventory) — governance review KSIs ──
+  'KSI-PIY-RES': {
+    artifacts_required: [
+      'Record of the persistent review of executive support for the security program (e.g. signed security program charter, exec steering-committee minutes, budget approvals)',
+    ],
+    remediation_steps: [
+      'Establish documented executive sponsorship of the security program (charter / appointed senior security official).',
+      'Persistently review that support (recurring exec security review with decisions + funding).',
+      'Record each review (attendees, decisions, date).',
+    ],
+    alternative_satisfiers: [grcAlt('A GRC platform tracks the governance cadence + exec sign-offs.')],
+    nist_controls: ['pm-2', 'pm-3'],
+    sla: { cadence: 'at least annually (recommended quarterly for steering review)' },
+  },
+  'KSI-PIY-RIS': {
+    artifacts_required: [
+      'Record of the persistent review of the effectiveness of security investments (spend-vs-objectives analysis, MTTR/coverage trend tied to investment decisions)',
+    ],
+    remediation_steps: [
+      'Tie security investments to measurable objectives (coverage, MTTR, risk reduction).',
+      'Persistently review whether investments are achieving those objectives; reallocate as needed.',
+      'Record the review + the metrics that informed it.',
+    ],
+    alternative_satisfiers: [grcAlt('A GRC platform correlates control coverage + risk trend to investment decisions.')],
+    nist_controls: ['ac-5', 'ca-2', 'cp-2.1', 'cp-4.1', 'ir-3.2', 'pm-3', 'sa-2', 'sa-3', 'sr-2.1'],
+    sla: { cadence: 'at least annually' },
+  },
+  'KSI-PIY-RSD': {
+    artifacts_required: [
+      'Record of the persistent review of security/privacy in the SDLC, including alignment with CISA Secure-by-Design principles (SSDLC policy + sample gate evidence)',
+    ],
+    remediation_steps: [
+      'Embed security + privacy gates in the SDLC (threat modeling, secure-design review, SAST/DAST/SCA, code review).',
+      'Align practices to CISA Secure-by-Design + Secure-by-Default principles.',
+      'Persistently review gate effectiveness (escaped-defect rate, gate pass/fail trend); record the review.',
+    ],
+    alternative_satisfiers: [
+      scannerAlt('SAST/SCA platforms (Snyk, Semgrep, GitHub Advanced Security) evidence SDLC security gates + their effectiveness.'),
+      grcAlt('A GRC platform tracks the SSDLC review cadence + Secure-by-Design alignment.'),
+    ],
+    nist_controls: ['ac-5', 'au-3.3', 'cm-3.4', 'pl-8', 'pm-7', 'sa-3', 'sa-8', 'sc-4', 'sc-18', 'si-10', 'si-11', 'si-16'],
+    references: [{ title: 'CISA Secure by Design', url: 'https://www.cisa.gov/securebydesign' }],
+    sla: { cadence: 'at least annually (per SDLC-process change)' },
+  },
+  'KSI-PIY-RVD': {
+    artifacts_required: [
+      'Record of the persistent review of the vulnerability-disclosure program’s effectiveness (intake volume, triage time, time-to-remediate, researcher feedback)',
+    ],
+    remediation_steps: [
+      'Operate a vulnerability-disclosure program (VDP) / bug bounty with a public intake.',
+      'Persistently review its effectiveness (reports received, valid-finding rate, time-to-acknowledge/remediate).',
+      'Record the review + metrics; feed findings into the VDR lifecycle.',
+    ],
+    alternative_satisfiers: [
+      bugBountyAlt(),
+      grcAlt('A GRC platform tracks VDP metrics + review cadence.'),
+    ],
+    nist_controls: ['ra-5.11'],
+    references: [REF.vdr],
+    sla: { cadence: 'at least annually' },
+  },
 };
 
 /**

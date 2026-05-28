@@ -11,6 +11,30 @@ import {
 import { addBusinessDays, isBusinessDay, deadlineStatus, usFederalHolidays } from '../../core/bizdays.ts';
 import { buildProcessArtifactEvidence } from '../../core/process-artifact-tracker.ts';
 import { validateEvidenceFile } from '../../core/schema.ts';
+import { REQUIREMENT_PLAYBOOKS } from '../../core/requirement-playbooks.ts';
+import { KSI_MAP } from '../../core/ksi-map.ts';
+
+describe('full-coverage completeness (no requirement left behind)', () => {
+  const SPECIAL = new Set(['KSI-CSX-SUM', 'KSI-AFR-PVA']); // aggregator + meta-collector
+
+  it('has exactly 63 KSIs', () => {
+    const ksis = loadRequirements().filter((r) => r.category === 'ksi-indicator');
+    expect(ksis.length).toBe(63);
+  });
+
+  it('every provider requirement has a collector, special handler, or a specific playbook (no generic stubs)', () => {
+    const gaps = loadRequirements().filter(
+      (r) => actorScopeOf(r) === 'provider' && !KSI_MAP[r.id] && !SPECIAL.has(r.id) && !REQUIREMENT_PLAYBOOKS[r.id],
+    );
+    expect(gaps.map((r) => r.id)).toEqual([]);
+  });
+
+  it('the 3 CSX KSIs are classified as ksi-indicator', () => {
+    for (const id of ['KSI-CSX-SUM', 'KSI-CSX-MAS', 'KSI-CSX-ORD']) {
+      expect(getRequirement(id)?.category, id).toBe('ksi-indicator');
+    }
+  });
+});
 
 describe('requirements-registry', () => {
   it('loads the full 20x requirement set', () => {
