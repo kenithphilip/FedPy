@@ -12,6 +12,7 @@
     "collect:deno": "deno run --allow-read --allow-env --allow-sys --allow-net --allow-write --allow-run core/orchestrator.ts",
     "verify:deno": "deno run --allow-read --allow-env --allow-sys --allow-run core/verify-cli.ts",
     "typecheck": "tsc --noEmit",
+    "gen:iam-actions": "node scripts/extract-iam-actions.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

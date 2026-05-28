@@ -219,5 +219,20 @@ This is a curated document. When you add a collector or a new SDK call:
 1. Add the action/role to the relevant table above.
 2. Pass the action name to `diagnoseAwsError(e, source, action)` in the collector's catch.
 
-A future enhancement could auto-generate this from the collectors' Command imports —
-see `providers/*/*.ts` for the `*Command` import lists.
+### Auto-generated cross-check
+
+`docs/iam-actions.generated.json` is a machine-readable inventory of the
+permissions the code *actually* references, produced by static analysis of the
+provider source — AWS `*Command` imports → `<service>:<Action>`, and GCP
+`roles/...` hints. Regenerate it with:
+
+```bash
+npm run gen:iam-actions          # node scripts/extract-iam-actions.mjs
+node scripts/extract-iam-actions.mjs --check   # CI-style: exit 1 if stale
+```
+
+Use it to spot drift between this curated catalog and the live call sites (e.g.
+a newly added collector that calls an action not yet documented here). It
+currently inventories **134 AWS actions across 38 services** and **41 GCP roles**.
+The extractor's pure helpers are unit-tested in
+`tests/core/iam-actions-extract.test.ts`.
