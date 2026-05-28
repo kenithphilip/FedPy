@@ -27,6 +27,9 @@ import { selectForLevel, getRequirement, appliesAtLevel, actorScopeOf, type Requ
 import { buildProcessArtifactEvidence, type AttestationRecord } from './process-artifact-tracker.ts';
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
+import { adsUrlsFromEnv, probeAdsEndpoints, buildAdsFindings } from './ads-probe.ts';
+import { reconcileMas, buildMasFindings } from './mas-reconcile.ts';
+import { loadScgBaseline, compareScg, buildScgFindings } from './scg-comparator.ts';
 import { buildCsxSum } from './csx-sum-aggregator.ts';
 import { notifyDrift } from './notify.ts';
 import { exportFindingsCsv } from './csv-export.ts';
@@ -369,6 +372,124 @@ function writeFileSafe(path: string, data: string): void {
   } catch (e: any) {
     throw new Error(describeFsError(e, path, 'writing'));
   }
+}
+
+/**
+ * Wrap a set of Findings (from a signal module) into a schema-valid PROCESS/HYBRID
+ * EvidenceFile keyed to an anchor requirement id, pulling metadata from the registry.
+ */
+function wrapSignalEvidence(
+  reqId: string, findings: ProviderBlock['findings'], tier: ImpactTier, runId: string, frmrVersion: string,
+): EvidenceFile {
+  const reg = getRequirement(reqId);
+  const ap = reg ? appliesAtLevel(reg, tier) : null;
+  const providers: ProviderBlock[] = [{ provider: 'aws', account_id: null, region_set: [], evidence: [], findings, warnings: [] }];
+  return {
+    ksi_id: reqId,
+    ksi_name: reg?.name ?? reqId,
+    ksi_statement: reg?.statement ?? ap?.statement ?? reqId,
+    scope: 'HYBRID',
+    frmr_version: frmrVersion,
+    run_id: runId,
+    collected_at: new Date().toISOString(),
+    providers,
+    rollup: makeRollup(providers),
+    nist_controls: reg?.controls,
+    category: reg?.category ?? 'frr-requirement',
+    family: reg?.family,
+    impact_level: tier,
+    applicable_key_word: ap?.key_word ?? undefined,
+    level_source: ap?.source,
+    actor_scope: 'provider',
+    awareness_only: false,
+    summary_for_llm: `${reqId} automated signal: ${findings.filter((f) => f.passed).length}/${findings.length} check(s) passed at ${tier}.`,
+  };
+}
+
+/**
+ * Run the ADS / MAS / SCG automated-signal modules when their inputs are
+ * configured (env-gated; absent input → skipped). Returns the evidence files +
+ * the requirement ids they cover (so the process-artifact emitter skips them).
+ * READ-ONLY: ADS does outbound GET probes; MAS/SCG read operator-provided files.
+ */
+async function emitSignalEvidence(
+  outDir: string, tier: ImpactTier, runId: string, frmrVersion: string,
+): Promise<{ results: RunResult[]; coveredIds: Set<string> }> {
+  const results: RunResult[] = [];
+  const coveredIds = new Set<string>();
+  const write = (reqId: string, findings: ProviderBlock['findings'], source: string) => {
+    if (findings.length === 0) return;
+    const evf = wrapSignalEvidence(reqId, findings, tier, runId, frmrVersion);
+    const validation = validateEvidenceFile(JSON.parse(JSON.stringify(evf)));
+    const outPath = resolve(outDir, `${reqId}.json`);
+    writeFileSafe(outPath, JSON.stringify(evf, null, 2));
+    coveredIds.add(reqId);
+    results.push({
+      ksi_id: reqId, evidence_file: outPath, rollup_pass: evf.rollup.pass,
+      findings_count: evf.rollup.passing_findings + evf.rollup.failing_findings,
+      warnings_count: 0, duration_ms: 0, schema_valid: validation.valid,
+      schema_errors: validation.valid ? undefined : formatErrors(validation.errors),
+    });
+    console.log(`  [${reqId}] ${source} signal emitted (${evf.rollup.pass ? '✓ PASS' : '✗ FAIL'})`);
+  };
+
+  // ADS — public Trust Center / CSO / OSCAL endpoint probe.
+  try {
+    const urls = adsUrlsFromEnv();
+    if (urls.length > 0) {
+      const probe = await probeAdsEndpoints({ urls });
+      write('ADS-CSO-PUB', buildAdsFindings(probe, tier), 'ADS endpoint probe');
+    }
+  } catch (e: any) { console.error(`  ADS probe failed: ${e?.message ?? e}`); }
+
+  // MAS — documented assessment scope vs discovered inventory.
+  try {
+    const docPath = process.env.CLOUD_EVIDENCE_MAS_DOCUMENTED_PATH;
+    if (docPath && existsSync(docPath)) {
+      const documented: string[] = JSON.parse(readFileSync(docPath, 'utf8'));
+      // Discovered: an explicit file, else best-effort from the inventory evidence.
+      let discovered: string[] = [];
+      const discPath = process.env.CLOUD_EVIDENCE_MAS_DISCOVERED_PATH;
+      if (discPath && existsSync(discPath)) {
+        discovered = JSON.parse(readFileSync(discPath, 'utf8'));
+      } else {
+        const invPath = resolve(outDir, 'KSI-PIY-GIV.json');
+        if (existsSync(invPath)) {
+          try {
+            const inv = JSON.parse(readFileSync(invPath, 'utf8'));
+            for (const p of inv.providers ?? []) for (const f of p.findings ?? []) {
+              for (const r of f.gap?.affected_resources ?? []) if (r.identifier) discovered.push(r.identifier);
+            }
+          } catch { /* best-effort */ }
+        }
+      }
+      if (Array.isArray(documented)) {
+        const recon = reconcileMas({ documented, discovered });
+        write('MAS-CSO-IIR', buildMasFindings(recon, tier), 'MAS reconciliation');
+      }
+    }
+  } catch (e: any) { console.error(`  MAS reconcile failed: ${e?.message ?? e}`); }
+
+  // SCG — published Secure Configuration Guide vs observed config.
+  try {
+    const guidePath = process.env.CLOUD_EVIDENCE_SCG_GUIDE_PATH;
+    if (guidePath) {
+      const { baseline, error } = loadScgBaseline(guidePath);
+      if (!error) {
+        let observed: Record<string, unknown> = {};
+        const obsPath = process.env.CLOUD_EVIDENCE_SCG_OBSERVED_PATH;
+        if (obsPath && existsSync(obsPath)) {
+          try { observed = JSON.parse(readFileSync(obsPath, 'utf8')); } catch { /* */ }
+        }
+        const cmp = compareScg({ guide: baseline, observed });
+        write('SCG-CSO-RSC', buildScgFindings(cmp, tier), 'SCG comparison');
+      } else {
+        console.error(`  SCG guide load: ${error}`);
+      }
+    }
+  } catch (e: any) { console.error(`  SCG compare failed: ${e?.message ?? e}`); }
+
+  return { results, coveredIds };
 }
 
 /**
@@ -793,6 +914,20 @@ export async function main(): Promise<void> {
   );
   const results: RunResult[] = await Promise.all(tasks);
 
+  // ---- Emit automated ADS / MAS / SCG signal evidence (env-gated) BEFORE the
+  // process-artifact emitter, so those requirement ids get the real signal rather
+  // than a process stub. ----
+  let signalCoveredIds = new Set<string>();
+  if (!args.ksiFilter) {
+    try {
+      const sig = await emitSignalEvidence(args.outDir, impactLevel, runId, config.frmr_version);
+      results.push(...sig.results);
+      signalCoveredIds = sig.coveredIds;
+    } catch (e: any) {
+      console.error(`Signal-evidence emission failed: ${e?.message ?? e}`);
+    }
+  }
+
   // ---- Emit PROCESS-scope evidence for in-scope requirements WITHOUT a cloud
   // collector (the ~99 governance/process requirements + level-scoped FRR items).
   // Skipped when --ksis filters to a specific KSI subset. ----
@@ -805,7 +940,7 @@ export async function main(): Promise<void> {
         new Map(results.flatMap((r) => r.detected_tools ?? []).map((t) => [t.name, t])).values(),
       );
       const sel = selectForLevel(impactLevel);
-      const alreadyWritten = new Set<string>([...inScopeKsis.map((k) => k.id), 'KSI-AFR-PVA', 'KSI-CSX-SUM']);
+      const alreadyWritten = new Set<string>([...inScopeKsis.map((k) => k.id), ...signalCoveredIds, 'KSI-AFR-PVA', 'KSI-CSX-SUM']);
       const toEmit: RequirementEntry[] = [...sel.inScope, ...sel.awareness]
         .filter((r) => !alreadyWritten.has(r.id) && !KSI_MAP[r.id]);
       let emitted = 0;
