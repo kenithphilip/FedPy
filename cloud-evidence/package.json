@@ -13,6 +13,7 @@
     "verify:deno": "deno run --allow-read --allow-env --allow-sys --allow-run core/verify-cli.ts",
     "typecheck": "tsc --noEmit",
     "gen:iam-actions": "node scripts/extract-iam-actions.mjs",
+    "gen:oscal-schemas": "node scripts/extract-oscal-schemas.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

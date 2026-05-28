@@ -53,6 +53,7 @@ import { validateEvidenceFile, formatErrors } from './schema.ts';
 import { signRun, verifyRun } from './sign.ts';
 import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
+import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
 import { buildFanoutPlan, type FanoutTarget } from './aws-org-fanout.ts';
 import { emitPowerpipeMod } from './powerpipe-emitter.ts';
@@ -1358,6 +1359,18 @@ export async function main(): Promise<void> {
         organizationName: args.oscalOrgName ?? undefined,
       });
       console.log(`OSCAL: ${r.path} (${r.result_count} results, ${r.finding_count} findings, ${r.observation_count} observations)`);
+      // OSC-1: validate the emitted document against the committed NIST schema.
+      const v = validateOscalFile(r.path, 'assessment-results');
+      if (v.valid) {
+        console.log('OSCAL schema validation: assessment-results.json is valid (NIST OSCAL 1.1.2).');
+        ledger.record('oscal.validate', { status: 'info', valid: true, model: 'assessment-results' });
+      } else {
+        console.error(`OSCAL schema validation: ${v.errors.length} error(s)${v.schema_found ? '' : ' (schema not committed — run scripts/extract-oscal-schemas.mjs)'}`);
+        for (const e of v.errors.slice(0, 10)) console.error(`  ! ${e}`);
+        ledger.record('oscal.validate', { status: 'fail', valid: false, model: 'assessment-results', error_count: v.errors.length });
+        log.warn({ event: 'oscal.invalid', error_count: v.errors.length });
+        if (args.strictSchema && v.schema_found) process.exitCode = 2;
+      }
     } catch (e: any) {
       console.error(`OSCAL emission failed: ${e.message}`);
       log.error({ event: 'oscal.fail', err_message: e?.message });

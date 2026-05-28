@@ -388,8 +388,11 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
     results,
   };
 
+  // NIST OSCAL documents wrap the model in a top-level key — the schema's root
+  // requires `assessment-results`. (Previously we wrote the inner object directly,
+  // which isn't a schema-valid OSCAL document; OSC-1 validation surfaced this.)
   const outPath = opts.outPath ?? resolve(opts.outDir, 'assessment-results.json');
-  writeFileSync(outPath, JSON.stringify(ar, null, 2));
+  writeFileSync(outPath, JSON.stringify({ 'assessment-results': ar }, null, 2));
 
   log.info({
     event: 'oscal.emitted',

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — OSCAL schema validation + fixed the OSCAL document wrapper (OSC-1/2)
+- **`core/oscal-validate.ts`** validates the OSCAL we emit against NIST's official
+  JSON Schema using the already-vendored `ajv` — no new dependency, no runtime
+  network. Schemas are committed offline (`docs/oscal/oscal_*_schema.v1.1.2.json`,
+  assessment-results + ssp + poam) by **`scripts/extract-oscal-schemas.mjs`**
+  (`npm run gen:oscal-schemas`), mirroring our "commit data, validate offline" pattern.
+- The orchestrator validates `assessment-results.json` after emitting it (under the
+  signed manifest); reports any errors and fails the run under `--strict-schema`.
+- **Bug fix (surfaced by OSC-1):** the emitter now wraps the document in the
+  required top-level `{ "assessment-results": … }` key — previously it wrote the
+  inner object directly, which is **not** a schema-valid OSCAL document and would
+  be rejected by NIST tooling / Paramify. Emitted docs now pass NIST schema
+  validation. 4 validator tests + updated emitter tests.
+
 ### Added — Organization-grade cloud inventory (FedRAMP workbook + full asset inventory)
 A complete cloud asset inventory for any org, not just FedRAMP — enabled by
 `--inventory-workbook` (env `CLOUD_EVIDENCE_INVENTORY_WORKBOOK`) or the fast

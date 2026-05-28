@@ -91,7 +91,9 @@ describe('emitOscalAssessmentResults', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
     const r = emitOscalAssessmentResults({ outDir: tmp, runId: 'run-test-1', frmrVersion: '2025-06.r1', organizationName: 'Acme Corp' });
     expect(r.result_count).toBe(1);
-    const doc = JSON.parse(readFileSync(r.path, 'utf8'));
+    const raw = JSON.parse(readFileSync(r.path, 'utf8'));
+    expect(raw['assessment-results']).toBeTruthy();  // OSCAL documents wrap the model in a top-level key
+    const doc = raw['assessment-results'];
     expect(doc.uuid).toMatch(/^[a-f0-9-]{36}$/);
     expect(doc.metadata.title).toMatch(/run-test-1/);
     expect(doc.metadata['oscal-version']).toBe('1.1.2');
@@ -103,7 +105,7 @@ describe('emitOscalAssessmentResults', () => {
   it('maps passed → satisfied and !passed → not-satisfied', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
     emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
-    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'));
+    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'))['assessment-results'];
     const findings = doc.results[0].findings;
     const root = findings.find((f: any) => f.title.startsWith('aws.iam.root_mfa_enabled'));
     const console_users = findings.find((f: any) => f.title.startsWith('aws.iam.console_users_have_mfa'));
@@ -115,7 +117,7 @@ describe('emitOscalAssessmentResults', () => {
   it('emits observations per RawEvidence and links them from findings', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
     emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
-    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'));
+    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'))['assessment-results'];
     const result = doc.results[0];
     // 2 RawEvidence + 1 synthesized affected-resources obs (only for the failing finding)
     expect(result.observations.length).toBeGreaterThanOrEqual(3);
@@ -128,7 +130,7 @@ describe('emitOscalAssessmentResults', () => {
   it('creates inventory-item subjects from affected_resources on failing findings', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
     emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
-    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'));
+    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'))['assessment-results'];
     const result = doc.results[0];
     const resourceObs = result.observations.find((o: any) => o.subjects && o.subjects.length > 0);
     expect(resourceObs).toBeTruthy();
@@ -140,7 +142,7 @@ describe('emitOscalAssessmentResults', () => {
   it('encodes remediation steps + alternative satisfiers into the finding remarks', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
     emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
-    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'));
+    const doc = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'))['assessment-results'];
     const failing = doc.results[0].findings.find((f: any) => f.target.status.state === 'not-satisfied');
     expect(failing.remarks).toMatch(/Remediation/);
     expect(failing.remarks).toMatch(/Sign in to IAM console/);
@@ -150,10 +152,10 @@ describe('emitOscalAssessmentResults', () => {
   it('produces deterministic UUIDs across re-runs for the same evidence', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
     emitOscalAssessmentResults({ outDir: tmp, runId: 'run-test-1', frmrVersion: '2025-06.r1' });
-    const doc1 = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'));
+    const doc1 = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'))['assessment-results'];
 
     emitOscalAssessmentResults({ outDir: tmp, runId: 'run-test-1', frmrVersion: '2025-06.r1' });
-    const doc2 = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'));
+    const doc2 = JSON.parse(readFileSync(resolve(tmp, 'assessment-results.json'), 'utf8'))['assessment-results'];
 
     // The top-level UUID + all finding & observation UUIDs should be identical
     expect(doc1.uuid).toBe(doc2.uuid);
@@ -174,7 +176,7 @@ describe('emitOscalAssessmentResults', () => {
     writeFileSync(resolve(tmp, 'KSI-IAM-AAM.json'), JSON.stringify(fakeEvidence({ ksi_id: 'KSI-IAM-AAM', ksi_name: 'Account Mgmt' })));
     const r = emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
     expect(r.result_count).toBe(2);
-    const doc = JSON.parse(readFileSync(r.path, 'utf8'));
+    const doc = JSON.parse(readFileSync(r.path, 'utf8'))['assessment-results'];
     const ksiIds = doc.results.map((res: any) => res.props.find((p: any) => p.name === 'ksi-id').value).sort();
     expect(ksiIds).toEqual(['KSI-IAM-AAM', 'KSI-IAM-MFA']);
   });
