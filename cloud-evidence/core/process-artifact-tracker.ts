@@ -29,6 +29,7 @@ import type {
 import { finding, severityForKeyWord } from './findings.ts';
 import { appliesAtLevel, actorScopeOf, type RequirementEntry } from './requirements-registry.ts';
 import { deadlineStatus } from './bizdays.ts';
+import { describeControls } from './nist-r5.ts';
 
 /** Operator-recorded proof that a process requirement is met. */
 export interface AttestationRecord {
@@ -174,6 +175,8 @@ export function buildProcessArtifactEvidence(req: RequirementEntry, ctx: Process
     attestation_fresh: hasAttestation,
     sla: slaNote ?? null,
     detected_tools: (ctx.detectedTools ?? []).map((t) => t.name),
+    // Official NIST 800-53 Rev5 control names grounding the (derived) High applicability.
+    nist_control_details: describeControls(nistControls),
   };
 
   const f: Finding = finding({
