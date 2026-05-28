@@ -1,0 +1,78 @@
+name: CI
+
+# Gates regressions: typecheck + tests for BOTH projects on every push and PR.
+# (The separate cloud-evidence.yml workflow is the scheduled *collection* job and
+# is intentionally left untouched.)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cloud-evidence:
+    name: cloud-evidence (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    defaults:
+      run:
+        working-directory: cloud-evidence
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: cloud-evidence/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+  tracker:
+    name: tracker (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    defaults:
+      run:
+        working-directory: tracker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: tracker/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build client
+        run: npm run build

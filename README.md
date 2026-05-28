@@ -5,6 +5,7 @@
 > **223 requirements**, benchmark your infrastructure against **NIST SP 800-53**
 > at Low / Moderate / High, and track implementation across your team.
 
+[![CI](https://github.com/kenithphilip/FedPy/actions/workflows/ci.yml/badge.svg)](https://github.com/kenithphilip/FedPy/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6.svg)
 ![Node](https://img.shields.io/badge/Node-22%2F24-339933.svg)
