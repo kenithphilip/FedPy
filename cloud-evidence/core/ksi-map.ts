@@ -67,6 +67,8 @@ import * as awsInventory from '../providers/aws/inventory.ts';
 import * as gcpInventory from '../providers/gcp/inventory.ts';
 import * as awsCrypto from '../providers/aws/crypto.ts';
 import * as gcpCrypto from '../providers/gcp/crypto.ts';
+import * as awsHybrids from '../providers/aws/ksi-hybrids.ts';
+import * as gcpHybrids from '../providers/gcp/ksi-hybrids.ts';
 
 export const KSI_MAP: Record<string, KsiEntry> = {
   'KSI-IAM-AAM': {
@@ -444,6 +446,80 @@ export const KSI_MAP: Record<string, KsiEntry> = {
       'CMVP certificate references for each cryptographic module used to protect federal data',
       'Mapping of services (or service groups) → cryptographic modules',
     ],
+  },
+
+  // ---- Phase 4: previously-uncovered KSI hybrid indicators ----
+  // Each emits a read-only cloud "proxy" signal that the capability exists; the
+  // periodic human review is attached as a process artifact.
+  'KSI-CMT-RVP': {
+    id: 'KSI-CMT-RVP',
+    name: 'Reviewing Change Procedures',
+    scope: 'HYBRID',
+    statement: 'Persistently review the effectiveness of documented change management procedures.',
+    nist_controls: ['cm-3', 'cm-3.2', 'cm-3.4', 'cm-5', 'cm-7.1', 'cm-9'],
+    aws: awsHybrids.collectCmtRvp,
+    gcp: gcpHybrids.collectCmtRvp,
+    process_artifacts_required: ['Change-procedure effectiveness review minutes', 'Sample of changes verified against the documented procedure'],
+  },
+  'KSI-INR-AAR': {
+    id: 'KSI-INR-AAR',
+    name: 'Generating After Action Reports',
+    scope: 'HYBRID',
+    statement: 'Generate incident after action reports and persistently incorporate lessons learned.',
+    nist_controls: ['ir-3', 'ir-4', 'ir-4.1', 'ir-8'],
+    aws: awsHybrids.collectInrAar,
+    gcp: gcpHybrids.collectInrAar,
+    process_artifacts_required: ['Sample after-action report', 'Lessons-learned tracking record'],
+  },
+  'KSI-INR-RPI': {
+    id: 'KSI-INR-RPI',
+    name: 'Reviewing Past Incidents',
+    scope: 'HYBRID',
+    statement: 'Persistently review past incidents for patterns or vulnerabilities.',
+    nist_controls: ['ir-3', 'ir-4', 'ir-4.1', 'ir-5', 'ir-8'],
+    aws: awsHybrids.collectInrRpi,
+    gcp: gcpHybrids.collectInrRpi,
+    process_artifacts_required: ['Past-incident trend/pattern review minutes', 'Incident log retention policy'],
+  },
+  'KSI-RPL-ARP': {
+    id: 'KSI-RPL-ARP',
+    name: 'Aligning Recovery Plan',
+    scope: 'HYBRID',
+    statement: 'Persistently review the alignment of recovery plans with defined recovery objectives.',
+    nist_controls: ['cp-2', 'cp-6', 'cp-7', 'cp-10', 'cp-10.2'],
+    aws: awsHybrids.collectRplArp,
+    gcp: gcpHybrids.collectRplArp,
+    process_artifacts_required: ['Recovery plan document', 'Recovery-plan-vs-objectives alignment review minutes'],
+  },
+  'KSI-RPL-RRO': {
+    id: 'KSI-RPL-RRO',
+    name: 'Reviewing Recovery Objectives',
+    scope: 'HYBRID',
+    statement: 'Persistently review desired Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO).',
+    nist_controls: ['cp-2.3', 'cp-9', 'cp-10'],
+    aws: awsHybrids.collectRplRro,
+    gcp: gcpHybrids.collectRplRro,
+    process_artifacts_required: ['RTO/RPO register per system', 'Backup-cadence-vs-RPO comparison'],
+  },
+  'KSI-SCR-MIT': {
+    id: 'KSI-SCR-MIT',
+    name: 'Mitigating Supply Chain Risk',
+    scope: 'HYBRID',
+    statement: 'Persistently identify, review, and mitigate potential supply chain risks.',
+    nist_controls: ['ac-20', 'sa-9', 'sa-10', 'sa-11', 'sr-5', 'sr-6', 'si-7.1'],
+    aws: awsHybrids.collectScrMit,
+    gcp: gcpHybrids.collectScrMit,
+    process_artifacts_required: ['Supply-chain risk register + mitigations', 'Image scanning/signing policy'],
+  },
+  'KSI-SVC-PRR': {
+    id: 'KSI-SVC-PRR',
+    name: 'Preventing Residual Risk',
+    scope: 'HYBRID',
+    statement: 'Prevent unauthorized and unintended information transfer via shared system resources (residual data in shared/multi-tenant resources).',
+    nist_controls: ['sc-4'],
+    aws: awsHybrids.collectSvcPrr,
+    gcp: gcpHybrids.collectSvcPrr,
+    process_artifacts_required: ['Data-isolation/tenancy design doc', 'Public-exposure review record'],
   },
 
   // KSI-AFR-PVA and KSI-CSX-SUM are SPECIAL: invoked by the orchestrator after all
