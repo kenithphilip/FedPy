@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Completeness, NIST grounding, production hardening, Bun runtime
+- **Corrected KSI count to 63** (was 60): `KSI-CSX-SUM/MAS/ORD` live under the `FRR.KSI`
+  family and were mis-classified — they are KSIs. Registry now reports 63 KSIs; a
+  completeness regression test asserts 63 KSIs + **zero generic-stub gaps** (every one of
+  the 223 requirements resolves to a collector, the aggregator/meta, a specific playbook,
+  or awareness-only). Added specific playbooks for the 6 previously-generic KSIs
+  (CSX-MAS/ORD, PIY-RES/RIS/RSD/RVD).
+- **NIST 800-53 Rev5 enrichment** (`core/nist-r5.ts` + `docs/nist-r5-controls.generated.json`
+  from the GovReady r5 dataset): High-derived findings now carry official Rev5 control
+  names (e.g. "ra-5 — Vulnerability Monitoring and Scanning") as grounding evidence.
+- **Production-hardening layer:** `core/run-ledger.ts` (append-only JSONL audit trail of
+  every action + outcome + timing, crash-durable → `out/run-ledger.jsonl`), `core/run-lock.ts`
+  (prevents overlapping runs clobbering the same out dir; TTL + PID-liveness; auto-released on
+  exit), `core/rate-control.ts` (token bucket + AIMD adaptive concurrency on throttle + TTL
+  in-run memoization). Orchestrator records run.start / per-collector run / run.complete and
+  surfaces ledger + throttle telemetry in the run summary.
+- **Bun runtime for the collector** (`collect:bun` / `verify:bun`, `.tool-versions`): the
+  sqlite-free collector runs on Bun 1.3+ (recommended for production — native TS, faster I/O);
+  verified end-to-end at High tier. Node + tsx remains the default; the tracker stays on Node.
+
 ### Added — FedRAMP 20x full-level coverage (Low / Moderate / High)
 Expands the collector from the 35 implemented KSIs toward the full **223-requirement**
 FedRAMP 20x set (60 KSI indicators + 163 FRR requirements) with a setup-time impact-tier selector.

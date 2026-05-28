@@ -6,12 +6,30 @@ This is a working operations document. Treat as a reference, not gospel — edit
 
 | Tool | Why |
 |---|---|
-| Node 20+ (24 tested) | Both projects |
+| Node 20+ (24 tested) | Both projects (default runtime via tsx; tracker requires Node) |
+| Bun 1.3+ (optional) | Recommended runtime for the collector — see "Runtime" below |
 | AWS CLI v2 | For `aws sso login` |
 | gcloud CLI | For `gcloud auth application-default login` |
 | openssl | Signature + RFC 3161 timestamps |
 | cosign (optional) | SBOM signature verification |
 | kubectl (optional) | K8s collector requires kubeconfig |
+
+### Runtime: Node (tsx) or Bun
+
+The **cloud-evidence collector runs on both Node and Bun** (it is sqlite-free; all
+deps — AWS SDK v3, googleapis, @kubernetes/client-node, ajv, pino, p-limit, yaml —
+are Bun-compatible). Bun is **recommended for production collection** (native TS,
+faster startup/I/O, better concurrency under throttle):
+
+```bash
+# Node (default / fallback)               # Bun (recommended for prod)
+npm run collect -- --impact-level high     bun run core/orchestrator.ts --impact-level high
+npm run verify  -- ./out                   npm run verify:bun -- ./out
+```
+
+Verified on Bun 1.3.14 (a full high-tier run produced identical, schema-valid
+evidence + the run ledger). The **tracker stays on Node** (it uses better-sqlite3,
+a native Node addon). The vitest test suites run on Node.
 
 ## 1. First-time setup
 

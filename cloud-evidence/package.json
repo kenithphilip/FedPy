@@ -7,6 +7,8 @@
   "scripts": {
     "collect": "tsx core/orchestrator.ts",
     "verify": "tsx core/verify-cli.ts",
+    "collect:bun": "bun run core/orchestrator.ts",
+    "verify:bun": "bun run core/verify-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
