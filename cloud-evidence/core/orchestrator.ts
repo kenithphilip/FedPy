@@ -35,6 +35,8 @@ import { discoverAwsAssets } from '../providers/aws/discover.ts';
 import { discoverGcpAssets } from '../providers/gcp/discover.ts';
 import { readPreviousInventory, diffInventory, writeInventoryDiff, writeInventoryOscal, writeInventoryCmdb } from './inventory-emit.ts';
 import { collectAwsCost, collectMacieSensitiveBuckets } from '../providers/aws/inventory-cost.ts';
+import { collectAwsReferenceArch } from '../providers/aws/reference-arch.ts';
+import { collectGcpReferenceArch } from '../providers/gcp/reference-arch.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -113,6 +115,8 @@ interface Args {
   inventoryWorkbook: boolean;
   /** When true, run ONLY the inventory (skip KSI collection + process evidence) — a fast inventory-focused run. */
   inventoryOnly: boolean;
+  /** When true, audit the running env against FedRAMP reference-architecture hardening and emit AUDIT-REFARCH-{AWS,GCP}.json. */
+  referenceArch: boolean;
   /** When true, fan out collection across all AWS Organizations member accounts. */
   awsOrgFanout: boolean;
   /** When fanout is on: only collect these account IDs. */
@@ -163,6 +167,7 @@ function parseArgs(argv: string[]): Args {
     crosswalk: process.env.CLOUD_EVIDENCE_CROSSWALK === '1',
     inventoryWorkbook: process.env.CLOUD_EVIDENCE_INVENTORY_WORKBOOK === '1',
     inventoryOnly: false,
+    referenceArch: process.env.CLOUD_EVIDENCE_REFERENCE_ARCH === '1',
     awsOrgFanout: process.env.CLOUD_EVIDENCE_AWS_ORG_FANOUT === '1',
     awsFanoutInclude: (process.env.CLOUD_EVIDENCE_AWS_INCLUDE ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     awsFanoutExclude: (process.env.CLOUD_EVIDENCE_AWS_EXCLUDE ?? '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -261,6 +266,9 @@ function parseArgs(argv: string[]): Args {
         args.inventoryWorkbook = true;
         args.ksiFilter = [];   // no KSI collectors run
         break;
+      case '--reference-arch':
+        args.referenceArch = true;
+        break;
       case '--aws-org-fanout':
         args.awsOrgFanout = true;
         break;
@@ -350,6 +358,12 @@ Post-run artifacts:
                          for AWS + GCP (env: CLOUD_EVIDENCE_INVENTORY_WORKBOOK)
   --inventory-only       Fast inventory-focused run: only the inventory (skip KSI
                          collection + process evidence). Implies --inventory-workbook.
+  --reference-arch       Audit the running env against FedRAMP reference-architecture
+                         hardening (Coalfire RAMPpak-derived) and emit
+                         AUDIT-REFARCH-{AWS,GCP}.json evidence that flows into the
+                         benchmark/OSCAL/crosswalk (env: CLOUD_EVIDENCE_REFERENCE_ARCH).
+                         AMI/API allow-patterns: CLOUD_EVIDENCE_APPROVED_AMI_PATTERN,
+                         CLOUD_EVIDENCE_GCP_API_ALLOWLIST.
   --framework <fw>       NIST 800-53 control-benchmark framing: rev5 (full 800-53B baseline) or 20x
                          (only controls the 20x KSIs reference). Default 20x. Emits control-benchmark.json
                          (env: CLOUD_EVIDENCE_FRAMEWORK)
@@ -1053,6 +1067,65 @@ export async function main(): Promise<void> {
       console.log(`Process requirements [${impactLevel}]: emitted ${emitted} evidence file(s) (${awarenessCount} awareness-only) for requirements without a cloud collector.`);
     } catch (e: any) {
       console.error(`Process-requirement emission failed: ${e?.message ?? e}`);
+    }
+  }
+
+  // ---- FedRAMP reference-architecture audit (Coalfire RAMPpak-derived hardening
+  // expectations). Emitted as AUDIT-REFARCH-{AWS,GCP}.json so the findings flow into
+  // the NIST 800-53 benchmark, family roll-up, crosswalk, OSCAL, and the signed
+  // manifest (all of which scan out/ below). These are hardening audits, NOT KSI
+  // obligations, so they are intentionally NOT pushed into `results` / the KSI
+  // pass-fail rollup. Runs BEFORE those consumers read the output dir. ----
+  if (args.referenceArch && !args.dryRun) {
+    const refCtx = { runId, frmrVersion: config.frmr_version };
+    if (args.providers.includes('aws') && config.aws.enabled) {
+      try {
+        const region = config.aws.regions[0] ?? 'us-east-1';
+        const ev = await collectAwsReferenceArch(aws.makeAwsAuth(region), awsAccount, refCtx);
+        writeFileSafe(resolve(args.outDir, 'AUDIT-REFARCH-AWS.json'), JSON.stringify(ev, null, 2));
+        const total = ev.rollup.passing_findings + ev.rollup.failing_findings;
+        console.log(`Reference-arch (AWS): ${ev.rollup.passing_findings}/${total} checks pass → AUDIT-REFARCH-AWS.json` +
+          (ev.rollup.warnings.length ? ` · ${ev.rollup.warnings.length} warning(s)` : ''));
+        for (const w of ev.rollup.warnings) console.error(`  ! refarch(aws): ${w}`);
+        ledger.record('reference_arch.aws', { status: 'info', pass: ev.rollup.passing_findings, fail: ev.rollup.failing_findings, warnings: ev.rollup.warnings.length });
+      } catch (e: any) {
+        console.error(`Reference-arch (AWS) failed: ${e?.message ?? e}`);
+        log.error({ event: 'reference_arch.aws.fail', err_message: e?.message });
+      }
+    }
+    if (args.providers.includes('gcp') && config.gcp.enabled && config.gcp.projects.length > 0) {
+      try {
+        const blocks: ProviderBlock[] = [];
+        const warnings: string[] = [];
+        let template: EvidenceFile | null = null;
+        let idx = 0;
+        for (const project of config.gcp.projects) {
+          // Org-scoped checks run only on the first project; later projects skip
+          // them (organizationId=null) so org-level findings aren't duplicated.
+          const ev = await collectGcpReferenceArch(project, { ...refCtx, organizationId: idx === 0 ? config.gcp.organization_id : null });
+          template ??= ev;
+          blocks.push(...ev.providers);
+          warnings.push(...ev.rollup.warnings);
+          idx++;
+        }
+        if (template) {
+          const passing = blocks.reduce((a, b) => a + b.findings.filter((f) => f.passed).length, 0);
+          const failing = blocks.reduce((a, b) => a + b.findings.filter((f) => !f.passed).length, 0);
+          const merged: EvidenceFile = {
+            ...template,
+            providers: blocks,
+            rollup: { pass: failing === 0, passing_findings: passing, failing_findings: failing, warnings, missing_evidence: [], alternatives_in_play: 0 },
+          };
+          writeFileSafe(resolve(args.outDir, 'AUDIT-REFARCH-GCP.json'), JSON.stringify(merged, null, 2));
+          console.log(`Reference-arch (GCP): ${passing}/${passing + failing} checks pass across ${config.gcp.projects.length} project(s) → AUDIT-REFARCH-GCP.json` +
+            (warnings.length ? ` · ${warnings.length} warning(s)` : ''));
+          for (const w of warnings) console.error(`  ! refarch(gcp): ${w}`);
+          ledger.record('reference_arch.gcp', { status: 'info', pass: passing, fail: failing, projects: config.gcp.projects.length, warnings: warnings.length });
+        }
+      } catch (e: any) {
+        console.error(`Reference-arch (GCP) failed: ${e?.message ?? e}`);
+        log.error({ event: 'reference_arch.gcp.fail', err_message: e?.message });
+      }
     }
   }
 

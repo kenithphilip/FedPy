@@ -174,7 +174,7 @@ larger follow-on bets.
 | INV-6..21 | ✅ done | org-grade completeness ([`12-inventory-completeness.md`](12-inventory-completeness.md)): generic discovery backbone (AWS Config AQ/Resource Explorer/Tagging; GCP `searchAllResources`), rich `inventory.json` + graph, multi-region sweep, depth enrichers (network exposure, S3 public/KMS, SSM OS), EOL, tag-governance, scan reconciliation, KSI cross-link, data classification (tags + Macie), cost summary, change diff, OSCAL + CMDB emitters, `--inventory-only`, tracker surfacing |
 | OSC-1 + OSC-2 | ✅ done | validate emitted OSCAL with `ajv` against committed NIST schemas (`core/oscal-validate.ts`, `scripts/extract-oscal-schemas.mjs`); fixed the OSCAL document-wrapper bug |
 | OSC-3 | ⏳ backlog | optional OSCAL XML output via NIST XSLT (only if needed) |
-| AWS-CHK / GCP-CHK | ⏳ backlog | batch Coalfire-derived checks into existing collectors |
+| AWS-CHK / GCP-CHK | ✅ done | clean-room reference-architecture audit (`--reference-arch`): `providers/aws/reference-arch.ts` (10 checks → `AUDIT-REFARCH-AWS.json`) + `providers/gcp/reference-arch.ts` (13 checks → `AUDIT-REFARCH-GCP.json`); read-only, fail-open, feeds benchmark/family-rollup (`REFARCH`)/crosswalk/OSCAL/manifest but excluded from the KSI pass-fail rollup (5 tests) |
 | SSP-1 / SSP-2 | ⏳ backlog | OSCAL SSP emitter → Word render |
 | AZ-1 / AZ-2 | ⏳ backlog | net-new Azure collector |
 | SCN-1 | ⏳ backlog | significant-change-notification classifier |

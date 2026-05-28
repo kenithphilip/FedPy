@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — FedRAMP reference-architecture audit (AWS-CHK / GCP-CHK)
+A new opt-in audit (`--reference-arch`, env `CLOUD_EVIDENCE_REFERENCE_ARCH`) checks the
+**running** AWS/GCP environment against the hardening a FedRAMP-compliant build is
+expected to have — derived **clean-room** from the Coalfire AWS/GCP RAMPpak reference
+architectures (research reports 02 & 04; idea source only, MIT, no code copied).
+- **`providers/aws/reference-arch.ts`** → `AUDIT-REFARCH-AWS.json` (10 checks):
+  customer-managed KMS keys in use, Security Hub CIS + AWS FSBP standards, AWS Network
+  Firewall present, active VPC flow logs, Organizations SCPs + delegated admin,
+  org trusted access for core security services, CloudTrail→CloudWatch delivery,
+  AWS Backup selection coverage, Terraform-state bucket integrity (SSE + lock table),
+  and approved/STIG AMI provenance (`CLOUD_EVIDENCE_APPROVED_AMI_PATTERN`).
+- **`providers/gcp/reference-arch.ts`** → `AUDIT-REFARCH-GCP.json` (13 checks):
+  Assured Workloads (FedRAMP regime), baseline Org Policy constraints, VPC Service
+  Controls perimeter, per-service CMEK, data-access audit logging, Security Command
+  Center, private egress (Cloud NAT / no external IPs), no primitive-role service
+  accounts, DNS query logging, curated-API allow-list (`CLOUD_EVIDENCE_GCP_API_ALLOWLIST`),
+  private-only Cloud SQL, group-based org admin, and Terraform-state bucket integrity.
+- **Read-only** (guardrail-wrapped AWS clients / GCP Proxy). Every check **degrades to
+  a warning, never a false failure** when its API isn't accessible (e.g. not an
+  Organizations management account, service not enabled). GCP org-scoped checks
+  skip-with-warning when no `organization_id` is configured; across multiple GCP
+  projects the org-scoped checks run once and project-scoped checks run per project.
+- Emitted as their own evidence files so the findings flow into the NIST 800-53
+  **benchmark** (`control-benchmark.json`), the **family roll-up** (a new `REFARCH`
+  family), the **crosswalk**, **OSCAL**, and the **signed manifest** — but, being
+  hardening *audits* rather than KSI obligations, they are intentionally **excluded
+  from the KSI pass/fail rollup**.
+- IAM catalog regenerated (`npm run gen:iam-actions`); all new read actions are
+  covered by AWS `ReadOnlyAccess` / GCP viewer roles. 5 new tests (passing,
+  fail-open/degraded, AMI-pattern, GCP org-skip, GCP org-present).
+
 ### Added — OSCAL schema validation + fixed the OSCAL document wrapper (OSC-1/2)
 - **`core/oscal-validate.ts`** validates the OSCAL we emit against NIST's official
   JSON Schema using the already-vendored `ajv` — no new dependency, no runtime

@@ -43,6 +43,7 @@ Organizations).
 | `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | EC2, RDS, S3, Lambda, ELBv2, DynamoDB, ECR, EKS, CloudFront, SSM | `ec2:DescribeInstances`, `ec2:DescribeVolumes`, `ec2:DescribeSecurityGroups`, `rds:DescribeDBInstances`, `s3:ListAllMyBuckets`, `s3:GetBucketLocation`, `s3:GetBucketPublicAccessBlock`, `s3:GetEncryptionConfiguration`, `lambda:ListFunctions`, `elasticloadbalancing:DescribeLoadBalancers`, `dynamodb:ListTables`, `dynamodb:DescribeTable`, `ecr:DescribeRepositories`, `eks:ListClusters`, `eks:DescribeCluster`, `cloudfront:ListDistributions`, `ssm:GetInventory` |
 | `discover.ts` | Inventory backbone (`--inventory-workbook`) | Config, Resource Explorer, Tagging API | `config:SelectResourceConfig`, `resource-explorer-2:Search`, `tag:GetResources` (any one suffices; best-effort fallback chain) |
 | `inventory-cost.ts` | Inventory cost + data-class (`--inventory-workbook`) | Cost Explorer, Macie | `ce:GetCostAndUsage`, `macie2:ListFindings`, `macie2:GetFindings` (both optional; degrade to warning if not enabled) |
+| `reference-arch.ts` | Reference-arch audit (`--reference-arch`) | KMS, SecurityHub, NetworkFirewall, EC2, Organizations, CloudTrail, Backup, S3, DynamoDB | `kms:ListKeys`, `kms:DescribeKey`, `securityhub:GetEnabledStandards`, `network-firewall:ListFirewalls`, `ec2:DescribeFlowLogs`, `ec2:DescribeInstances`, `organizations:ListPolicies`, `organizations:ListDelegatedAdministrators`, `organizations:ListAWSServiceAccessForOrganization` (org checks: management account only — degrade to warning otherwise), `cloudtrail:DescribeTrails`, `backup:ListBackupPlans`, `backup:ListBackupSelections`, `s3:ListAllMyBuckets`, `s3:GetBucketEncryption`, `dynamodb:ListTables` (all covered by `ReadOnlyAccess`) |
 
 ### AWS-supplement (actions `ReadOnlyAccess` omits)
 
@@ -112,6 +113,7 @@ Bind these predefined roles to the runner principal at the **org or folder** lev
 | `inventory.ts` | PIY-GIV | Cloud Asset Inventory | `roles/cloudasset.viewer` (`cloudasset.assets.listResource`) |
 | `inventory-assets.ts` | Inventory Workbook (`--inventory-workbook`) | Cloud Asset Inventory (RESOURCE) | `roles/cloudasset.viewer` (`cloudasset.assets.list`) |
 | `discover.ts` | Inventory backbone (`--inventory-workbook`) | Cloud Asset Inventory (search) | `roles/cloudasset.viewer` (`cloudasset.assets.searchAllResources`) |
+| `reference-arch.ts` | Reference-arch audit (`--reference-arch`) | Assured Workloads, Org Policy, Access Context Mgr, Compute, Storage, Resource Manager, Security Command Center, DNS, Service Usage, SQL Admin | `roles/assuredworkloads.reader` (org), `roles/orgpolicy.policyViewer`, `roles/accesscontextmanager.policyReader` (org), `roles/compute.viewer`, `roles/storage.admin` or `roles/viewer`, `roles/iam.securityReviewer` (`resourcemanager.projects.getIamPolicy`, `resourcemanager.organizations.getIamPolicy`), `roles/securitycenter.adminViewer` (org), `roles/dns.reader`, `roles/serviceusage.serviceUsageViewer`, `roles/cloudsql.viewer`. Org-scoped checks degrade to a warning when no `organization_id` is configured. |
 
 ### GCP auth notes
 
