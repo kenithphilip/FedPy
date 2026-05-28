@@ -40,9 +40,11 @@ service-account*.json
 gcp-credentials*.json
 
 # ─── Upstream reference clone (separate FedRAMP FRMR git repo) ────
-# docs/ is a clone of the official FedRAMP FRMR repository, with its own .git.
+# /docs is a clone of the official FedRAMP FRMR repository, with its own .git.
 # It is reference material the tooling reads, not part of this codebase.
-docs/
+# Anchored to repo root so cloud-evidence/docs/ (our analysis + generated
+# registry) is still tracked.
+/docs/
 
 # ─── Agent / editor / OS noise ───────────────────────────────────
 .claude/

@@ -9,7 +9,7 @@
  * and alternative satisfiers explicitly, because the script has the
  * authoritative knowledge of what it observed.
  */
-import type { Finding, Severity } from './envelope.ts';
+import type { Finding, Severity, KeyWord } from './envelope.ts';
 
 export interface FindingInput {
   rule: string;
@@ -27,6 +27,8 @@ export interface FindingInput {
   cross_ksi_dependencies?: NonNullable<Finding['cross_ksi_dependencies']>;
   compliance_blockers?: string[];
   note?: string;
+  /** Obligation strength at the run's impact tier (MUST/SHOULD/MAY). */
+  applicable_key_word?: KeyWord;
 }
 
 export function finding(input: FindingInput): Finding {
@@ -44,7 +46,18 @@ export function finding(input: FindingInput): Finding {
     cross_ksi_dependencies: input.cross_ksi_dependencies,
     compliance_blockers: input.compliance_blockers,
     note: input.note,
+    applicable_key_word: input.applicable_key_word,
   };
+}
+
+/**
+ * Map an obligation key word to the severity a FAILING finding should carry.
+ * A missing MUST is high; a missing SHOULD is medium; a missing MAY is low/info.
+ */
+export function severityForKeyWord(kw: KeyWord | null | undefined, base: Severity = 'high'): Severity {
+  if (kw === 'SHOULD') return 'medium';
+  if (kw === 'MAY') return 'low';
+  return base; // MUST or unknown
 }
 
 // Legacy helpers (pass/fail/check/maxCount/mustBeZero/emptySet/neutralizedByAlternative)

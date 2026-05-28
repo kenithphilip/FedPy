@@ -22,6 +22,9 @@ import type { KsiEntry } from './ksi-map.ts';
 import { makeRollup, type EvidenceFile, type ProviderBlock } from './envelope.ts';
 import { relatedKsisFor } from './cross-ksi.ts';
 import { buildPvaEvidence } from './pva-collector.ts';
+import type { ImpactTier } from './envelope.ts';
+import { selectForLevel, getRequirement, appliesAtLevel, actorScopeOf, type RequirementEntry } from './requirements-registry.ts';
+import { buildProcessArtifactEvidence, type AttestationRecord } from './process-artifact-tracker.ts';
 import { buildCsxSum } from './csx-sum-aggregator.ts';
 import { notifyDrift } from './notify.ts';
 import { exportFindingsCsv } from './csv-export.ts';
@@ -58,6 +61,8 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 interface Args {
   providers: Array<'aws' | 'gcp'>;
   ksiFilter: string[] | null;
+  /** FedRAMP impact tier to evaluate against. Resolved from CLI > config > 'moderate'. */
+  impactLevel: ImpactTier | null;
   outDir: string;
   configPath: string;
   dryRun: boolean;
@@ -111,6 +116,7 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     providers: ['aws', 'gcp'],
     ksiFilter: null,
+    impactLevel: (process.env.CLOUD_EVIDENCE_IMPACT_LEVEL as ImpactTier) || null,
     outDir: resolve(PROJECT_ROOT, 'out'),
     configPath: resolve(PROJECT_ROOT, 'config.yaml'),
     dryRun: false,
@@ -149,6 +155,15 @@ function parseArgs(argv: string[]): Args {
       case '--ksis':
         args.ksiFilter = (argv[++i] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
         break;
+      case '--impact-level': {
+        const v = (argv[++i] ?? '').toLowerCase();
+        if (!['low', 'moderate', 'high'].includes(v)) {
+          console.error(`--impact-level must be one of: low, moderate, high (got: ${v})`);
+          process.exit(2);
+        }
+        args.impactLevel = v as ImpactTier;
+        break;
+      }
       case '--out':
         args.outDir = resolve(argv[++i] ?? './out');
         break;
@@ -354,8 +369,40 @@ function writeFileSafe(path: string, data: string): void {
   }
 }
 
+/**
+ * Load the operator's attestation register (proof that process requirements are
+ * met). Optional — absent file means "no attestations yet". Accepts either an
+ * array of records (each with requirement_id) or an object keyed by requirement_id.
+ * Read-only; never written.
+ */
+function loadAttestations(path: string | null): Record<string, AttestationRecord> {
+  if (!path) return {};
+  if (!existsSync(path)) {
+    console.warn(`[attestations] register not found at ${path}; process requirements will report as not-yet-attested.`);
+    return {};
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e: any) {
+    console.error(`[attestations] ${path} is not valid JSON: ${e?.message ?? e}. Ignoring.`);
+    return {};
+  }
+  const out: Record<string, AttestationRecord> = {};
+  if (Array.isArray(raw)) {
+    for (const r of raw) if (r && typeof r === 'object' && (r as any).requirement_id) out[(r as any).requirement_id] = r as AttestationRecord;
+  } else if (raw && typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (v && typeof v === 'object') out[k] = { requirement_id: k, ...(v as object) } as AttestationRecord;
+    }
+  }
+  return out;
+}
+
 interface Config {
   frmr_version: string;
+  /** FedRAMP impact tier to evaluate against. CLI --impact-level overrides this. */
+  impact_level?: ImpactTier;
   aws: { enabled: boolean; regions: string[]; prod_tag?: { key: string; values: string[] } };
   gcp: { enabled: boolean; organization_id: string | null; projects: string[]; prod_label?: { key: string; values: string[] } };
   output_dir: string;
@@ -401,6 +448,9 @@ function loadConfig(path: string): Config {
       errors.push('gcp.projects must be an array (may be empty) when gcp.enabled is true');
     }
   }
+  if (parsed.impact_level != null && !['low', 'moderate', 'high'].includes(String(parsed.impact_level))) {
+    errors.push(`impact_level must be one of: low, moderate, high (got: ${parsed.impact_level})`);
+  }
   if (errors.length > 0) {
     throw new Error(`Config ${path} has validation errors:\n  - ${errors.join('\n  - ')}`);
   }
@@ -416,6 +466,8 @@ interface RunResult {
   duration_ms: number;
   schema_valid: boolean;
   schema_errors?: string;
+  /** True for requirements that obligate FedRAMP/agency/3PAO (not the provider). */
+  awareness_only?: boolean;
 }
 
 async function runOneKsi(
@@ -424,6 +476,7 @@ async function runOneKsi(
   args: Args,
   runId: string,
   awsAccount: string | null,
+  impactLevel: ImpactTier,
   awsTargets: FanoutTarget[] | null = null,
 ): Promise<RunResult> {
   const startedAt = Date.now();
@@ -496,6 +549,9 @@ async function runOneKsi(
 
   const rollup = makeRollup(providers);
   const summary_for_llm = buildSummaryForLlm(ksi, providers, rollup);
+  // Resolve impact-tier metadata from the requirement registry (if this KSI is in it).
+  const regEntry = getRequirement(ksi.id);
+  const ap = regEntry ? appliesAtLevel(regEntry, impactLevel) : null;
   const envelope: EvidenceFile = {
     ksi_id: ksi.id,
     ksi_name: ksi.name,
@@ -510,6 +566,13 @@ async function runOneKsi(
     nist_controls: ksi.nist_controls,
     related_ksis: relatedKsisFor(ksi.id),
     summary_for_llm,
+    category: regEntry?.category ?? 'ksi-indicator',
+    family: regEntry?.family,
+    impact_level: impactLevel,
+    applicable_key_word: ap?.key_word ?? undefined,
+    level_source: ap?.source,
+    actor_scope: regEntry ? actorScopeOf(regEntry) : 'provider',
+    awareness_only: false,
   };
 
   // Round-trip through JSON so the validator sees the exact shape that will
@@ -550,6 +613,8 @@ export async function main(): Promise<void> {
   const config = loadConfig(args.configPath);
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
+  // Resolve the impact tier: CLI flag > config > default 'moderate'.
+  const impactLevel: ImpactTier = args.impactLevel ?? config.impact_level ?? 'moderate';
 
   mkdirSafe(args.outDir);
 
@@ -565,6 +630,7 @@ export async function main(): Promise<void> {
     : SUPPORTED_KSIS.map((id) => KSI_MAP[id]).filter((k): k is KsiEntry => !!k);
 
   console.log(`cloud-evidence run ${runId}`);
+  console.log(`  impact level: ${impactLevel}${impactLevel === 'high' ? ' (High applicability DERIVED from NIST 800-53 Rev5)' : ''}`);
   console.log(`  providers: ${args.providers.join(', ')}`);
   console.log(`  ksis (${inScopeKsis.length}): ${inScopeKsis.map((k) => k.id).join(', ')}`);
   console.log(`  out: ${args.outDir}`);
@@ -709,7 +775,7 @@ export async function main(): Promise<void> {
   console.log(`Running ${inScopeKsis.length} KSIs with concurrency=${args.concurrency}...`);
   const tasks = inScopeKsis.map((ksi) =>
     limit(async () => {
-      const res = await runOneKsi(ksi, config, args, runId, awsAccount, fanoutTargets);
+      const res = await runOneKsi(ksi, config, args, runId, awsAccount, impactLevel, fanoutTargets);
       const verdict = res.rollup_pass ? '✓ PASS' : '✗ FAIL';
       const warn = res.warnings_count > 0 ? ` (${res.warnings_count} warning${res.warnings_count > 1 ? 's' : ''})` : '';
       const schemaTag = res.schema_valid ? '' : ' ⚠ schema-invalid';
@@ -721,6 +787,47 @@ export async function main(): Promise<void> {
     }),
   );
   const results: RunResult[] = await Promise.all(tasks);
+
+  // ---- Emit PROCESS-scope evidence for in-scope requirements WITHOUT a cloud
+  // collector (the ~99 governance/process requirements + level-scoped FRR items).
+  // Skipped when --ksis filters to a specific KSI subset. ----
+  if (!args.ksiFilter) {
+    try {
+      const attestations = loadAttestations(process.env.CLOUD_EVIDENCE_ATTESTATIONS ?? null);
+      const sel = selectForLevel(impactLevel);
+      const alreadyWritten = new Set<string>([...inScopeKsis.map((k) => k.id), 'KSI-AFR-PVA', 'KSI-CSX-SUM']);
+      const toEmit: RequirementEntry[] = [...sel.inScope, ...sel.awareness]
+        .filter((r) => !alreadyWritten.has(r.id) && !KSI_MAP[r.id]);
+      let emitted = 0;
+      let awarenessCount = 0;
+      for (const req of toEmit) {
+        const ev = buildProcessArtifactEvidence(req, {
+          tier: impactLevel, runId, frmrVersion: config.frmr_version, attestations,
+        });
+        const validation = validateEvidenceFile(JSON.parse(JSON.stringify(ev)));
+        const outPath = resolve(args.outDir, `${req.id}.json`);
+        writeFileSafe(outPath, JSON.stringify(ev, null, 2));
+        if (ev.awareness_only) awarenessCount++;
+        results.push({
+          ksi_id: req.id,
+          evidence_file: outPath,
+          // Awareness items always "pass" (not the provider's to satisfy); they
+          // are excluded from the provider gap count in the summary below.
+          rollup_pass: ev.rollup.pass,
+          findings_count: ev.rollup.passing_findings + ev.rollup.failing_findings,
+          warnings_count: 0,
+          duration_ms: 0,
+          schema_valid: validation.valid,
+          schema_errors: validation.valid ? undefined : formatErrors(validation.errors),
+          awareness_only: ev.awareness_only,
+        });
+        emitted++;
+      }
+      console.log(`Process requirements [${impactLevel}]: emitted ${emitted} evidence file(s) (${awarenessCount} awareness-only) for requirements without a cloud collector.`);
+    } catch (e: any) {
+      console.error(`Process-requirement emission failed: ${e?.message ?? e}`);
+    }
+  }
 
   const invalidCount = results.filter((r) => !r.schema_valid).length;
   if (invalidCount > 0) {
@@ -775,14 +882,20 @@ export async function main(): Promise<void> {
     aws_account_id: awsAccount,
     gcp_projects: config.gcp.projects,
     results,
+    impact_level: impactLevel,
     rollup: {
-      total_ksis: results.length,
-      passed: results.filter((r) => r.rollup_pass).length,
-      failed: results.filter((r) => !r.rollup_pass).length,
+      // The provider's own requirements (excludes awareness items that obligate
+      // FedRAMP / an agency / a 3PAO — those can't be "failed" by the provider).
+      total_requirements: results.filter((r) => !r.awareness_only).length,
+      /** Back-compat alias for total_requirements (was total_ksis before level coverage). */
+      total_ksis: results.filter((r) => !r.awareness_only).length,
+      passed: results.filter((r) => !r.awareness_only && r.rollup_pass).length,
+      failed: results.filter((r) => !r.awareness_only && !r.rollup_pass).length,
+      awareness_tracked: results.filter((r) => r.awareness_only).length,
       total_warnings: results.reduce((a, r) => a + r.warnings_count, 0),
       // Explicit lists so a reader (or downstream automation) doesn't have to
-      // re-derive which KSIs failed / failed schema validation from `results`.
-      failed_ksis: results.filter((r) => !r.rollup_pass).map((r) => r.ksi_id),
+      // re-derive which requirements failed / failed schema validation from `results`.
+      failed_ksis: results.filter((r) => !r.awareness_only && !r.rollup_pass).map((r) => r.ksi_id),
       schema_invalid_ksis: results.filter((r) => r.schema_valid === false).map((r) => r.ksi_id),
     },
   };

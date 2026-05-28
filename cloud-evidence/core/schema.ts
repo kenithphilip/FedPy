@@ -165,6 +165,7 @@ const findingSchema = {
     },
     compliance_blockers: { type: 'array', items: { type: 'string' } },
     note: { type: 'string' },
+    applicable_key_word: { enum: ['MUST', 'SHOULD', 'MAY'] },
   },
   // When passed=false, require gap + remediation. Ajv supports this via `if/then`.
   if: { properties: { passed: { const: false } } },
@@ -257,6 +258,14 @@ export const evidenceFileSchema = {
       },
     },
     summary_for_llm: { type: 'string' },
+    // ── Impact-tier / requirement-taxonomy metadata (full-level coverage) ──
+    category: { enum: ['ksi-indicator', 'frr-requirement'] },
+    family: { type: 'string' },
+    impact_level: { enum: ['low', 'moderate', 'high'] },
+    applicable_key_word: { enum: ['MUST', 'SHOULD', 'MAY'] },
+    level_source: { enum: ['20x-machine-readable', 'derived-rev5', 'derived-rev5-pending', 'not-applicable'] },
+    actor_scope: { enum: ['provider', 'fedramp', 'agency', '3pao', 'unknown'] },
+    awareness_only: { type: 'boolean' },
   },
 } as const;
 

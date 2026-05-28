@@ -17,6 +17,21 @@ export type ProviderName = 'aws' | 'gcp' | 'k8s';
 export type KsiScope = 'CLOUD' | 'HYBRID' | 'PROCESS' | 'INHERITED';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type ImpactLevel = 'none' | 'low' | 'medium' | 'high';
+
+/**
+ * FedRAMP 20x impact tier selected at run time. Distinct from `ImpactLevel`
+ * (which grades cost/availability/customer-visible impact of a remediation).
+ *   - low / moderate come straight from the 20x machine-readable data.
+ *   - high is DERIVED from the NIST SP 800-53 Rev5 High baseline (never published
+ *     as 20x machine-readable) and is always labeled as such.
+ */
+export type ImpactTier = 'low' | 'moderate' | 'high';
+/** FedRAMP requirement obligation strength (RFC 2119 style). */
+export type KeyWord = 'MUST' | 'SHOULD' | 'MAY';
+/** Who the requirement actually obligates. The CSP (provider) can only satisfy `provider` items. */
+export type ActorScope = 'provider' | 'fedramp' | 'agency' | '3pao' | 'unknown';
+/** Provenance of a level's applicability decision. */
+export type LevelSource = '20x-machine-readable' | 'derived-rev5' | 'derived-rev5-pending' | 'not-applicable';
 export type EffortMagnitude = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
 export type OwnerTeam =
   | 'Security'
@@ -147,6 +162,14 @@ export interface Finding {
 
   /** Free-form note from the collector (e.g. "skipped because PAM not enabled"). */
   note?: string;
+
+  /**
+   * The obligation strength that applies at the run's impact tier (MUST/SHOULD/MAY).
+   * Set when a requirement's `varies_by_level` changes the key word per tier
+   * (e.g. UCM-CSX-UVM: Low MAY / Moderate SHOULD / High MUST). A failing SHOULD/MAY
+   * is reported at reduced severity vs a failing MUST.
+   */
+  applicable_key_word?: KeyWord;
 }
 
 /** A 3rd-party tool / vendor recognized by signatures in IAM, audit log, or org config. */
@@ -213,6 +236,26 @@ export interface EvidenceFile {
   }>;
   /** Natural-language one-paragraph summary for LLM consumption (built by orchestrator). */
   summary_for_llm?: string;
+
+  // ── Impact-tier / requirement-taxonomy metadata (added for full-level coverage) ──
+  /** Which FedRAMP requirement category this file represents. */
+  category?: 'ksi-indicator' | 'frr-requirement';
+  /** FRMR family (e.g. IAM, VDR, CCM). */
+  family?: string;
+  /** The impact tier this run was evaluated at. */
+  impact_level?: ImpactTier;
+  /** Obligation strength at this tier (from varies_by_level when present). */
+  applicable_key_word?: KeyWord;
+  /** How the requirement's applicability at this tier was decided. */
+  level_source?: LevelSource;
+  /**
+   * Who the requirement obligates. Requirements that obligate FedRAMP / an agency /
+   * a 3PAO (not the provider) are emitted as awareness items and excluded from the
+   * provider's own pass/fail rollup.
+   */
+  actor_scope?: ActorScope;
+  /** True when this requirement is tracked for awareness only (not the provider's to satisfy). */
+  awareness_only?: boolean;
 }
 
 export function nowIso(): string {
