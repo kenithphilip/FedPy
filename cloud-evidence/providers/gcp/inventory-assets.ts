@@ -56,6 +56,7 @@ function mapAsset(assetType: string, name: string, data: any, resourceLocation: 
   const base: CloudAsset = {
     provider: 'gcp',
     uniqueId: name,
+    resourceType: assetType,
     virtual: true,
     assetType: FRIENDLY[assetType] ?? (tail(assetType) ?? assetType),
     location: resourceLocation,
@@ -130,7 +131,11 @@ export async function collectGcpAssets(project: string): Promise<GcpAssetResult>
       });
       for (const a of r.data.assets ?? []) {
         if (!a.name || !a.assetType) continue;
-        assets.push(mapAsset(a.assetType, a.name, a.resource?.data, a.resource?.location ?? null));
+        const asset = mapAsset(a.assetType, a.name, a.resource?.data, a.resource?.location ?? null);
+        asset.accountId = project;
+        asset.collectedAt = new Date().toISOString();
+        asset.sourceApi = 'gcp-cloudasset';
+        assets.push(asset);
       }
       pageToken = r.data.nextPageToken || undefined;
     } while (pageToken && ++pages < MAX_PAGES);

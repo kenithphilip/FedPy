@@ -109,6 +109,70 @@ export interface CloudAsset {
   inLatestScan?: boolean;
   /** Column I — Inspector/agent scans are authenticated. */
   authenticatedScan?: boolean;
+
+  // ---- Rich superset fields (surfaced in inventory.json; the workbook is a
+  //      lossy 25-column projection of this). All optional + honest-blank. ----
+  /** Owning account / project / subscription id. */
+  accountId?: string | null;
+  /** Provider-native resource type, e.g. "AWS::EC2::Instance" / CAI assetType. */
+  resourceType?: string | null;
+  // Lifecycle
+  createdAt?: string | null;
+  lastModifiedAt?: string | null;
+  /** Last activity/usage (idle-resource detection). */
+  lastUsedAt?: string | null;
+  /** running / stopped / available / … */
+  state?: string | null;
+  // Compute / capacity
+  sizeGb?: number | null;
+  vcpu?: number | null;
+  memoryMb?: number | null;
+  imageId?: string | null;
+  architecture?: string | null;
+  // Security / data
+  kmsKeyId?: string | null;
+  encryptionAtRest?: boolean | null;
+  /** Ports/ranges open to the internet (network-exposure analysis). */
+  openPorts?: string[];
+  dataClassification?: string | null;
+  // Ownership / org (tag-derived)
+  environment?: string | null;
+  criticality?: string | null;
+  costCenter?: string | null;
+  application?: string | null;
+  // Cost
+  monthlyCostEstimate?: number | null;
+  pricingModel?: string | null;
+  // Governance
+  /** Required tags that are missing on this asset (tag-governance). */
+  missingRequiredTags?: string[];
+  // Provenance
+  collectedAt?: string | null;
+  /** Which discovery/enrich pass produced or last touched this asset. */
+  sourceApi?: string | null;
+  /** Raw provider config for long-tail types with no dedicated enricher. */
+  raw?: unknown;
+}
+
+/** A directed relationship between two assets (topology / blast-radius graph). */
+export interface InventoryEdge {
+  /** Source asset uniqueId. */
+  from: string;
+  /** Target asset uniqueId. */
+  to: string;
+  /** Edge kind, e.g. "attached-volume", "in-vpc", "lb-target", "uses-kms-key". */
+  type: string;
+}
+
+/** The full normalized inventory snapshot — the source of truth all emitters read. */
+export interface InventorySnapshot {
+  generated_at: string;
+  asset_count: number;
+  edge_count: number;
+  by_provider: Record<string, number>;
+  by_type: Record<string, number>;
+  assets: CloudAsset[];
+  edges: InventoryEdge[];
 }
 
 const yn = (b: boolean | undefined): string => (b === true ? 'Yes' : b === false ? 'No' : '');
@@ -382,6 +446,56 @@ export function annotateWithFindings(assets: CloudAsset[], findings: FindingRef[
     annotated++;
   }
   return annotated;
+}
+
+/**
+ * Merge assets that share a uniqueId (e.g. one from the discovery backbone, one
+ * from a depth-enricher; or the same global resource seen in two region passes).
+ * Later non-null/non-empty values win field-by-field; ips/macs/openPorts unions.
+ */
+export function dedupeAssets(assets: CloudAsset[]): CloudAsset[] {
+  const byId = new Map<string, CloudAsset>();
+  for (const a of assets) {
+    const existing = byId.get(a.uniqueId);
+    if (!existing) { byId.set(a.uniqueId, { ...a }); continue; }
+    for (const [k, v] of Object.entries(a) as Array<[keyof CloudAsset, unknown]>) {
+      if (v == null) continue;
+      if (Array.isArray(v)) {
+        const prev = (existing[k] as unknown[] | undefined) ?? [];
+        (existing as any)[k] = [...new Set([...prev, ...v])];
+      } else if (typeof v === 'object') {
+        (existing as any)[k] = { ...(existing[k] as object ?? {}), ...(v as object) };
+      } else if (existing[k] == null || existing[k] === '' || existing[k] === false) {
+        (existing as any)[k] = v;
+      }
+    }
+  }
+  return [...byId.values()];
+}
+
+/** Build the full normalized inventory snapshot (the source of truth for emitters). */
+export function buildInventorySnapshot(assets: CloudAsset[], edges: InventoryEdge[] = []): InventorySnapshot {
+  const byProvider: Record<string, number> = {};
+  const byType: Record<string, number> = {};
+  for (const a of assets) {
+    byProvider[a.provider] = (byProvider[a.provider] ?? 0) + 1;
+    const t = a.resourceType ?? a.assetType ?? 'unknown';
+    byType[t] = (byType[t] ?? 0) + 1;
+  }
+  return {
+    generated_at: new Date().toISOString(),
+    asset_count: assets.length,
+    edge_count: edges.length,
+    by_provider: byProvider,
+    by_type: byType,
+    assets,
+    edges,
+  };
+}
+
+/** Write the rich inventory snapshot as JSON (the superset; CSV/XLSX are projections). */
+export function writeInventoryJson(snapshot: InventorySnapshot, path: string): void {
+  writeFileSync(path, JSON.stringify(snapshot, null, 2));
 }
 
 // ---- Top-level writer ----

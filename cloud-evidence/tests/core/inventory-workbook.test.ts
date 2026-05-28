@@ -14,6 +14,8 @@ import {
   reconcileScans,
   annotateWithFindings,
   identifiersMatch,
+  dedupeAssets,
+  buildInventorySnapshot,
   type CloudAsset,
 } from '../../core/inventory-workbook.ts';
 
@@ -191,5 +193,44 @@ describe('annotateWithFindings', () => {
     const assets: CloudAsset[] = [{ provider: 'gcp', uniqueId: '//compute.googleapis.com/x', comments: 'orig' }];
     annotateWithFindings(assets, [{ identifier: 'unrelated-resource-id', ksiId: 'K', rule: 'r', passed: false }]);
     expect(assets[0]!.comments).toBe('orig');
+  });
+});
+
+describe('dedupeAssets', () => {
+  it('merges two records of the same resource, later non-null wins, arrays union', () => {
+    const merged = dedupeAssets([
+      { provider: 'aws', uniqueId: 'arn:x', resourceType: 'AWS::EC2::Instance', ips: ['10.0.0.1'], osNameVersion: null },
+      { provider: 'aws', uniqueId: 'arn:x', ips: ['10.0.0.2'], osNameVersion: 'AL2023', kmsKeyId: 'key-1' },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.ips!.sort()).toEqual(['10.0.0.1', '10.0.0.2']);
+    expect(merged[0]!.osNameVersion).toBe('AL2023');
+    expect(merged[0]!.kmsKeyId).toBe('key-1');
+    expect(merged[0]!.resourceType).toBe('AWS::EC2::Instance');
+  });
+  it('keeps distinct resources separate', () => {
+    expect(dedupeAssets([{ provider: 'aws', uniqueId: 'a' }, { provider: 'gcp', uniqueId: 'b' }])).toHaveLength(2);
+  });
+  it('merges tag records', () => {
+    const merged = dedupeAssets([
+      { provider: 'aws', uniqueId: 'a', tags: { Owner: 'alice' } },
+      { provider: 'aws', uniqueId: 'a', tags: { Env: 'prod' } },
+    ]);
+    expect(merged[0]!.tags).toEqual({ Owner: 'alice', Env: 'prod' });
+  });
+});
+
+describe('buildInventorySnapshot', () => {
+  it('summarizes counts by provider and type', () => {
+    const snap = buildInventorySnapshot([
+      { provider: 'aws', uniqueId: 'a', resourceType: 'AWS::EC2::Instance' },
+      { provider: 'aws', uniqueId: 'b', resourceType: 'AWS::S3::Bucket' },
+      { provider: 'gcp', uniqueId: 'c', resourceType: 'storage.googleapis.com/Bucket' },
+    ], [{ from: 'a', to: 'b', type: 'x' }]);
+    expect(snap.asset_count).toBe(3);
+    expect(snap.edge_count).toBe(1);
+    expect(snap.by_provider).toEqual({ aws: 2, gcp: 1 });
+    expect(snap.by_type['AWS::EC2::Instance']).toBe(1);
+    expect(typeof snap.generated_at).toBe('string');
   });
 });

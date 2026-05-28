@@ -42,8 +42,17 @@ function tagsToRecord(tags: AwsTag[] | undefined): Record<string, string> | unde
   return r;
 }
 
-/** Enumerate AWS assets in one region and normalize to workbook rows. */
-export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null): Promise<AwsAssetResult> {
+/**
+ * Enumerate AWS assets in one region and normalize them. Global services (S3,
+ * CloudFront) are only enumerated when `includeGlobal` (default true) so a
+ * multi-region sweep can collect them exactly once.
+ */
+export async function collectAwsAssets(
+  auth: aws.AwsAuth,
+  account: string | null,
+  opts: { includeGlobal?: boolean } = {},
+): Promise<AwsAssetResult> {
+  const includeGlobal = opts.includeGlobal ?? true;
   const assets: CloudAsset[] = [];
   const warnings: string[] = [];
   const region = auth.region;
@@ -68,6 +77,7 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
           assets.push({
             provider: 'aws',
             uniqueId: arn('ec2', `instance/${inst.InstanceId}`),
+            resourceType: 'AWS::EC2::Instance',
             ips,
             macs,
             virtual: true,
@@ -77,6 +87,10 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
             location: inst.Placement?.AvailabilityZone ?? region,
             assetType: 'Compute Instance',
             hardwareMakeModel: `AWS EC2 ${inst.InstanceType ?? ''}`.trim(),
+            imageId: inst.ImageId ?? null,
+            architecture: inst.Architecture ?? null,
+            state: inst.State?.Name ?? null,
+            createdAt: inst.LaunchTime ? new Date(inst.LaunchTime).toISOString() : null,
             vlanNetworkId: [inst.VpcId, inst.SubnetId].filter(Boolean).join('/') || null,
             tags: tagsToRecord(inst.Tags),
           });
@@ -97,10 +111,16 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
         assets.push({
           provider: 'aws',
           uniqueId: arn('ec2', `volume/${v.VolumeId}`),
+          resourceType: 'AWS::EC2::Volume',
           virtual: true,
           location: v.AvailabilityZone ?? region,
           assetType: 'Storage Volume',
           hardwareMakeModel: `AWS EBS ${v.VolumeType ?? ''}`.trim(),
+          sizeGb: v.Size ?? null,
+          state: v.State ?? null,
+          createdAt: v.CreateTime ? new Date(v.CreateTime).toISOString() : null,
+          encryptionAtRest: v.Encrypted ?? null,
+          kmsKeyId: v.KmsKeyId ?? null,
           tags: tagsToRecord(v.Tags),
           comments: v.Encrypted ? 'Encrypted' : 'Not encrypted',
         });
@@ -120,6 +140,7 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
         assets.push({
           provider: 'aws',
           uniqueId: db.DBInstanceArn ?? arn('rds', `db:${db.DBInstanceIdentifier}`),
+          resourceType: 'AWS::RDS::DBInstance',
           ips: db.Endpoint?.Address ? [db.Endpoint.Address] : undefined,
           virtual: true,
           publicFacing: Boolean(db.PubliclyAccessible),
@@ -128,6 +149,11 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
           assetType: 'Database',
           softwareDatabaseVendor: db.Engine ?? null,
           softwareDatabaseNameVersion: [db.Engine, db.EngineVersion].filter(Boolean).join(' ') || null,
+          sizeGb: db.AllocatedStorage ?? null,
+          state: db.DBInstanceStatus ?? null,
+          createdAt: db.InstanceCreateTime ? new Date(db.InstanceCreateTime).toISOString() : null,
+          encryptionAtRest: db.StorageEncrypted ?? null,
+          kmsKeyId: db.KmsKeyId ?? null,
           vlanNetworkId: db.DBSubnetGroup?.VpcId ?? null,
         });
       }
@@ -135,8 +161,8 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
     } while (marker && ++pages < MAX_PAGES);
   } catch (e: any) { warnings.push(`RDS instances (rds:DescribeDBInstances): ${e.message}`); }
 
-  // S3 buckets (global; emit once per region run is fine — they're account-global)
-  try {
+  // S3 buckets (account-global — collected once when includeGlobal)
+  if (includeGlobal) try {
     const s3 = aws.s3(auth);
     const r = await s3.send(new ListBucketsCommand({}));
     for (const b of r.Buckets ?? []) {
@@ -149,9 +175,11 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
       assets.push({
         provider: 'aws',
         uniqueId: `arn:aws:s3:::${b.Name}`,
+        resourceType: 'AWS::S3::Bucket',
         virtual: true,
         location: loc,
         assetType: 'Object Storage Bucket',
+        createdAt: b.CreationDate ? new Date(b.CreationDate).toISOString() : null,
         function: b.Name,
       });
     }
@@ -282,8 +310,8 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
     } while (token && ++pages < MAX_PAGES);
   } catch (e: any) { warnings.push(`EKS (eks:ListClusters): ${e.message}`); }
 
-  // CloudFront distributions (global)
-  try {
+  // CloudFront distributions (account-global — collected once when includeGlobal)
+  if (includeGlobal) try {
     const cf = aws.cloudfront(auth);
     let marker: string | undefined; let pages = 0;
     do {
@@ -304,6 +332,14 @@ export async function collectAwsAssets(auth: aws.AwsAuth, account: string | null
       marker = r.DistributionList?.NextMarker && r.DistributionList.NextMarker !== marker ? r.DistributionList.NextMarker : undefined;
     } while (marker && ++pages < MAX_PAGES);
   } catch (e: any) { warnings.push(`CloudFront (cloudfront:ListDistributions): ${e.message}`); }
+
+  // Stamp common provenance on every asset (account / collected-at / source).
+  const now = new Date().toISOString();
+  for (const a of assets) {
+    a.accountId ??= account;
+    a.collectedAt ??= now;
+    a.sourceApi ??= 'aws-sdk';
+  }
 
   return { assets, warnings };
 }

@@ -28,7 +28,7 @@ import { buildProcessArtifactEvidence, type AttestationRecord } from './process-
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
-import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, type CloudAsset } from './inventory-workbook.ts';
+import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, type CloudAsset } from './inventory-workbook.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
@@ -1182,12 +1182,18 @@ export async function main(): Promise<void> {
   // ---- FedRAMP Integrated Inventory Workbook (written BEFORE signing) ----
   if (args.inventoryWorkbook && !args.dryRun) {
     try {
-      const assets: CloudAsset[] = [];
+      let assets: CloudAsset[] = [];
       const invWarnings: string[] = [];
       if (args.providers.includes('aws') && config.aws.enabled) {
-        const region = config.aws.regions[0] ?? 'us-east-1';
-        const r = await collectAwsAssets(aws.makeAwsAuth(region), awsAccount);
-        assets.push(...r.assets); invWarnings.push(...r.warnings);
+        // Sweep ALL configured regions; collect account-global services (S3,
+        // CloudFront) only on the first region pass.
+        const regions = config.aws.regions.length ? config.aws.regions : ['us-east-1'];
+        let first = true;
+        for (const region of regions) {
+          const r = await collectAwsAssets(aws.makeAwsAuth(region), awsAccount, { includeGlobal: first });
+          assets.push(...r.assets); invWarnings.push(...r.warnings);
+          first = false;
+        }
       }
       if (args.providers.includes('gcp') && config.gcp.enabled) {
         for (const project of config.gcp.projects) {
@@ -1195,6 +1201,8 @@ export async function main(): Promise<void> {
           assets.push(...r.assets); invWarnings.push(...r.warnings);
         }
       }
+      // Merge duplicates (same resource seen by backbone + enricher / multiple passes).
+      assets = dedupeAssets(assets);
       // FedPy-native enrichment: tags → owner/function/baseline; reconcile against
       // our own scan evidence (column O/I); cross-link each asset to the KSI
       // findings that touch it (Comments).
@@ -1202,12 +1210,15 @@ export async function main(): Promise<void> {
       const invCtx = readInventoryContext(args.outDir);
       const scanned = reconcileScans(assets, invCtx.scannedIdentifiers);
       const linked = annotateWithFindings(assets, invCtx.findings);
+      // Rich superset JSON (source of truth) + the FedRAMP workbook projection.
+      const snapshot = buildInventorySnapshot(assets, []);
+      writeInventoryJson(snapshot, resolve(args.outDir, 'inventory.json'));
       const res = writeInventoryWorkbook(assets, {
         csvPath: resolve(args.outDir, 'inventory-workbook.csv'),
         xlsxPath: resolve(args.outDir, 'inventory-workbook.xlsx'),
       });
-      console.log(`Inventory workbook: ${res.asset_count} asset(s) → ${res.row_count} row(s) ` +
-        `(${scanned} in-scan, ${linked} linked to KSI findings) (inventory-workbook.{csv,xlsx})` +
+      console.log(`Inventory: ${res.asset_count} asset(s) → ${res.row_count} row(s) ` +
+        `(${scanned} in-scan, ${linked} linked to KSI findings) (inventory.json + inventory-workbook.{csv,xlsx})` +
         (invWarnings.length ? ` · ${invWarnings.length} warning(s)` : ''));
       for (const w of invWarnings) console.error(`  ! inventory: ${w}`);
       ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, scanned, finding_linked: linked, warnings: invWarnings.length });
