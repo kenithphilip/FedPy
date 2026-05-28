@@ -34,6 +34,16 @@ FedRAMP 20x set (60 KSI indicators + 163 FRR requirements) with a setup-time imp
   `cloud-evidence/docs/RSI-COVERAGE-ANALYSIS.md` + `docs/analysis/*.md`.
 - Schema + envelope gained `impact_level`, `applicable_key_word`, `actor_scope`, `level_source`,
   `category`, `family`, `awareness_only` (all ajv-validated). Read-only guardrails unchanged.
+- **7 KSI hybrid collectors** (`providers/{aws,gcp}/ksi-hybrids.ts`): read-only cloud signals for
+  KSI-CMT-RVP, INR-AAR, INR-RPI, RPL-ARP, RPL-RRO, SCR-MIT, SVC-PRR.
+- **VDR live-scan collectors** (`providers/{aws,gcp}/vdr-scan.ts`, `KSI-AFR-VDR`): Inspector v2 /
+  Container Analysis → the VDR ledger + CISA KEV join + SLA-breach detection.
+- **ADS / MAS / SCG automated signals** wired into the orchestrator (env-gated, read-only):
+  Trust-Center reachability probe, assessment-scope-drift reconciliation, Secure-Config-Guide diff.
+- **Family roll-up** (`core/family-rollup.ts`, `family-rollup.json`): per-family pass-rate posture,
+  awareness items excluded.
+- New third-party detector rules (Okta/Entra, Wiz/Prisma/Orca/Tenable/Snyk, Terraform Cloud/ArgoCD,
+  Vanta/Drata, KnowBe4, HackerOne, PagerDuty, Sigstore) so alternative satisfiers auto-detect.
 
 ### Fixed — Hardening pass #3 (all-severity error-handling sweep, 2026-05)
 Resolved every remaining finding (high → info) from the error-handling audit, in four batches:

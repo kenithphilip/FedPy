@@ -160,6 +160,41 @@ verb (via `diagnoseK8sError`), e.g.
 
 ---
 
+## Full-level coverage collectors (Phase 4/5)
+
+These collectors back the impact-level expansion (UCM crypto, VDR scan, the 7 KSI
+hybrids). All calls are read-only.
+
+### AWS
+
+| Collector / KSI | AWS actions (read-only) |
+|---|---|
+| `crypto.ts` — KSI-AFR-UCM | `kms:ListKeys`, `kms:DescribeKey`, `kms:GetKeyPolicy`, `acm:ListCertificates`, `acm:DescribeCertificate`, `elasticloadbalancing:DescribeLoadBalancers`, `elasticloadbalancing:DescribeListeners`, `elasticloadbalancing:DescribeSSLPolicies`, `cloudfront:ListDistributions`, `cloudfront:GetDistribution` |
+| `vdr-scan.ts` — KSI-AFR-VDR | `inspector2:BatchGetAccountStatus`, `inspector2:ListFindings` |
+| `ksi-hybrids.ts` — KSI-CMT-RVP | `config:DescribeConfigRules`, `config:DescribeRemediationConfigurations`, `config:DescribeConformancePacks` |
+| `ksi-hybrids.ts` — KSI-INR-AAR | `guardduty:ListDetectors`, `guardduty:GetDetector`, `events:ListRules`, `events:ListTargetsByRule` |
+| `ksi-hybrids.ts` — KSI-INR-RPI | `cloudtrail:DescribeTrails`, `logs:DescribeLogGroups` |
+| `ksi-hybrids.ts` — KSI-RPL-ARP | `rds:DescribeDBInstances`, `rds:DescribeDBClusters` |
+| `ksi-hybrids.ts` — KSI-RPL-RRO | `backup:ListBackupPlans`, `backup:GetBackupPlan` |
+| `ksi-hybrids.ts` — KSI-SCR-MIT | `ecr:GetRegistryScanningConfiguration`, `ecr:DescribeRepositories` |
+| `ksi-hybrids.ts` — KSI-SVC-PRR | `s3:ListAllMyBuckets`, `s3:GetBucketPublicAccessBlock`, `rds:DescribeDBInstances` |
+
+### GCP
+
+| Collector / KSI | GCP roles / permissions (read-only) |
+|---|---|
+| `crypto.ts` — KSI-AFR-UCM | `cloudkms.cryptoKeys.list` (roles/cloudkms.viewer), `compute.sslPolicies.list` (roles/compute.viewer) |
+| `vdr-scan.ts` — KSI-AFR-VDR | `containeranalysis.occurrences.list` (roles/containeranalysis.occurrences.viewer) |
+| `ksi-hybrids.ts` — KSI-CMT-RVP | `cloudasset.feeds.list` (roles/cloudasset.viewer) |
+| `ksi-hybrids.ts` — KSI-INR-AAR | `monitoring.alertPolicies.list` (roles/monitoring.viewer) |
+| `ksi-hybrids.ts` — KSI-INR-RPI | `logging.sinks.list` (roles/logging.viewer) |
+| `ksi-hybrids.ts` — KSI-RPL-ARP / RRO | `cloudsql.instances.list` (roles/cloudsql.viewer) |
+| `ksi-hybrids.ts` — KSI-SCR-MIT | `binaryauthorization.policy.get` (roles/binaryauthorization.policyViewer) |
+| `ksi-hybrids.ts` — KSI-SVC-PRR | `storage.buckets.list` (roles/storage.admin or roles/viewer), `cloudsql.instances.list` |
+
+The ADS probe (`ADS-CSO-PUB`) needs only **outbound HTTPS** to your public endpoints;
+MAS/SCG read operator-provided local files. None require cloud credentials.
+
 ## How permission errors surface at runtime
 
 Every collector wraps its SDK calls in try/catch and emits a diagnostic warning via

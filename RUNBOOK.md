@@ -119,7 +119,11 @@ Most operators don't need these. They exist for incident response, debugging, an
 | `CLOUD_EVIDENCE_IMPACT_LEVEL` | `moderate` | FedRAMP impact tier: `low`/`moderate`/`high`. Overrides `config.yaml` `impact_level`; `--impact-level` overrides this. High is DERIVED from NIST 800-53 Rev5. |
 | `CLOUD_EVIDENCE_ATTESTATIONS` | (none) | Path to a JSON attestation register (array of `{requirement_id, artifact_url, attested_by, attested_at, expires_at}` or an object keyed by requirement id). Proves the ~99 process requirements are met; a fresh attestation makes the requirement PASS. |
 | `CLOUD_EVIDENCE_KEV_PATH` | (none) | Path to a cached CISA Known-Exploited-Vulnerabilities JSON (`known_exploited_vulnerabilities.json`) for offline VDR KEV-deadline checks. |
-| `CLOUD_EVIDENCE_ADS_URLS` | (none) | Comma-separated public Trust Center / CSO / OSCAL URLs the ADS probe checks for reachability + required fields (read-only GET). |
+| `CLOUD_EVIDENCE_ADS_URLS` | (none) | Comma-separated public Trust Center / CSO / OSCAL URLs the ADS probe checks for reachability + required fields (read-only GET). Emits `ADS-CSO-PUB` evidence. |
+| `CLOUD_EVIDENCE_MAS_DOCUMENTED_PATH` | (none) | JSON array of resource identifiers documented as in the assessment scope. Reconciled against discovered inventory → `MAS-CSO-IIR` scope-drift evidence. |
+| `CLOUD_EVIDENCE_MAS_DISCOVERED_PATH` | (auto) | JSON array of discovered identifiers for the MAS reconciliation. If unset, falls back to the live `KSI-PIY-GIV` inventory from the run. |
+| `CLOUD_EVIDENCE_SCG_GUIDE_PATH` | (none) | Path to a machine-readable Secure Configuration Guide (JSON `{settings:{key:expected}}`). Diffed vs observed config → `SCG-CSO-RSC` evidence. |
+| `CLOUD_EVIDENCE_SCG_OBSERVED_PATH` | (none) | Optional JSON map of observed config values keyed like the SCG, for the SCG comparator. |
 
 **Impact level selection:** pick the tier at setup via `config.yaml` (`impact_level: low|moderate|high`)
 or per-run via `--impact-level high`. The collector then scopes all 223 FedRAMP 20x requirements
