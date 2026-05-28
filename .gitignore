@@ -56,3 +56,6 @@ coverage/
 *.lcov
 .eslintcache
 .cache/
+
+# NIST 800-53 r5 reference clone (separate repo, like /docs)
+/nist-r5-data/
