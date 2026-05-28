@@ -49,6 +49,7 @@ import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { KMSClient } from '@aws-sdk/client-kms';
 import { ACMClient } from '@aws-sdk/client-acm';
 import { AppMeshClient } from '@aws-sdk/client-app-mesh';
+import { SecurityLakeClient } from '@aws-sdk/client-securitylake';
 
 import { wrapAwsClient } from '../readonly-guardrail.ts';
 
@@ -142,3 +143,4 @@ export const secretsmanager = (a: AwsAuth) => wrapAwsClient(new SecretsManagerCl
 export const kms = (a: AwsAuth) => wrapAwsClient(new KMSClient({ region: a.region, credentials: a.credentials }));
 export const acm = (a: AwsAuth) => wrapAwsClient(new ACMClient({ region: a.region, credentials: a.credentials }));
 export const appmesh = (a: AwsAuth) => wrapAwsClient(new AppMeshClient({ region: a.region, credentials: a.credentials }));
+export const securitylake = (a: AwsAuth) => wrapAwsClient(new SecurityLakeClient({ region: a.region, credentials: a.credentials }));

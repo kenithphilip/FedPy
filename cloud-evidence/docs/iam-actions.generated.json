@@ -1,10 +1,10 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T11:07:10.862Z",
+  "_generated_at": "2026-05-28T11:11:37.569Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
-    "action_count": 134,
-    "service_count": 38,
+    "action_count": 136,
+    "service_count": 39,
     "services": [
       "access-analyzer",
       "acm",
@@ -39,6 +39,7 @@
       "s3",
       "secretsmanager",
       "securityhub",
+      "securitylake",
       "shield",
       "signer",
       "ssm",
@@ -165,6 +166,8 @@
       "secretsmanager:ListSecrets",
       "securityhub:GetEnabledStandards",
       "securityhub:GetFindings",
+      "securitylake:ListDataLakes",
+      "securitylake:ListSubscribers",
       "shield:GetSubscriptionState",
       "signer:ListSigningJobs",
       "signer:ListSigningProfiles",
@@ -326,7 +329,9 @@
         "s3:GetObjectLockConfiguration",
         "s3:ListBuckets",
         "securityhub:GetEnabledStandards",
-        "securityhub:GetFindings"
+        "securityhub:GetFindings",
+        "securitylake:ListDataLakes",
+        "securitylake:ListSubscribers"
       ],
       "aws/network.ts": [
         "cloudfront:GetDistribution",

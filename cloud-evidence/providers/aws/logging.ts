@@ -12,6 +12,7 @@ import { GetBucketEncryptionCommand, GetBucketVersioningCommand, GetBucketPolicy
 import { GetEnabledStandardsCommand, GetFindingsCommand as ShGetFindingsCommand } from '@aws-sdk/client-securityhub';
 import { DescribeConfigurationRecordersCommand, DescribeConfigurationRecorderStatusCommand } from '@aws-sdk/client-config-service';
 import { ListDeliveryStreamsCommand, DescribeDeliveryStreamCommand } from '@aws-sdk/client-firehose';
+import { ListDataLakesCommand, ListSubscribersCommand } from '@aws-sdk/client-securitylake';
 import { ListWorkGroupsCommand, ListNamedQueriesCommand } from '@aws-sdk/client-athena';
 
 import * as aws from '../../core/auth/aws.ts';
@@ -747,7 +748,29 @@ export async function collectMlaOsm(c: CollectorContext): Promise<ProviderBlock>
     evidence.push(ev('logs.subscription_filters', { count: cwSubscriptionFilters, sampled: 20 }));
   } catch (e: any) { warnings.push(`CW Logs subscription filters: ${e.message}`); }
 
-  // Security Lake direct detection skipped — requires @aws-sdk/client-securitylake; documented as TODO.
+  // Security Lake direct detection (read-only: ListDataLakes + ListSubscribers).
+  let securityLakeDataLakes: Array<{ region: string | null; status: string | null; s3: string | null }> = [];
+  let securityLakeSubscribers = 0;
+  try {
+    const sl = aws.securitylake(ctx.auth);
+    const lakes = await sl.send(new ListDataLakesCommand({ regions: [ctx.region] }));
+    securityLakeDataLakes = (lakes.dataLakes ?? []).map((d) => ({
+      region: d.region ?? null,
+      status: d.createStatus ?? null,
+      s3: d.s3BucketArn ?? null,
+    }));
+    securityLakeConfigured = securityLakeDataLakes.some((d) => d.status == null || /completed|initialized/i.test(d.status));
+    if (securityLakeConfigured) {
+      try {
+        const subs = await sl.send(new ListSubscribersCommand({}));
+        securityLakeSubscribers = (subs.subscribers ?? []).length;
+      } catch (e: any) { warnings.push(`Security Lake ListSubscribers: ${e.message}`); }
+    }
+    evidence.push(ev('securitylake.data_lakes', { configured: securityLakeConfigured, data_lakes: securityLakeDataLakes, subscriber_count: securityLakeSubscribers }));
+  } catch (e: any) {
+    // Not enabled / no permission is expected when Security Lake isn't in use — surface as a warning, not a failure.
+    warnings.push(`Security Lake (securitylake:ListDataLakes): ${e.message}`);
+  }
 
   const splunkFh = firehoseStreams.filter((s) => /splunk/i.test(s.destination));
   const datadogFh = firehoseStreams.filter((s) => /datadoghq/i.test(s.destination));
@@ -772,12 +795,14 @@ export async function collectMlaOsm(c: CollectorContext): Promise<ProviderBlock>
       via: 'AWS Security Lake (native)',
       description: 'OCSF-format unified log lake.',
       evidence_required: ['Security Lake subscriber config', 'Sample query via Athena / OpenSearch'],
-      detected: false,
-      detection_signals: ['Direct detection requires @aws-sdk/client-securitylake; verify manually.'],
+      detected: securityLakeConfigured,
+      detection_signals: securityLakeConfigured
+        ? securityLakeDataLakes.map((d) => `Data lake ${d.region ?? '?'} (${d.status ?? 'status?'}) → ${d.s3 ?? 's3?'}; ${securityLakeSubscribers} subscriber(s)`)
+        : ['No Security Lake data lake found in this region (or no securitylake:ListDataLakes permission).'],
     },
   ];
 
-  const anySiemDetected = splunkFh.length > 0 || datadogFh.length > 0 || httpFh.length > 0 || cwSubscriptionFilters > 0;
+  const anySiemDetected = splunkFh.length > 0 || datadogFh.length > 0 || httpFh.length > 0 || cwSubscriptionFilters > 0 || securityLakeConfigured;
 
   const findings = [
     finding({
@@ -786,9 +811,9 @@ export async function collectMlaOsm(c: CollectorContext): Promise<ProviderBlock>
       severity: 'high',
       current: {
         summary: anySiemDetected
-          ? `SIEM export plumbing detected: ${firehoseStreams.length} Firehose stream(s), ${cwSubscriptionFilters} CW Logs subscription filter(s).`
-          : 'No SIEM export plumbing detected (Firehose / CW Logs subscription filters).',
-        observations: { firehose_streams: firehoseStreams, cw_subscription_filters: cwSubscriptionFilters },
+          ? `SIEM export plumbing detected: ${firehoseStreams.length} Firehose stream(s), ${cwSubscriptionFilters} CW Logs subscription filter(s)${securityLakeConfigured ? `, AWS Security Lake (${securityLakeDataLakes.length} data lake(s), ${securityLakeSubscribers} subscriber(s))` : ''}.`
+          : 'No SIEM export plumbing detected (Firehose / CW Logs subscription filters / Security Lake).',
+        observations: { firehose_streams: firehoseStreams, cw_subscription_filters: cwSubscriptionFilters, security_lake: { configured: securityLakeConfigured, data_lakes: securityLakeDataLakes, subscriber_count: securityLakeSubscribers } },
       },
       target: { summary: 'At least one Firehose stream OR CloudWatch Logs subscription filter routes audit logs to a SIEM (cloud-native Security Lake / Chronicle, or 3rd-party Splunk / Datadog / Sumo Logic / Elastic).', rationale: 'NIST AU-6. Centralized analysis is FedRAMP 20x MLA-OSM core.' },
       gap: anySiemDetected ? undefined : {
