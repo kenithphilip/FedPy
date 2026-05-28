@@ -65,6 +65,8 @@ import * as awsData from '../providers/aws/data.ts';
 import * as gcpData from '../providers/gcp/data.ts';
 import * as awsInventory from '../providers/aws/inventory.ts';
 import * as gcpInventory from '../providers/gcp/inventory.ts';
+import * as awsCrypto from '../providers/aws/crypto.ts';
+import * as gcpCrypto from '../providers/gcp/crypto.ts';
 
 export const KSI_MAP: Record<string, KsiEntry> = {
   'KSI-IAM-AAM': {
@@ -426,6 +428,24 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     gcp: gcpLogging.collectInrRir,
     process_artifacts_required: ['IR runbook URL', 'Last procedure-review minutes', 'On-call rotation source'],
   },
+  // ---- AFR technical pointer: Using Cryptographic Modules (FIPS/CMVP) ----
+  // KSI-AFR-UCM points at the UCM process; the crypto collector supplies the
+  // automated FIPS/CMVP evidence (KMS/ACM/TLS) that supports it. The detailed
+  // UCM-CSX-* FRR requirements are additionally tracked via process attestation.
+  'KSI-AFR-UCM': {
+    id: 'KSI-AFR-UCM',
+    name: 'Using Cryptographic Modules',
+    scope: 'HYBRID',
+    statement: 'Ensure that cryptographic modules used to protect potentially sensitive federal customer data are selected and used in alignment with the FedRAMP 20x Using Cryptographic Modules (UCM) guidance and persistently address all related requirements and recommendations.',
+    nist_controls: ['sc-13', 'sc-12', 'sc-8', 'ia-7'],
+    aws: awsCrypto.collectUcm,
+    gcp: gcpCrypto.collectUcm,
+    process_artifacts_required: [
+      'CMVP certificate references for each cryptographic module used to protect federal data',
+      'Mapping of services (or service groups) → cryptographic modules',
+    ],
+  },
+
   // KSI-AFR-PVA and KSI-CSX-SUM are SPECIAL: invoked by the orchestrator after all
   // per-KSI collectors run. They have no provider-specific collector function.
 };

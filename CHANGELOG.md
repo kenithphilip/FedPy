@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — FedRAMP 20x full-level coverage (Low / Moderate / High)
+Expands the collector from the 35 implemented KSIs toward the full **223-requirement**
+FedRAMP 20x set (60 KSI indicators + 163 FRR requirements) with a setup-time impact-tier selector.
+
+- **Impact-level selector**: `impact_level: low|moderate|high` in `config.yaml` + `--impact-level`
+  CLI flag (env `CLOUD_EVIDENCE_IMPACT_LEVEL`). Low/Moderate come from the 20x machine-readable
+  data; **High is DERIVED from the NIST 800-53 Rev5 baseline** via each requirement's `controls[]`
+  and always labeled `derived-rev5` (or `derived-rev5-pending` when there's no control to anchor).
+- **Requirement registry** (`core/requirements-registry.ts`) + reproducible extractor
+  (`scripts/extract-frmr-requirements.mjs`) producing `docs/frmr-requirements.generated.json`.
+- **Process-artifact tracker** (`core/process-artifact-tracker.ts`): emits signed, schema-valid,
+  OSCAL-mapped, LLM-readable `scope: PROCESS` evidence for the ~99 governance requirements —
+  artifact + attestation register, SLA/deadline monitoring (`core/bizdays.ts`), and
+  alternative-satisfier detection. Requirements that obligate FedRAMP/agency/3PAO are tracked as
+  **awareness-only** and excluded from the provider's pass/fail rollup.
+- **Requirement playbooks** (`core/requirement-playbooks.ts`): 174 per-requirement playbooks with
+  concrete artifacts, practical FedRAMP-aligned remediation steps, real vendor alternative
+  satisfiers (Vanta/Drata/Paramify, KnowBe4, HackerOne/Bugcrowd, ServiceNow/Jira, PagerDuty,
+  Wiz/Tenable/Snyk, CMVP/CloudHSM), and 38 SLA windows.
+- **UCM crypto collectors** (`providers/{aws,gcp}/crypto.ts`, registered as `KSI-AFR-UCM`):
+  read-only FIPS/CMVP validation of KMS/ACM/TLS against a CMVP cert reference table, with
+  per-level obligation strength (Low MAY / Moderate SHOULD / High MUST).
+- **VDR modules** (`core/kev-feed.ts`, `vdr-ledger.ts`, `vdr-report.ts`): CISA KEV feed (offline-cacheable),
+  normalized vulnerability ledger with VDR-TFR-* SLA day-tables, and a breach summary.
+- Deep per-requirement analysis for all 188 gap requirements in
+  `cloud-evidence/docs/RSI-COVERAGE-ANALYSIS.md` + `docs/analysis/*.md`.
+- Schema + envelope gained `impact_level`, `applicable_key_word`, `actor_scope`, `level_source`,
+  `category`, `family`, `awareness_only` (all ajv-validated). Read-only guardrails unchanged.
+
 ### Fixed — Hardening pass #3 (all-severity error-handling sweep, 2026-05)
 Resolved every remaining finding (high → info) from the error-handling audit, in four batches:
 

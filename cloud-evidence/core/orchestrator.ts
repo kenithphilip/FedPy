@@ -25,6 +25,7 @@ import { buildPvaEvidence } from './pva-collector.ts';
 import type { ImpactTier } from './envelope.ts';
 import { selectForLevel, getRequirement, appliesAtLevel, actorScopeOf, type RequirementEntry } from './requirements-registry.ts';
 import { buildProcessArtifactEvidence, type AttestationRecord } from './process-artifact-tracker.ts';
+import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildCsxSum } from './csx-sum-aggregator.ts';
 import { notifyDrift } from './notify.ts';
 import { exportFindingsCsv } from './csv-export.ts';
@@ -803,6 +804,7 @@ export async function main(): Promise<void> {
       for (const req of toEmit) {
         const ev = buildProcessArtifactEvidence(req, {
           tier: impactLevel, runId, frmrVersion: config.frmr_version, attestations,
+          playbooks: REQUIREMENT_PLAYBOOKS,
         });
         const validation = validateEvidenceFile(JSON.parse(JSON.stringify(ev)));
         const outPath = resolve(args.outDir, `${req.id}.json`);
