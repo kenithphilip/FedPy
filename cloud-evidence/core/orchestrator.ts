@@ -27,6 +27,9 @@ import { selectForLevel, getRequirement, appliesAtLevel, actorScopeOf, type Requ
 import { buildProcessArtifactEvidence, type AttestationRecord } from './process-artifact-tracker.ts';
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
+import { createRunLedger, type RunLedger } from './run-ledger.ts';
+import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
+import { AdaptiveLimiter } from './rate-control.ts';
 import { adsUrlsFromEnv, probeAdsEndpoints, buildAdsFindings } from './ads-probe.ts';
 import { reconcileMas, buildMasFindings } from './mas-reconcile.ts';
 import { loadScgBaseline, compareScg, buildScgFindings } from './scg-comparator.ts';
@@ -603,6 +606,8 @@ async function runOneKsi(
   awsAccount: string | null,
   impactLevel: ImpactTier,
   awsTargets: FanoutTarget[] | null = null,
+  ledger?: RunLedger,
+  adaptive?: AdaptiveLimiter,
 ): Promise<RunResult> {
   const startedAt = Date.now();
   const ksiLog = logger({ ksi: ksi.id, run_id: runId });
@@ -617,11 +622,16 @@ async function runOneKsi(
       ? awsTargets.filter((t) => t.auth !== null).map((t) => ({ accountId: t.account_id, auth: t.auth! }))
       : [{ accountId: awsAccount, auth: undefined }];
     for (const t of targets) {
+      const startedAt = Date.now();
       try {
         const block = await ksi.aws({ aws: { region, account_id: t.accountId, auth: t.auth } });
         providers.push(block);
+        adaptive?.onSuccess('aws');
+        ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'aws', account_id: t.accountId, status: 'ok', duration_ms: Date.now() - startedAt });
       } catch (e: any) {
         const klass = classifyError(e);
+        if (klass === 'throttling') adaptive?.onThrottle('aws');
+        ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'aws', account_id: t.accountId, status: 'fail', duration_ms: Date.now() - startedAt, err_class: klass, err_message: e?.message });
         const warning = diagnoseAwsError(
           e,
           `aws:${ksi.id}`,
@@ -646,11 +656,16 @@ async function runOneKsi(
 
   if (args.providers.includes('gcp') && config.gcp.enabled && ksi.gcp) {
     for (const project of config.gcp.projects) {
+      const startedAt = Date.now();
       try {
         const block = await ksi.gcp({ gcp: { project_id: project } });
         providers.push(block);
+        adaptive?.onSuccess('gcp');
+        ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'gcp', project_id: project, status: 'ok', duration_ms: Date.now() - startedAt });
       } catch (e: any) {
         const klass = classifyError(e);
+        if (klass === 'throttling') adaptive?.onThrottle('gcp');
+        ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'gcp', project_id: project, status: 'fail', duration_ms: Date.now() - startedAt, err_class: klass, err_message: e?.message });
         const warning = diagnoseGcpError(
           e,
           `gcp:${ksi.id}`,
@@ -743,6 +758,23 @@ export async function main(): Promise<void> {
   const impactLevel: ImpactTier = args.impactLevel ?? config.impact_level ?? 'moderate';
 
   mkdirSafe(args.outDir);
+
+  // ---- Production hardening: run lock (no overlapping runs into the same out dir)
+  // + append-only run ledger (every action persisted) + adaptive throttle tracking. ----
+  let runLock: RunLock | null = null;
+  if (!args.dryRun) {
+    try {
+      runLock = acquireRunLock(args.outDir, runId);
+    } catch (e) {
+      if (e instanceof RunLockHeldError) { console.error(e.message); process.exitCode = 1; return; }
+      throw e;
+    }
+    // Guarantee the lock is freed on ANY process exit (incl. early returns / errors).
+    process.once('exit', () => runLock?.release());
+  }
+  const ledger = createRunLedger(resolve(args.outDir, 'run-ledger.jsonl'), runId);
+  const adaptive = new AdaptiveLimiter();
+  ledger.record('run.start', { status: 'info', impact_level: impactLevel, providers: args.providers.join(',') });
 
   // ---- Load plugins (must happen BEFORE we resolve the in-scope KSI list) ----
   if (args.pluginsDir) {
@@ -901,7 +933,7 @@ export async function main(): Promise<void> {
   console.log(`Running ${inScopeKsis.length} KSIs with concurrency=${args.concurrency}...`);
   const tasks = inScopeKsis.map((ksi) =>
     limit(async () => {
-      const res = await runOneKsi(ksi, config, args, runId, awsAccount, impactLevel, fanoutTargets);
+      const res = await runOneKsi(ksi, config, args, runId, awsAccount, impactLevel, fanoutTargets, ledger, adaptive);
       const verdict = res.rollup_pass ? '✓ PASS' : '✗ FAIL';
       const warn = res.warnings_count > 0 ? ` (${res.warnings_count} warning${res.warnings_count > 1 ? 's' : ''})` : '';
       const schemaTag = res.schema_valid ? '' : ' ⚠ schema-invalid';
@@ -1044,9 +1076,19 @@ export async function main(): Promise<void> {
       failed_ksis: results.filter((r) => !r.awareness_only && !r.rollup_pass).map((r) => r.ksi_id),
       schema_invalid_ksis: results.filter((r) => r.schema_valid === false).map((r) => r.ksi_id),
     },
+    // Production-hardening telemetry.
+    throttle_events: adaptive.throttleSnapshot(),
+    ledger: { path: ledger.path, records: ledger.count(), write_failures: ledger.writeFailures() },
   };
   const summaryPath = resolve(args.outDir, 'pva-run-summary.json');
   writeFileSafe(summaryPath, JSON.stringify(summary, null, 2));
+  ledger.record('run.complete', {
+    status: 'info',
+    total: summary.rollup.total_requirements,
+    passed: summary.rollup.passed,
+    failed: summary.rollup.failed,
+    throttles: Object.values(adaptive.throttleSnapshot()).reduce((a, b) => a + b, 0),
+  });
 
   // ---- Family roll-up: per-family posture across all emitted evidence ----
   try {
