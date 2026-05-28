@@ -1,0 +1,85 @@
+/**
+ * Reads subprocessor inventory from a Google Sheet (per locked decision).
+ * Authenticates via ADC; the runner needs Viewer access on the spreadsheet.
+ *
+ * Configure via config.yaml:
+ *   subprocessors:
+ *     spreadsheet_id: <ID>
+ *     sheet_range: "Sheet1!A1:Z"
+ *     columns:
+ *       name: 0
+ *       role: 1
+ *       data_categories: 2
+ *       fedramp_authorized: 3
+ *       attestation_doc_url: 4
+ *       soc2_expiry: 5
+ *       contract_review_date: 6
+ *       in_scope_for_csi: 7
+ *
+ * Used by:
+ *   - SCR-MIT (feeds the subprocessor inventory finding)
+ *   - IAM-AAM (tags external identities with subprocessor=<name>)
+ */
+import * as gcpAuth from './auth/gcp.ts';
+
+export interface SubprocessorRow {
+  name: string;
+  role?: string;
+  data_categories?: string[];
+  fedramp_authorized?: 'yes' | 'no' | 'equivalency-attest';
+  attestation_doc_url?: string;
+  soc2_expiry?: string;
+  contract_review_date?: string;
+  in_scope_for_csi?: boolean;
+}
+
+export interface SheetConfig {
+  spreadsheet_id: string;
+  sheet_range: string;
+  columns: {
+    name: number;
+    role?: number;
+    data_categories?: number;
+    fedramp_authorized?: number;
+    attestation_doc_url?: number;
+    soc2_expiry?: number;
+    contract_review_date?: number;
+    in_scope_for_csi?: number;
+  };
+}
+
+export async function readSubprocessors(cfg: SheetConfig): Promise<{ rows: SubprocessorRow[]; warnings: string[] }> {
+  const warnings: string[] = [];
+  const sheets = await gcpAuth.googleClient<any>('sheets', 'v4');
+  try {
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: cfg.spreadsheet_id,
+      range: cfg.sheet_range,
+    });
+    const values: any[][] = r.data.values ?? [];
+    // Skip header row
+    const dataRows = values.slice(1);
+    const rows: SubprocessorRow[] = dataRows
+      .filter((row) => row[cfg.columns.name])
+      .map((row) => {
+        const get = (idx?: number) => idx === undefined ? undefined : (row[idx] ?? undefined);
+        const fa = get(cfg.columns.fedramp_authorized)?.toLowerCase?.();
+        const inScope = get(cfg.columns.in_scope_for_csi)?.toLowerCase?.();
+        return {
+          name: String(row[cfg.columns.name]),
+          role: get(cfg.columns.role),
+          data_categories: get(cfg.columns.data_categories)?.split(/[,;]\s*/),
+          fedramp_authorized: ['yes','no','equivalency-attest'].includes(fa ?? '') ? fa as any : undefined,
+          attestation_doc_url: get(cfg.columns.attestation_doc_url),
+          soc2_expiry: get(cfg.columns.soc2_expiry),
+          contract_review_date: get(cfg.columns.contract_review_date),
+          in_scope_for_csi: inScope === 'true' || inScope === 'yes' || inScope === '1' ? true :
+                            inScope === 'false' || inScope === 'no' || inScope === '0' ? false : undefined,
+        };
+      });
+    return { rows, warnings };
+  } catch (e: any) {
+    warnings.push(`Sheets read failed: ${e.message}`);
+    return { rows: [], warnings };
+  }
+}

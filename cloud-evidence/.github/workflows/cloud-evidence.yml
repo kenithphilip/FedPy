@@ -1,0 +1,152 @@
+name: cloud-evidence (FedRAMP 20x KSI evidence collection)
+
+# AFR-PVA (Persistent Validation and Assessment) lives here:
+# this workflow IS the persistent-validation engine.
+#
+# Schedule: daily at 14:00 UTC (adjust to your operational rhythm).
+# Manual: workflow_dispatch with optional KSI / provider filters.
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+    inputs:
+      ksis:
+        description: 'Comma-separated KSI IDs (default: all supported)'
+        required: false
+        default: ''
+      providers:
+        description: 'Providers to run: aws, gcp, or both (comma-separated)'
+        required: false
+        default: 'aws,gcp'
+      dry_run:
+        description: 'Plan only; do not call any SDK or push to Paramify/tracker'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write       # to commit summaries/ markdown back into the repo
+  id-token: write       # OIDC for AWS + GCP federation
+  pull-requests: write  # for optional PR-based summary commits
+
+jobs:
+  collect:
+    name: Collect AWS + GCP evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: cloud-evidence
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # so we can commit + push the summaries dir
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cloud-evidence/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # ---- AWS OIDC federation (read-only role) ----
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_EVIDENCE_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          role-session-name: cloud-evidence-${{ github.run_id }}
+
+      # ---- GCP OIDC federation (read-only SA via Workload Identity) ----
+      - name: Configure GCP credentials (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_EVIDENCE_SA_EMAIL }}
+
+      # ---- Generate config.yaml from secrets/vars ----
+      - name: Render config.yaml
+        run: |
+          cat > config.yaml << EOF
+          frmr_version: "0.9.43-beta"
+          aws:
+            enabled: true
+            regions:
+              - ${{ vars.AWS_REGION || 'us-east-1' }}
+          gcp:
+            enabled: true
+            organization_id: ${{ vars.GCP_ORG_ID && format('"{0}"', vars.GCP_ORG_ID) || 'null' }}
+            projects:
+              - ${{ secrets.GCP_PROD_PROJECT }}
+          output_dir: ./out
+          EOF
+
+      # ---- Run the collector ----
+      - name: Collect evidence
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.ksis }}" ]; then ARGS="$ARGS --ksis ${{ inputs.ksis }}"; fi
+          if [ -n "${{ inputs.providers }}" ]; then ARGS="$ARGS --providers ${{ inputs.providers }}"; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          npx tsx core/orchestrator.ts $ARGS
+
+      # ---- Upload evidence as artifact (always; for audit trail) ----
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksi-evidence-${{ github.run_id }}
+          path: cloud-evidence/out/
+          retention-days: 90
+
+      # ---- Generate per-KSI markdown summaries (CSX-SUM input) ----
+      - name: Generate CSX-SUM summaries
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npx tsx tools/csx-sum-aggregator.ts --out ./out --summaries ./summaries
+
+      # ---- Commit summaries back to repo (git history = drift archive) ----
+      - name: Commit summaries
+        if: ${{ inputs.dry_run != 'true' && github.event_name == 'schedule' }}
+        run: |
+          cd "${{ github.workspace }}"
+          git config user.name  "cloud-evidence-bot"
+          git config user.email "cloud-evidence-bot@users.noreply.github.com"
+          git add cloud-evidence/summaries/
+          if git diff --cached --quiet; then
+            echo "No summary changes — skipping commit."
+          else
+            git commit -m "chore(cloud-evidence): refresh KSI summaries [run ${{ github.run_id }}]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      # ---- Push to Paramify (optional; only if secret is set) ----
+      - name: Push to Paramify
+        if: ${{ inputs.dry_run != 'true' && env.PARAMIFY_API_TOKEN != '' }}
+        env:
+          PARAMIFY_API_TOKEN: ${{ secrets.PARAMIFY_API_TOKEN }}
+          PARAMIFY_BASE_URL:  ${{ vars.PARAMIFY_BASE_URL }}
+        run: npx tsx tools/paramify-push.ts --out ./out
+
+      # ---- Push to local tracker (optional) ----
+      - name: Push to FedRAMP 20x tracker
+        if: ${{ inputs.dry_run != 'true' && env.TRACKER_BASE_URL != '' }}
+        env:
+          TRACKER_BASE_URL: ${{ vars.TRACKER_BASE_URL }}
+          TRACKER_EMAIL:    ${{ secrets.TRACKER_EMAIL }}
+          TRACKER_PASSWORD: ${{ secrets.TRACKER_PASSWORD }}
+        run: npx tsx tools/tracker-push.ts --out ./out
+
+      # ---- Surface failing KSIs in the workflow summary ----
+      - name: Render run summary
+        if: always()
+        run: |
+          if [ -f out/pva-run-summary.json ]; then
+            echo "## Run summary" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat out/pva-run-summary.json | head -200 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

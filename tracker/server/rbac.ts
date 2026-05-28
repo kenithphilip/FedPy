@@ -1,0 +1,165 @@
+/**
+ * Role-based access control.
+ *
+ * Roles (least → most privileged):
+ *   viewer       — read-only access to all items + reports
+ *   contributor  — viewer + may edit item_state for items they're assigned to
+ *   ksi-owner    — contributor + may edit ANY item in their assigned domain (e.g. all KSI-IAM-*)
+ *   auditor      — viewer + may access audit log + immutable evidence (read-only forever)
+ *   admin        — all permissions, including user management + 2FA enforcement
+ *
+ * Legacy mapping:
+ *   - The existing `users.role` column has values 'admin' | 'member'.
+ *     We map 'admin' → 'admin' and 'member' → 'contributor' for backward
+ *     compatibility. New deployments can assign granular roles.
+ *
+ * Permission model:
+ *   - Each role implies a set of action+scope tuples ("can.read.items",
+ *     "can.edit.items", "can.manage.users", etc.).
+ *   - Per-KSI-domain assignments live in user_domain_assignments (added in
+ *     this migration) and bind a user to a domain code like "IAM" or "MLA".
+ *   - `requirePermission(action, scope)` is a Hono middleware factory that
+ *     returns 403 if the current session lacks the permission.
+ *
+ * Audit:
+ *   - Every role change and domain assignment is logged in `audit_log` via
+ *     the changeRole() / assignDomain() helpers.
+ */
+import type { MiddlewareHandler } from 'hono';
+import { db } from './db.ts';
+
+export type Role = 'viewer' | 'contributor' | 'ksi-owner' | 'auditor' | 'admin';
+
+export const ROLES: Role[] = ['viewer', 'contributor', 'ksi-owner', 'auditor', 'admin'];
+
+/** Bitmasks would be premature here; use explicit permissions for legibility. */
+export type Permission =
+  | 'read:items'
+  | 'edit:items:assigned'   // edit items where I'm the owner
+  | 'edit:items:domain'     // edit items in my assigned KSI domain(s)
+  | 'edit:items:all'
+  | 'manage:tokens'
+  | 'manage:users'
+  | 'read:audit_log'
+  | 'manage:2fa_policy';
+
+const PERMISSIONS_BY_ROLE: Record<Role, ReadonlySet<Permission>> = {
+  viewer:       new Set(['read:items']),
+  contributor:  new Set(['read:items', 'edit:items:assigned']),
+  'ksi-owner':  new Set(['read:items', 'edit:items:assigned', 'edit:items:domain']),
+  auditor:      new Set(['read:items', 'read:audit_log']),
+  admin:        new Set(['read:items', 'edit:items:assigned', 'edit:items:domain', 'edit:items:all',
+                         'manage:tokens', 'manage:users', 'read:audit_log', 'manage:2fa_policy']),
+};
+
+/** Map legacy 'member'/'admin' to granular roles for back-compat. */
+export function normalizeRole(stored: string | null | undefined): Role {
+  if (!stored) return 'contributor';
+  if (stored === 'admin') return 'admin';
+  if (stored === 'member') return 'contributor';
+  if ((ROLES as string[]).includes(stored)) return stored as Role;
+  return 'contributor';
+}
+
+export function hasPermission(role: Role, perm: Permission): boolean {
+  return PERMISSIONS_BY_ROLE[role]?.has(perm) ?? false;
+}
+
+/**
+ * Compute effective permission for editing a specific item, honoring
+ * owner + domain assignments.
+ */
+export interface EditContext {
+  itemDomain?: string;      // e.g. "IAM" extracted from "KSI-IAM-MFA"
+  itemOwnerUserId?: number; // FK from item_state.owner_user_id
+}
+
+export function canEditItem(userId: number, role: Role, ctx: EditContext): boolean {
+  if (hasPermission(role, 'edit:items:all')) return true;
+  if (hasPermission(role, 'edit:items:assigned') && ctx.itemOwnerUserId === userId) return true;
+  if (hasPermission(role, 'edit:items:domain') && ctx.itemDomain) {
+    return userAssignedToDomain(userId, ctx.itemDomain);
+  }
+  return false;
+}
+
+// ---- Domain assignments ----
+
+export function ensureDomainTable(): void {
+  db().exec(`
+    CREATE TABLE IF NOT EXISTS user_domain_assignments (
+      user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      domain   TEXT NOT NULL,    -- e.g. "IAM", "MLA"
+      assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, domain)
+    );
+    CREATE INDEX IF NOT EXISTS idx_uda_domain ON user_domain_assignments(domain);
+  `);
+}
+
+export function assignDomain(userId: number, domain: string, byUserId: number | null): void {
+  ensureDomainTable();
+  db().prepare(
+    `INSERT OR IGNORE INTO user_domain_assignments (user_id, domain, assigned_by) VALUES (?, ?, ?)`,
+  ).run(userId, domain.toUpperCase(), byUserId);
+  // Audit
+  db().prepare(
+    `INSERT INTO audit_log (user_id, item_id, item_type, field, old_value, new_value)
+     VALUES (?, ?, 'rbac', 'domain_assigned', NULL, ?)`,
+  ).run(byUserId, `user:${userId}`, domain.toUpperCase());
+}
+
+export function unassignDomain(userId: number, domain: string, byUserId: number | null): void {
+  ensureDomainTable();
+  db().prepare(`DELETE FROM user_domain_assignments WHERE user_id = ? AND domain = ?`).run(userId, domain.toUpperCase());
+  db().prepare(
+    `INSERT INTO audit_log (user_id, item_id, item_type, field, old_value, new_value)
+     VALUES (?, ?, 'rbac', 'domain_unassigned', ?, NULL)`,
+  ).run(byUserId, `user:${userId}`, domain.toUpperCase());
+}
+
+export function userAssignedToDomain(userId: number, domain: string): boolean {
+  ensureDomainTable();
+  const row = db().prepare(`SELECT 1 AS x FROM user_domain_assignments WHERE user_id = ? AND domain = ?`)
+    .get(userId, domain.toUpperCase());
+  return !!row;
+}
+
+export function listUserDomains(userId: number): string[] {
+  ensureDomainTable();
+  return (db().prepare(`SELECT domain FROM user_domain_assignments WHERE user_id = ? ORDER BY domain`)
+    .all(userId) as Array<{ domain: string }>).map((r) => r.domain);
+}
+
+// ---- Role change with audit log ----
+
+export function changeRole(targetUserId: number, newRole: Role, byUserId: number | null): void {
+  if (!ROLES.includes(newRole)) throw new Error(`invalid role: ${newRole}`);
+  const oldRow = db().prepare(`SELECT role FROM users WHERE id = ?`).get(targetUserId) as { role?: string } | undefined;
+  db().prepare(`UPDATE users SET role = ? WHERE id = ?`).run(newRole, targetUserId);
+  db().prepare(
+    `INSERT INTO audit_log (user_id, item_id, item_type, field, old_value, new_value)
+     VALUES (?, ?, 'rbac', 'role', ?, ?)`,
+  ).run(byUserId, `user:${targetUserId}`, oldRow?.role ?? null, newRole);
+}
+
+// ---- Middleware ----
+
+export function requirePermission(perm: Permission): MiddlewareHandler {
+  return async (c, next) => {
+    const u = c.get('user') as any;
+    if (!u) return c.json({ error: 'unauthorized' }, 401);
+    const role = normalizeRole(u.role);
+    if (!hasPermission(role, perm)) {
+      return c.json({ error: 'forbidden', required_permission: perm, your_role: role }, 403);
+    }
+    return next();
+  };
+}
+
+/** Extract the KSI domain from an item ID like "KSI-IAM-MFA" or "indicator:KSI-IAM-MFA". */
+export function domainFromItemId(itemId: string): string | undefined {
+  const m = itemId.match(/KSI-([A-Z]+)-/);
+  return m?.[1];
+}

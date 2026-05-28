@@ -1,0 +1,458 @@
+openapi: 3.0.3
+info:
+  title: FedRAMP 20x Tracker API
+  description: |
+    Local multi-user web tracker for FedRAMP 20x KSI implementation state.
+    Authoritative source for ownership, status, notes, and evidence URLs.
+
+    **Auth:**
+    - Session cookie (`fr20x_sid`) for human users; obtained via `/api/auth/login`.
+    - Bearer API token (created at `/api/auth/tokens`) for headless integrations
+      such as the cloud-evidence collector's `--push-tracker`.
+
+    **CSRF:**
+    - All state-changing requests from a browser (POST/PUT/PATCH/DELETE) must
+      include the `X-CSRF-Token` header matching the `fr20x_csrf` cookie.
+    - Bearer-token requests are exempt.
+
+    **Rate limits:**
+    - Login: 5/min per IP, 30/hour per IP.
+    - Token create: 10/hour per user.
+
+  version: 0.1.0
+  contact:
+    name: FedRAMP 20x Tracker
+
+servers:
+  - url: http://localhost:4000
+    description: Local development
+  - url: https://tracker.example.com
+    description: Production deployment
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: fr20x_sid
+    bearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: cev_*
+
+  responses:
+    BadRequest:
+      description: Validation or input error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Missing or invalid credentials
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Insufficient permission
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Rate limit exceeded
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-Token
+      in: header
+      required: false
+      description: Required for cookie-authenticated state-changing requests. Value must match the `fr20x_csrf` cookie.
+      schema:
+        type: string
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:        { type: integer }
+        email:     { type: string, format: email }
+        name:      { type: string }
+        role:      { type: string, enum: [viewer, contributor, ksi-owner, auditor, admin, member] }
+      required: [id, email, name, role]
+
+    ItemState:
+      type: object
+      properties:
+        item_id:       { type: string, description: "e.g. KSI-IAM-MFA" }
+        item_type:     { type: string, enum: [requirement, indicator] }
+        status:        { type: string, enum: [not_started, in_progress, met, not_applicable, blocked] }
+        owner_user_id: { type: [integer, "null"] }
+        owner_text:    { type: [string, "null"] }
+        notes:         { type: [string, "null"] }
+        evidence_url:  { type: [string, "null"] }
+        last_reviewed: { type: [string, "null"], format: date }
+      required: [item_id, item_type, status]
+
+    ApiToken:
+      type: object
+      properties:
+        id:         { type: integer }
+        name:       { type: string }
+        scope:      { type: string, enum: [patch:indicators, patch:all, read:all] }
+        created_at: { type: string, format: date-time }
+        last_used:  { type: [string, "null"], format: date-time }
+        expires_at: { type: [string, "null"], format: date-time }
+        revoked_at: { type: [string, "null"], format: date-time }
+      required: [id, name, scope, created_at]
+
+    AuditEvent:
+      type: object
+      properties:
+        id:         { type: integer }
+        user_id:    { type: [integer, "null"] }
+        user_email: { type: [string, "null"] }
+        user_name:  { type: [string, "null"] }
+        item_id:    { type: string }
+        item_type:  { type: string }
+        field:      { type: string }
+        old_value:  { type: [string, "null"] }
+        new_value:  { type: [string, "null"] }
+        changed_at: { type: string, format: date-time }
+
+    Error:
+      type: object
+      properties:
+        error:   { type: string }
+        message: { type: string }
+
+paths:
+  /api/health:
+    get:
+      summary: Liveness check
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean } }
+
+  /api/csrf-token:
+    get:
+      summary: Issue / refresh the CSRF token cookie
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { csrf_token: { type: string } }
+
+  /api/auth/bootstrap:
+    get:
+      summary: Check whether the tracker has any users yet (first-user bootstrap)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { needsBootstrap: { type: boolean } }
+
+  /api/auth/signup:
+    post:
+      summary: Create a user account (first-user becomes admin)
+      security: []
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, password]
+              properties:
+                email:    { type: string, format: email }
+                name:     { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: User created
+          content: { application/json: { schema: { type: object, properties: { user: { $ref: '#/components/schemas/User' } } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/login:
+    post:
+      summary: Begin a session via email + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Logged in; session + CSRF cookies set
+          content: { application/json: { schema: { type: object, properties: { user: { $ref: '#/components/schemas/User' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/logout:
+    post:
+      summary: End the current session
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      responses:
+        '200': { description: OK }
+
+  /api/auth/me:
+    get:
+      summary: Return the current authenticated user
+      security: [{ sessionCookie: [] }, { bearerToken: [] }]
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: object, properties: { user: { $ref: '#/components/schemas/User' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auth/tokens:
+    get:
+      summary: List API tokens (admin only)
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: OK, content: { application/json: { schema: { type: object, properties: { tokens: { type: array, items: { $ref: '#/components/schemas/ApiToken' } } } } } } } }
+    post:
+      summary: Create an API token (admin only)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:      { type: string }
+                scope:     { type: string, enum: [patch:indicators, patch:all, read:all], default: patch:indicators }
+                ttl_days:  { type: integer }
+      responses:
+        '200':
+          description: Token created; raw token returned ONCE
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:   { $ref: '#/components/schemas/ApiToken' }
+                  raw_token: { type: string, description: "Shown only at creation — store securely." }
+
+  /api/2fa/status:
+    get:
+      summary: 2FA enrollment status for the current user
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enrolled:               { type: boolean }
+                  required:               { type: boolean }
+                  backup_codes_remaining: { type: integer }
+
+  /api/2fa/enroll:
+    post:
+      summary: Begin TOTP enrollment; returns secret, otpauth URI, and backup codes (ONCE)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      responses:
+        '200':
+          description: Enrollment material
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret_b32:   { type: string }
+                  otpauth_uri:  { type: string }
+                  backup_codes: { type: array, items: { type: string } }
+
+  /api/2fa/complete:
+    post:
+      summary: Verify the first TOTP code to complete enrollment
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [code], properties: { code: { type: string, pattern: '^\d{6}$' } } }
+      responses:
+        '200': { description: Enrollment complete }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/2fa/verify:
+    post:
+      summary: Verify a TOTP or backup code
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [code], properties: { code: { type: string } } }
+      responses:
+        '200':
+          description: Verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:  { type: boolean }
+                  via: { type: string, enum: [totp, backup] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/2fa/disable:
+    post:
+      summary: Disable 2FA (requires password re-auth in body)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [password], properties: { password: { type: string } } }
+      responses:
+        '200': { description: Disabled }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/audit:
+    get:
+      summary: Search the audit log (auditor + admin only)
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: actor
+          in: query
+          schema: { type: integer, nullable: true }
+          description: User ID. Empty string = system / API token actor.
+        - name: action
+          in: query
+          schema: { type: string }
+          description: field name (e.g. "status", "role")
+        - name: item
+          in: query
+          schema: { type: string }
+          description: substring match on item_id
+        - name: item_type
+          in: query
+          schema: { type: string, enum: [requirement, indicator, rbac] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 200, maximum: 5000 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:   { type: array, items: { $ref: '#/components/schemas/AuditEvent' } }
+                  total:  { type: integer }
+                  limit:  { type: integer }
+                  offset: { type: integer }
+
+  /api/audit/csv:
+    get:
+      summary: Export audit log as CSV (same query params as /api/audit)
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /api/audit/facets:
+    get:
+      summary: Distinct filter values for the audit-log search UI
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:    { type: array, items: { type: string } }
+                  item_types: { type: array, items: { type: string } }
+                  actors:     { type: array, items: { $ref: '#/components/schemas/User' } }
+
+  /api/items/state:
+    patch:
+      summary: Upsert state for a tracker item
+      security: [{ sessionCookie: [] }, { bearerToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ItemState' }
+      responses:
+        '200': { description: OK }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/collector-runs:
+    post:
+      summary: Push a collector-run telemetry record (from cloud-evidence)
+      security: [{ bearerToken: [] }, { sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/CsrfHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [run_id, started_at]
+              properties:
+                run_id:         { type: string }
+                started_at:     { type: string, format: date-time }
+                finished_at:    { type: string, format: date-time }
+                frmr_version:   { type: string }
+                total_ksis:     { type: integer }
+                passed_ksis:    { type: integer }
+                failed_ksis:    { type: integer }
+                drift_events:   { type: integer }
+                negative_drift: { type: integer }
+                summary:        { type: object, additionalProperties: true }
+      responses:
+        '200': { description: Telemetry recorded }
+
+  /api/openapi.yaml:
+    get:
+      summary: This OpenAPI specification
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/yaml:
+              schema: { type: string }

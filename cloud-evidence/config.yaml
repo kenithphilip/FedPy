@@ -1,0 +1,34 @@
+# cloud-evidence collector config.
+# Edit this file to define what the collector will inspect.
+# The collector is strictly read-only — see README and core/readonly-guardrail.ts.
+
+frmr_version: "0.9.43-beta"
+
+# AWS configuration
+aws:
+  enabled: true
+  # Phase 1: single account via the runner's default profile / SSO session.
+  # The collector reads AWS_PROFILE and AWS_REGION from the environment.
+  # Multi-account assume-role is planned for a later phase.
+  regions:
+    - us-east-1
+  # If you tag resources to separate prod from nonprod, set this so the
+  # collector can filter findings to the relevant env.
+  prod_tag:
+    key: env
+    values: [prod, production]
+
+# GCP configuration
+gcp:
+  enabled: true
+  # Phase 1: ADC. Run `gcloud auth application-default login` once before invoking.
+  # Service-account impersonation is planned for a later phase.
+  organization_id: null           # set to "organizations/123456789012" if you have org-level read access
+  projects:                       # list of project IDs to inspect
+    - your-prod-project-id
+  prod_label:
+    key: env
+    values: [prod, production]
+
+# Output directory (relative to this file)
+output_dir: ./out

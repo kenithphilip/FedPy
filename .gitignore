@@ -1,0 +1,56 @@
+# ─── Dependencies ────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ─── Build output ────────────────────────────────────────────────
+dist/
+**/dist/
+*.tsbuildinfo
+
+# ─── Local state / generated evidence (never commit) ─────────────
+# cloud-evidence run output (evidence JSON, summaries, manifests, signatures)
+cloud-evidence/out/
+out/*.json
+out/*.md
+out/*.tsr
+manifest.json
+manifest.sig
+coverage-report.json
+pva-run-summary.json
+summaries/
+
+# tracker SQLite database + WAL sidecars + backups
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.db.gz
+backups/
+
+# ─── Secrets / key material (NEVER commit) ───────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+signing-key.pem
+signing-pub.pem
+service-account*.json
+gcp-credentials*.json
+
+# ─── Upstream reference clone (separate FedRAMP FRMR git repo) ────
+# docs/ is a clone of the official FedRAMP FRMR repository, with its own .git.
+# It is reference material the tooling reads, not part of this codebase.
+docs/
+
+# ─── Agent / editor / OS noise ───────────────────────────────────
+.claude/
+.idea/
+.vscode/
+.DS_Store
+*.log
+coverage/
+*.lcov
+.eslintcache
+.cache/

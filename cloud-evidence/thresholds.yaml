@@ -1,0 +1,24 @@
+# Per-severity thresholds for KSI finding rollups.
+# Per decision #3 (see project_cloud_evidence_decisions.md): hybrid model.
+#
+# - critical / high severity findings have exact bounds. They MUST be at or
+#   below the configured count for the KSI to pass.
+# - medium findings have a bounded ceiling AND must trend flat or down.
+# - low findings have no exact ceiling; trending only.
+
+defaults:
+  critical:
+    max_count: 0
+  high:
+    max_count: 0
+  medium:
+    max_count: 25
+    trend: "flat_or_down"   # compared against the previous run's count
+  low:
+    trend: "flat_or_down"
+
+# Per-KSI overrides (uncomment + customize as you tune)
+overrides:
+  # KSI-IAM-AAM:
+  #   medium:
+  #     max_count: 50   # we have a lot of legacy unused access analyzer findings; agreed cap

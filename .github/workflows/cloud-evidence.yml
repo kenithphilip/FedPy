@@ -1,0 +1,160 @@
+name: cloud-evidence
+
+on:
+  schedule:
+    - cron: '0 4 * * *'    # Daily at 0400 UTC
+  workflow_dispatch:
+    inputs:
+      push_paramify:
+        description: 'Push results to Paramify'
+        type: boolean
+        default: false
+      push_tracker:
+        description: 'Push results to the local tracker'
+        type: boolean
+        default: false
+      notify_on_drift:
+        description: 'Send Slack/PagerDuty notification on negative drift'
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write       # for OIDC auth to AWS/GCP
+  contents: write       # for auto-committing summaries
+  actions: read
+
+jobs:
+  collect:
+    name: Collect cloud evidence
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud-evidence
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0    # we may commit back
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: cloud-evidence/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --- AWS auth via OIDC (no static credentials) ---
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-session-name: cloud-evidence-${{ github.run_id }}
+          aws-region: us-east-1
+
+      # --- GCP auth via Workload Identity Federation ---
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # --- Verify identities ---
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Verify GCP identity
+        run: gcloud auth list
+
+      # --- Run the collector ---
+      - name: Run cloud-evidence collector
+        env:
+          # Reports + notifications
+          EVIDENCE_URL_BASE: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+
+          # Optional pushes (only used if the relevant flag is set)
+          PARAMIFY_API_TOKEN: ${{ secrets.PARAMIFY_API_TOKEN }}
+          TRACKER_API_TOKEN: ${{ secrets.TRACKER_API_TOKEN }}
+          TRACKER_BASE_URL: ${{ secrets.TRACKER_BASE_URL }}
+        run: |
+          FLAGS="--all-reports"
+          if [ "${{ inputs.notify_on_drift != false }}" = "true" ]; then
+            FLAGS="$FLAGS --notify-on-drift"
+          fi
+          if [ "${{ inputs.push_paramify }}" = "true" ] && [ -n "$PARAMIFY_API_TOKEN" ]; then
+            FLAGS="$FLAGS --push-paramify"
+          fi
+          if [ "${{ inputs.push_tracker }}" = "true" ] && [ -n "$TRACKER_API_TOKEN" ]; then
+            FLAGS="$FLAGS --push-tracker"
+          fi
+          echo "Running: npx tsx core/orchestrator.ts $FLAGS"
+          npx tsx core/orchestrator.ts $FLAGS
+
+      # --- Upload all artifacts ---
+      - name: Upload evidence JSON
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-evidence-${{ github.run_id }}
+          path: |
+            cloud-evidence/out/
+          retention-days: 90
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-evidence-html-${{ github.run_id }}
+          path: |
+            cloud-evidence/out/report.html
+            cloud-evidence/out/diff-report.html
+          retention-days: 90
+
+      # --- Auto-commit markdown summaries on main (per locked decision) ---
+      - name: Commit markdown summaries
+        if: github.ref == 'refs/heads/main' && success()
+        run: |
+          git config user.name "cloud-evidence-bot"
+          git config user.email "noreply@github.com"
+          cd ..
+          if [ -d summaries ] && [ -n "$(git status --porcelain summaries/)" ]; then
+            git add summaries/
+            git commit -m "cloud-evidence: refresh KSI summaries [skip ci]
+
+Run: ${{ github.run_id }}
+Workflow: ${{ github.workflow }}"
+            git push
+          else
+            echo "No summary changes to commit."
+          fi
+
+      # --- Summarize results in job log ---
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f out/pva-run-summary.json ]; then
+            echo "## cloud-evidence run summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            node -e '
+              const s = require("./out/pva-run-summary.json");
+              console.log(`- **Run ID:** \\\`${s.run_id}\\\``);
+              console.log(`- **KSIs:** ${s.rollup.total_ksis}`);
+              console.log(`- **Passing:** ${s.rollup.passed}`);
+              console.log(`- **Failing:** ${s.rollup.failed}`);
+              console.log(`- **FRMR version:** ${s.frmr_version}`);
+            ' >> $GITHUB_STEP_SUMMARY
+            if [ -f out/diff-report.json ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Diff since previous run" >> $GITHUB_STEP_SUMMARY
+              node -e '
+                const d = require("./out/diff-report.json");
+                console.log(`- **Regressed (pass → fail):** ${d.regressed_count}`);
+                console.log(`- **Fixed (fail → pass):** ${d.fixed_count}`);
+                console.log(`- **New findings:** ${d.new_findings_count}`);
+              ' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
