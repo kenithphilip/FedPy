@@ -9,6 +9,8 @@
     "verify": "tsx core/verify-cli.ts",
     "collect:bun": "bun run core/orchestrator.ts",
     "verify:bun": "bun run core/verify-cli.ts",
+    "collect:deno": "deno run --allow-read --allow-env --allow-sys --allow-net --allow-write --allow-run core/orchestrator.ts",
+    "verify:deno": "deno run --allow-read --allow-env --allow-sys --allow-run core/verify-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

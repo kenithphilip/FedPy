@@ -9,6 +9,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178c6.svg)
 ![Node](https://img.shields.io/badge/Node-22%2F24-339933.svg)
 ![Bun](https://img.shields.io/badge/Bun-1.3-f9f1e1.svg)
+![Deno](https://img.shields.io/badge/Deno-2.8-000000.svg)
 ![Tests](https://img.shields.io/badge/tests-495%20passing-brightgreen.svg)
 
 This repository contains **two complementary projects** that together cover the
@@ -137,7 +138,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full module maps and data flow.
 ## Quick start
 
 **Prerequisites:** Node 22+ (tested on 22 and 24); optionally
-[Bun](https://bun.sh) 1.3+ for the collector. AWS credentials via
+[Bun](https://bun.sh) 1.3+ or [Deno](https://deno.com) 2.8+ for the collector. AWS credentials via
 `aws sso login` / `AWS_PROFILE`, and GCP via
 `gcloud auth application-default login`.
 
@@ -186,9 +187,11 @@ npm run dev           # API on :4000, web UI on :5173
 ## The cloud-evidence collector
 
 A read-only TypeScript collector for the FedRAMP 20x KSIs across **AWS, GCP, and
-Kubernetes**. It runs on Node (via `tsx`) or Bun — Bun is recommended for
+Kubernetes**. It runs on Node (via `tsx`), Bun, or Deno — Bun is recommended for
 production collection (native TS, faster startup/I/O, better concurrency under
-throttle); Node + `tsx` is the default and what the test suite runs on.
+throttle); Node + `tsx` is the default and what the test suite runs on. Deno is
+also supported via the `collect:deno` / `verify:deno` scripts (it needs explicit
+`--allow-*` permission flags; see [RUNBOOK.md](RUNBOOK.md)).
 
 ### Read-only safety model
 

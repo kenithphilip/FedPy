@@ -14,11 +14,11 @@ This is a working operations document. Treat as a reference, not gospel — edit
 | cosign (optional) | SBOM signature verification |
 | kubectl (optional) | K8s collector requires kubeconfig |
 
-### Runtime: Node (tsx) or Bun
+### Runtime: Node (tsx), Bun, or Deno
 
-The **cloud-evidence collector runs on both Node and Bun** (it is sqlite-free; all
+The **cloud-evidence collector runs on Node, Bun, and Deno** (it is sqlite-free; all
 deps — AWS SDK v3, googleapis, @kubernetes/client-node, ajv, pino, p-limit, yaml —
-are Bun-compatible). Bun is **recommended for production collection** (native TS,
+work on all three). Bun is **recommended for production collection** (native TS,
 faster startup/I/O, better concurrency under throttle):
 
 ```bash
@@ -30,6 +30,24 @@ npm run verify  -- ./out                   npm run verify:bun -- ./out
 Verified on Bun 1.3.14 (a full high-tier run produced identical, schema-valid
 evidence + the run ledger). The **tracker stays on Node** (it uses better-sqlite3,
 a native Node addon). The vitest test suites run on Node.
+
+**Deno** (2.8+) is also supported. Because Deno is secure-by-default, it needs
+explicit permission flags; the bundled npm scripts include the right set:
+
+```bash
+npm run collect:deno -- --impact-level high   # deno run --allow-read --allow-env --allow-sys --allow-net --allow-write --allow-run …
+npm run verify:deno  -- ./out                 # deno run --allow-read --allow-env --allow-sys --allow-run …
+```
+
+What each flag is for: `--allow-read` (config + committed data + cloud cred files),
+`--allow-env` (`AWS_PROFILE`, `CLOUD_EVIDENCE_*`), `--allow-sys` (pino reads the
+hostname at load), `--allow-net` (AWS/GCP API + ADC token endpoint), `--allow-write`
+(the `out/` dir, run ledger, run lock), `--allow-run` (only the optional RFC 3161
+`openssl` timestamp shells out — Ed25519 signing uses `node:crypto`, no subprocess).
+Deno resolves the npm dependencies from the existing `node_modules` (run
+`npm install` first). Verified on Deno 2.8.1: a full dry-run plans all 44 KSIs and
+the offline control benchmark + `verify` both run clean. Bun remains the
+recommendation for production; Deno is a fully working alternative.
 
 ## 1. First-time setup
 

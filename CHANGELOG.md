@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Deno runtime support for the collector
+- The cloud-evidence collector now runs on **Deno 2.8+** in addition to Node and Bun.
+  npm dependencies resolve from the existing `node_modules`; Deno's secure-by-default
+  model needs explicit permission flags, bundled as `collect:deno` / `verify:deno`
+  npm scripts (`--allow-read,-env,-sys,-net,-write` for collection; add `--allow-run`
+  only for the optional RFC 3161 `openssl` timestamp — Ed25519 signing uses `node:crypto`).
+  Verified on Deno 2.8.1: a full dry-run plans all 44 KSIs and the offline control
+  benchmark + `verify` run clean. `.tool-versions` and RUNBOOK updated. Bun remains
+  the production recommendation.
+
 ### Added — NIST 800-53 control benchmark (Low / Moderate / High, for both 20x and Rev5)
 - **`core/control-benchmark.ts` + `control-benchmark.json`:** every run now rolls the cloud
   findings UP to NIST 800-53 controls and scores each control at the chosen impact level, so a

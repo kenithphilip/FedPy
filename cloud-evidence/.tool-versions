@@ -1,7 +1,10 @@
 # Runtimes for the cloud-evidence collector (asdf / mise).
-# The collector runs on BOTH Node (via tsx) and Bun — see RUNBOOK "Runtime".
+# The collector runs on Node (via tsx), Bun, AND Deno — see RUNBOOK "Runtime".
 # Bun is recommended for production collection (native TS, faster startup/I/O,
 # better concurrency under load). Node + tsx remains the default/fallback and is
-# what the vitest test suite runs on.
+# what the vitest test suite runs on. Deno works too (npm deps resolve from
+# node_modules) but requires explicit --allow-* permission flags; see the
+# `collect:deno` / `verify:deno` npm scripts.
 nodejs 22.10.0
 bun 1.3.14
+deno 2.8.1
