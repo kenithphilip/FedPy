@@ -12,6 +12,9 @@ export function CollectorRuns() {
   const bench = summary?.control_benchmark as
     | { framework?: string; control_source?: string; totals?: any }
     | undefined;
+  const inventory = summary?.inventory as
+    | { asset_count?: number; in_scan?: number; finding_linked?: number; edge_count?: number; oscal_items?: number; by_provider?: Record<string, number> }
+    | undefined;
 
   return (
     <div>
@@ -41,6 +44,7 @@ export function CollectorRuns() {
             {run.pushed_by_name ? <> · pushed by {run.pushed_by_name}</> : null}
           </p>
           {bench?.totals ? <ControlBenchmark bench={bench} /> : null}
+          {inventory?.asset_count != null ? <InventorySummary inv={inventory} /> : null}
         </div>
       ) : (
         <div className="card muted">No collector runs yet. Run <span className="mono">npx tsx core/orchestrator.ts --push-tracker</span> from cloud-evidence.</div>
@@ -119,6 +123,32 @@ function ControlBenchmark({ bench }: { bench: { framework?: string; control_sour
         Baseline coverage {pct(t.baseline_coverage_rate)} (satisfied ÷ in-scope) ·
         {' '}Assessed pass rate {pct(t.assessed_pass_rate)} (satisfied ÷ controls with evidence) ·
         {' '}Partially satisfied {Number(t.partially_satisfied) || 0}
+      </p>
+    </div>
+  );
+}
+
+/** Cloud inventory headline for the latest run (the FedRAMP/org asset inventory). */
+function InventorySummary({ inv }: { inv: { asset_count?: number; in_scan?: number; finding_linked?: number; edge_count?: number; oscal_items?: number; by_provider?: Record<string, number> } }) {
+  const providers = Object.entries(inv.by_provider ?? {}).map(([p, n]) => `${p} ${n}`).join(' · ');
+  return (
+    <div style={{ marginTop: 14, borderTop: '1px solid var(--border, #2a2a2a)', paddingTop: 12 }}>
+      <div className="row" style={{ alignItems: 'baseline' }}>
+        <strong className="small">Cloud inventory</strong>
+        <span style={{ marginLeft: 8, border: '1px solid var(--accent, #4a90d9)', color: 'var(--accent, #4a90d9)', borderRadius: 6, padding: '1px 7px', fontSize: 11, fontWeight: 600 }}>
+          {inv.asset_count} assets
+        </span>
+        <span className="spacer" />
+        {providers ? <span className="muted small">{providers}</span> : null}
+      </div>
+      <div className="grid cols-4" style={{ marginTop: 10 }}>
+        <Stat label="Assets" value={Number(inv.asset_count) || 0} />
+        <Stat label="In latest scan" value={Number(inv.in_scan) || 0} color="var(--ok)" />
+        <Stat label="Linked to findings" value={Number(inv.finding_linked) || 0} />
+        <Stat label="Relationships" value={Number(inv.edge_count) || 0} />
+      </div>
+      <p className="muted small" style={{ marginTop: 8 }}>
+        Emitted inventory.json + FedRAMP workbook (.csv/.xlsx) + OSCAL ({Number(inv.oscal_items) || 0} items) + CMDB records.
       </p>
     </div>
   );

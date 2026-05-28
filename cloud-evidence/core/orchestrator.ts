@@ -33,6 +33,7 @@ import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { discoverAwsAssets } from '../providers/aws/discover.ts';
 import { discoverGcpAssets } from '../providers/gcp/discover.ts';
+import { readPreviousInventory, diffInventory, writeInventoryDiff, writeInventoryOscal, writeInventoryCmdb } from './inventory-emit.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -108,6 +109,8 @@ interface Args {
   crosswalk: boolean;
   /** When true, enumerate cloud assets and emit the FedRAMP Integrated Inventory Workbook (CSV + XLSX). */
   inventoryWorkbook: boolean;
+  /** When true, run ONLY the inventory (skip KSI collection + process evidence) — a fast inventory-focused run. */
+  inventoryOnly: boolean;
   /** When true, fan out collection across all AWS Organizations member accounts. */
   awsOrgFanout: boolean;
   /** When fanout is on: only collect these account IDs. */
@@ -157,6 +160,7 @@ function parseArgs(argv: string[]): Args {
     oscalOrgName: process.env.CLOUD_EVIDENCE_ORG_NAME ?? null,
     crosswalk: process.env.CLOUD_EVIDENCE_CROSSWALK === '1',
     inventoryWorkbook: process.env.CLOUD_EVIDENCE_INVENTORY_WORKBOOK === '1',
+    inventoryOnly: false,
     awsOrgFanout: process.env.CLOUD_EVIDENCE_AWS_ORG_FANOUT === '1',
     awsFanoutInclude: (process.env.CLOUD_EVIDENCE_AWS_INCLUDE ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     awsFanoutExclude: (process.env.CLOUD_EVIDENCE_AWS_EXCLUDE ?? '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -250,6 +254,11 @@ function parseArgs(argv: string[]): Args {
       case '--inventory-workbook':
         args.inventoryWorkbook = true;
         break;
+      case '--inventory-only':
+        args.inventoryOnly = true;
+        args.inventoryWorkbook = true;
+        args.ksiFilter = [];   // no KSI collectors run
+        break;
       case '--aws-org-fanout':
         args.awsOrgFanout = true;
         break;
@@ -334,8 +343,11 @@ Post-run artifacts:
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
   --crosswalk            Emit crosswalk-report.json (NIST → SOC2/ISO27001/HIPAA mapping)
   --inventory-workbook   Enumerate cloud assets and emit the FedRAMP Integrated Inventory
-                         Workbook (out/inventory-workbook.{csv,xlsx}) for AWS + GCP
-                         (env: CLOUD_EVIDENCE_INVENTORY_WORKBOOK)
+                         Workbook (out/inventory-workbook.{csv,xlsx}) + inventory.json,
+                         OSCAL inventory-items, CMDB records, and a run-over-run diff
+                         for AWS + GCP (env: CLOUD_EVIDENCE_INVENTORY_WORKBOOK)
+  --inventory-only       Fast inventory-focused run: only the inventory (skip KSI
+                         collection + process evidence). Implies --inventory-workbook.
   --framework <fw>       NIST 800-53 control-benchmark framing: rev5 (full 800-53B baseline) or 20x
                          (only controls the 20x KSIs reference). Default 20x. Emits control-benchmark.json
                          (env: CLOUD_EVIDENCE_FRAMEWORK)
@@ -1182,6 +1194,7 @@ export async function main(): Promise<void> {
   }
 
   // ---- FedRAMP Integrated Inventory Workbook (written BEFORE signing) ----
+  let inventorySummary: Record<string, unknown> | null = null;
   if (args.inventoryWorkbook && !args.dryRun) {
     try {
       let assets: CloudAsset[] = [];
@@ -1222,23 +1235,45 @@ export async function main(): Promise<void> {
       const invCtx = readInventoryContext(args.outDir);
       const scanned = reconcileScans(assets, invCtx.scannedIdentifiers);
       const linked = annotateWithFindings(assets, invCtx.findings);
-      // Rich superset JSON (source of truth) + relationship graph + workbook projection.
+      // Read the prior snapshot BEFORE overwriting it (change tracking).
+      const prevAssets = readPreviousInventory(resolve(args.outDir, 'inventory.json'));
+      // Rich superset JSON (source of truth) + relationship graph + projections.
       const edges = deriveEdges(assets);
       const snapshot = buildInventorySnapshot(assets, edges);
       writeInventoryJson(snapshot, resolve(args.outDir, 'inventory.json'));
+      const oscalN = writeInventoryOscal(snapshot, resolve(args.outDir, 'inventory-oscal.json'));
+      writeInventoryCmdb(snapshot, resolve(args.outDir, 'inventory-cmdb.json'));
+      let invDelta = '';
+      if (prevAssets) {
+        const d = diffInventory(prevAssets, assets);
+        writeInventoryDiff(d, resolve(args.outDir, 'inventory-diff.json'));
+        invDelta = ` · Δ +${d.added.length}/-${d.removed.length}/~${d.changed.length}`;
+      }
       const res = writeInventoryWorkbook(assets, {
         csvPath: resolve(args.outDir, 'inventory-workbook.csv'),
         xlsxPath: resolve(args.outDir, 'inventory-workbook.xlsx'),
       });
+      inventorySummary = {
+        asset_count: res.asset_count, row_count: res.row_count, edge_count: edges.length,
+        in_scan: scanned, finding_linked: linked, oscal_items: oscalN,
+        by_provider: snapshot.by_provider,
+      };
       console.log(`Inventory: ${res.asset_count} asset(s) → ${res.row_count} row(s) ` +
-        `(${scanned} in-scan, ${linked} linked to KSI findings) (inventory.json + inventory-workbook.{csv,xlsx})` +
+        `(${scanned} in-scan, ${linked} linked to KSI findings, ${edges.length} edges)${invDelta} ` +
+        `(inventory.json + workbook.{csv,xlsx} + oscal + cmdb)` +
         (invWarnings.length ? ` · ${invWarnings.length} warning(s)` : ''));
       for (const w of invWarnings) console.error(`  ! inventory: ${w}`);
-      ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, scanned, finding_linked: linked, warnings: invWarnings.length });
+      ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, scanned, finding_linked: linked, edges: edges.length, warnings: invWarnings.length });
     } catch (e: any) {
       console.error(`Inventory workbook failed: ${e?.message ?? e}`);
       log.error({ event: 'inventory_workbook.fail', err_message: e?.message });
     }
+  }
+  // Re-write the run summary with the inventory headline so the tracker can
+  // surface it (the summary was written above, before inventory ran).
+  if (inventorySummary) {
+    try { writeFileSafe(summaryPath, JSON.stringify({ ...summary, inventory: inventorySummary }, null, 2)); }
+    catch (e: any) { log.error({ event: 'summary.rewrite_fail', err_message: e?.message }); }
   }
 
   console.log();
