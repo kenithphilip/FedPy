@@ -5,7 +5,22 @@ do well that this stack doesn't yet, plus security/efficiency/scale
 opportunities that surface from a careful read of the current ~19,000-line
 codebase.
 
-**Current state (2026-05-27):**
+> **⚠️ Status note (updated 2026-05-28):** This document was the *original* gap
+> survey. **Most of §1–§12 has since been implemented** — OSCAL output, Ed25519
+> signing + RFC 3161 timestamps, the full test suite (495 tests) + CI, retry/
+> parallelism/structured logging, multi-framework crosswalk, AWS org fan-out,
+> K8s-direct collectors, SBOM depth, anomaly detection, the GCP read-only Proxy,
+> Powerpipe, tracker CSRF/rate-limit/2FA/RBAC/backup/audit-search/uploads, plugin
+> architecture, OpenAPI, CHANGELOG, ticket/SIEM/webhook push, LLM PR generation,
+> cost model, NIST 800-53 control benchmark, and Bun/Deno runtimes. See
+> [CHANGELOG.md](CHANGELOG.md) for what shipped. The remaining open items (kept
+> below for the record) are the roadmap ones: Azure/Oracle collectors, real-time
+> threat detection, evidence encryption-at-rest, LLM gap-analysis/Paramify
+> narratives, an MCP server, persistent caching/incremental collection, and some
+> tracker UX (real-time updates, bulk-edit, saved views). The original snapshot
+> below is left intact for historical context.
+
+**Original snapshot (2026-05-27):**
 - `cloud-evidence/`: 16,470 LOC TypeScript, 37 KSI collectors, no tests
 - `tracker/`: ~2,700 LOC TypeScript, web dashboard over FRMR JSON, no tests
 - Coverage: AWS + GCP, FedRAMP 20x only, no OSCAL output, no Azure, no K8s-direct

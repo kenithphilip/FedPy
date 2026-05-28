@@ -1,8 +1,18 @@
 # cloud-evidence — FedRAMP 20x KSI evidence collector
 
 A **read-only** TypeScript collector that captures AWS, GCP, and Kubernetes
-configuration evidence for the FedRAMP 20x Key Security Indicators. Ships 35+
-KSIs across IAM, CNA, MLA, CMT, SVC, RPL, PIY, SCR, INR, AFR, and CSX domains.
+configuration evidence for the FedRAMP 20x Key Security Indicators. It accounts
+for the full **223-requirement** FedRAMP 20x set (**63 KSIs** + 160 FRRs):
+**44 KSIs run live cloud collectors** across IAM, CNA, MLA, CMT, SVC, RPL, PIY,
+SCR, INR, AFR, and CSX; the remaining governance/process requirements emit
+signed process-artifact evidence (attestation register) or are tracked as
+awareness-only. Pick an impact tier (**Low / Moderate / High**) and benchmark the
+result against **NIST SP 800-53** — see the [root README](../README.md) and
+[RUNBOOK](../RUNBOOK.md) for the full feature set.
+
+> The sections below cover collector setup and the read-only model. For impact
+> levels, the `--framework` NIST benchmark, output artifacts, and integrations,
+> see the [root README](../README.md).
 
 ## Read-only commitments
 
@@ -36,7 +46,8 @@ and a `--dry-run` smoke test.
 
 ## Prerequisites
 
-- **Node 20+** (developed against Node 24).
+- **Node 22+** (developed against Node 24). The collector also runs on **Bun 1.3+**
+  (recommended for production) and **Deno 2.8+** — see the RUNBOOK "Runtime" section.
 - **AWS credentials**: the runner has an active session via `aws sso login`
   or `AWS_PROFILE` set to a profile with read-only access (see roles below).
 - **GCP credentials**: `gcloud auth application-default login` already run,
@@ -78,10 +89,12 @@ Plan only (no SDK calls):
 npx tsx core/orchestrator.ts --dry-run
 ```
 
-Real collection, all 7 IAM KSIs across both providers:
+Real collection, all supported KSIs across both providers (default tier Moderate):
 
 ```sh
 npx tsx core/orchestrator.ts
+# or pick a tier + NIST benchmark framing:
+npx tsx core/orchestrator.ts --impact-level high --framework rev5
 ```
 
 Select a subset of KSIs:
@@ -142,71 +155,62 @@ pool listing, add (at the appropriate scope):
 - Org-level: `roles/iam.workloadIdentityPoolViewer` *(if pools are at org level)*
 
 Workspace / Cloud Identity admin APIs (e.g. 2SV enforcement settings) need
-admin scopes that ADC may not have. The Phase 1 GCP collector degrades
+admin scopes that ADC may not have. The GCP collectors degrade
 gracefully when those are unavailable — affected findings surface as
 warnings, not failures.
 
 ## Output structure
 
+A run writes one `KSI-*.json` evidence envelope per requirement plus the
+roll-ups and (signed) reports:
+
 ```
 out/
-  pva-run-summary.json       # top-level run summary (AFR-PVA evidence)
-  KSI-IAM-AAM.json           # per-KSI evidence envelope
-  KSI-IAM-APM.json
-  KSI-IAM-ELP.json
-  KSI-IAM-JIT.json
-  KSI-IAM-MFA.json
-  KSI-IAM-SNU.json
-  KSI-IAM-SUS.json
+  pva-run-summary.json       # top-level run summary (impact level + framework + benchmark headline)
+  family-rollup.json         # per-control-family posture
+  control-benchmark.json     # NIST 800-53 control benchmark for this run's framing/level
+  KSI-IAM-MFA.json           # per-KSI evidence envelope (one per requirement) …
+  manifest.json              # Ed25519-signed inventory of every output file
+  manifest.sig
+  run-ledger.jsonl           # append-only audit trail of every action + timing
+  …                          # OSCAL / crosswalk / coverage / diff / report.html (opt-in)
 ```
 
+See the [root README](../README.md#output-artifacts) for the full artifact table.
 Each per-KSI file follows the envelope shape documented in
-[../cloud-evidence/ksi-deep-analysis.md](../cloud-evidence/ksi-deep-analysis.md#output-envelope-final).
+[ksi-deep-analysis.md](ksi-deep-analysis.md#output-envelope-final).
 
-## Phase 1 KSI coverage
+## KSI coverage
 
-| KSI | Scope | AWS coverage | GCP coverage |
-|---|---|---|---|
-| KSI-IAM-AAM | CLOUD | Credential report, IAM users, access keys, MFA pairing, IAM Identity Center inventory, Access Analyzer unused-access | Service accounts + SA keys, Org Policy `disableSaKeyCreation`, IAM Recommender (idle SAs, over-privilege), WIF pools |
-| KSI-IAM-APM | CLOUD | IAM password policy, Cognito user-pool MFA | Org Policy `allowedPolicyMemberDomains`, Identity Platform tenants |
-| KSI-IAM-ELP | CLOUD | Customer-managed policy wildcard scan, role-last-used inventory | Primitive role bindings, Policy Recommender findings |
-| KSI-IAM-JIT | HYBRID | Permission-set `SessionDuration` audit, SSM Session Manager usage | Conditional IAM bindings, PAM entitlements |
-| KSI-IAM-MFA | CLOUD | Root MFA, IAM-user MFA pairing, virtual MFA count, SCP scan for MFA-deny | Access Context Manager policies + access levels |
-| KSI-IAM-SNU | CLOUD | IAM access-key total, role inventory | Service-account user-managed keys, WIF pool count |
-| KSI-IAM-SUS | HYBRID | GuardDuty enabled, EventBridge rules → response Lambda, Security Hub critical IAM findings | Eventarc security-event triggers, IAM Audit Configs DATA_READ/DATA_WRITE for KMS+IAM |
-
-## Roadmap
-
-Phase 1 (this) — IAM end-to-end. Phases 2–6 are documented in
-[../cloud-evidence/ksi-deep-analysis.md](../cloud-evidence/ksi-deep-analysis.md#build-sequence-recommended):
-
-- Phase 2 — CNA domain (8 KSIs)
-- Phase 3 — MLA + CMT (logging + change management)
-- Phase 4 — SVC (data + crypto, 8 KSIs)
-- Phase 5 — RPL + PIY-GIV + the HYBRID extras (AFR-PVA run summary; CSX-SUM aggregator)
-- Phase 6 — Tracker push integration (opt-in via `--push-to-tracker`), Paramify adapter
+**44 of the 63 KSIs run live cloud collectors** (the rest are governance/process
+requirements satisfied via the attestation register or tracked awareness-only).
+Run `npx tsx core/orchestrator.ts --dry-run` to print the exact in-scope set for
+your config and tier. Collectors live under `providers/aws/*.ts` and
+`providers/gcp/*.ts`, grouped by domain (iam, network, logging, config, data,
+secrets, backup, supplychain, inventory), plus `providers/k8s/security.ts`. The
+authoritative requirement registry is `docs/frmr-requirements.generated.json`
+(regenerated by `scripts/extract-frmr-requirements.mjs`).
 
 ## Layout
 
 ```
 cloud-evidence/
-  package.json
-  tsconfig.json
-  config.yaml                   # account/project scope
-  thresholds.yaml               # per-severity finding rollup config
-  README.md
+  config.yaml                   # account/project scope        thresholds.yaml  # finding rollup config
   core/
     orchestrator.ts             # CLI entry point
-    envelope.ts                 # output envelope types/helpers
-    findings.ts                 # finding/rule/rollup helpers
-    ksi-map.ts                  # master KSI->collector map (Phase 1: IAM only)
-    readonly-guardrail.ts       # runtime read-only enforcement for AWS SDK
-    auth/
-      aws.ts                    # AWS client factories (read-only wrapped)
-      gcp.ts                    # GCP client factories via googleapis + ADC
+    ksi-map.ts                  # master KSI -> collector map (44 cloud KSIs)
+    envelope.ts / findings.ts   # evidence envelope + finding/rule/rollup helpers
+    schema.ts / sign.ts / timestamp.ts / oscal.ts   # validation, signing, RFC 3161, OSCAL
+    control-benchmark.ts        # NIST 800-53 control benchmark (20x + Rev5)
+    requirements-registry.ts / process-artifact-tracker.ts   # level scoping + process evidence
+    run-ledger.ts / run-lock.ts / rate-control.ts            # production hardening
+    readonly-guardrail.ts / readonly-guardrail-gcp.ts        # runtime read-only enforcement
+    auth/ (aws.ts, gcp.ts, k8s.ts)
   providers/
-    aws/iam.ts                  # 7 AWS IAM collectors
-    gcp/iam.ts                  # 7 GCP IAM collectors
+    aws/*.ts  gcp/*.ts  k8s/security.ts                       # per-domain collectors
+  scripts/                      # reproducible data extractors (FRMR, NIST r5, baselines)
+  docs/                         # committed generated lookups + IAM-PERMISSIONS-CATALOG.md
+  tests/                        # vitest suites (38 files, 396 tests)
   out/                          # generated evidence files (gitignored)
 ```
 

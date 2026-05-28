@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed — documentation accuracy
+- Refreshed stale docs to match the shipped code: `cloud-evidence/README.md`
+  (was "35+ KSIs / Phase 1 — IAM only"; now reflects 63 KSIs / 44 cloud collectors
+  / 223 requirements + level selector + benchmark), `tracker/README.md` (evidence
+  uploads / 2FA / RBAC / audit search / backup are shipped, not "out of v0.1"),
+  `ARCHITECTURE.md` (test counts 396/99, correct workflow filenames, benchmark +
+  ledger in the pipeline), and a status banner on `GAP-ANALYSIS.md` noting §1–§12
+  are largely implemented.
+
 ### Added — Deno runtime support for the collector
 - The cloud-evidence collector now runs on **Deno 2.8+** in addition to Node and Bun.
   npm dependencies resolve from the existing `node_modules`; Deno's secure-by-default

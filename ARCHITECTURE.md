@@ -120,7 +120,10 @@ graph TB
 A single `npm run collect -- --html-report --oscal --crosswalk --sign --anomaly` invocation produces:
 
 1. `out/KSI-*.json` — per-KSI v3-schema evidence (one file per KSI)
-2. `out/pva-run-summary.json` — run rollup
+2. `out/pva-run-summary.json` — run rollup (impact level + framework + benchmark headline)
+2a. `out/family-rollup.json` — per-control-family posture
+2b. `out/control-benchmark.json` — NIST 800-53 control benchmark (20x or Rev5, at the chosen level)
+2c. `out/run-ledger.jsonl` — append-only audit trail of every action + timing
 3. `out/manifest.json` + `out/manifest.sig` — Ed25519-signed file inventory
 4. `out/manifest.tsr` (optional) — RFC 3161 timestamp token
 5. `out/assessment-results.json` — OSCAL 1.1 Assessment Results
@@ -149,13 +152,15 @@ A single `npm run collect -- --html-report --oscal --crosswalk --sign --anomaly`
 | Anthropic Claude | Messages API | `core/llm-pr-generator.ts` |
 | Generic webhook | HMAC-SHA256-signed POST | `core/webhook-push.ts` |
 | Google Sheets (subprocessors) | googleapis | `core/subprocessors-sheet.ts` |
-| GitHub Actions | OIDC + scheduled cron | `.github/workflows/collect.yml` |
+| GitHub Actions (collect) | OIDC + scheduled cron | `.github/workflows/cloud-evidence.yml` |
+| GitHub Actions (CI) | typecheck + tests on push/PR | `.github/workflows/ci.yml` |
 
 ## Test surface
 
 | Project | Test files | Tests | Coverage area |
 |---|---|---|---|
-| cloud-evidence | 20 | 161 | Schema, retry, log, sign, timestamp, oscal, crosswalk, fanout, gcp-guardrail, powerpipe, sbom, anomaly, llm-pr-generator, ticket-push, siem-push, webhook-push, plugin-loader, coverage-check, iam-mfa, k8s-security |
-| tracker | 6 | 48 | rate-limit, csrf, totp, rbac, backup, audit search |
+| cloud-evidence | 38 | 396 | Schema, retry, log, sign, timestamp, oscal, crosswalk, fanout, gcp-guardrail, powerpipe, sbom, anomaly, llm-pr-generator, ticket-push, siem-push, webhook-push, plugin-loader, coverage-check, iam-mfa, k8s-security, level-coverage, control-benchmark, family-rollup, hardening, nist-r5, requirement-playbooks, scg-mas-ads, vdr, ucm-crypto, ksi-hybrids, orchestrator-phase-f |
+| tracker | 11 | 99 | rate-limit, csrf, totp, rbac, backup, audit search, attachments, ingest, … |
 
-Run all tests: `(cd cloud-evidence && npm test) && (cd tracker && npm test)`
+Run all tests: `(cd cloud-evidence && npm test) && (cd tracker && npm test)`.
+CI runs the same on every push/PR via `.github/workflows/ci.yml` (Node 22 + 24 matrix).

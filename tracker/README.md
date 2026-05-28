@@ -207,10 +207,20 @@ tracker/
 - Every state mutation is recorded in `audit_log` with the acting user,
   field, old value, new value, and timestamp.
 
-## What's intentionally not in v0.1
+## Added since v0.1
 
-- Evidence file uploads (we link out instead — keep evidence in your
-  document store)
+The tracker has grown well past the original v0.1 scope. Now included:
+
+- **Evidence file uploads** — per-item attachments stored in a content-addressed
+  blob store (`TRACKER_ATTACHMENTS_DIR`), with a MIME allowlist and size cap.
+- **TOTP 2FA** (RFC 6238) and **granular RBAC** (roles + per-domain assignments)
+  with an admin UI.
+- **Audit-log search UI** with filters + CSV export.
+- **Online backup/restore** (`npm run backup` / `restore`).
+- **Collector-runs view** surfacing impact level + the NIST 800-53 benchmark headline.
+
+## Still intentionally out of scope
+
 - Multi-tenant / per-org partitioning (one tracker, one team)
-- PDF reports — use the CSV export and your reporting tool of choice
-- A UI for admin user management — the API is enough for now
+- PDF reports — use the CSV/JSON export and your reporting tool of choice
+- Self-service signup beyond the first admin — additional users are admin-created
