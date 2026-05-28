@@ -38,7 +38,7 @@ Organizations).
 | `logging.ts` | MLA-ALA, MLA-EVC, MLA-LET, MLA-OSM, MLA-RVL, CMT-LMC, INR-RIR | CloudTrail, CloudWatch Logs, S3, Athena, Firehose, Security Lake, SecurityHub, CodeBuild | `cloudtrail:DescribeTrails`, `cloudtrail:GetTrailStatus`, `cloudtrail:GetEventSelectors`, `cloudtrail:GetInsightSelectors`, `logs:DescribeLogGroups`, `logs:DescribeSubscriptionFilters`, `s3:GetBucketPolicy`, `s3:GetBucketEncryption`, `s3:GetBucketVersioning`, `s3:GetObjectLockConfiguration`, `athena:ListWorkGroups`, `firehose:ListDeliveryStreams`, `securitylake:ListDataLakes`, `securitylake:ListSubscribers`, `securityhub:GetFindings`, `securityhub:GetEnabledStandards`, `codebuild:ListProjects` |
 | `supplychain.ts` | CMT-RMV, CMT-VTD, SCR-MON | ECR, EC2, AutoScaling, Lambda, Signer, Inspector2 | `ecr:DescribeRepositories`, `ecr:DescribeImageScanFindings`, `ec2:DescribeLaunchTemplates`, `autoscaling:DescribeAutoScalingGroups`, `lambda:ListFunctions`, `lambda:GetFunctionCodeSigningConfig`, `signer:ListSigningProfiles`, `inspector2:ListFindings`, `inspector2:BatchGetAccountStatus` |
 | `secrets.ts` | SVC-ASM | Secrets Manager, KMS | `secretsmanager:ListSecrets`, `secretsmanager:DescribeSecret`, `kms:ListKeys`, `kms:DescribeKey`, `kms:GetKeyRotationStatus` |
-| `data.ts` | SVC-RUD, SVC-VCM, SVC-VRI | S3, KMS, ACM, App Mesh, SSM | `s3:ListAllMyBuckets`, `s3:GetBucketVersioning`, `s3:GetBucketLifecycleConfiguration`, `s3:GetObjectLockConfiguration`, `kms:ListKeys`, `acm:ListCertificates`, `acm:DescribeCertificate`, `appmesh:ListMeshes`, `appmesh:ListVirtualNodes`, `ssm:GetPatchBaseline`, `lambda:GetFunctionCodeSigningConfig`, `signer:ListSigningProfiles` |
+| `data.ts` | SVC-RUD, SVC-VCM, SVC-VRI | S3, KMS, ACM, App Mesh, EKS, SSM | `s3:ListAllMyBuckets`, `s3:GetBucketVersioning`, `s3:GetBucketLifecycleConfiguration`, `s3:GetObjectLockConfiguration`, `kms:ListKeys`, `acm:ListCertificates`, `acm:DescribeCertificate`, `appmesh:ListMeshes`, `appmesh:ListVirtualNodes`, `eks:ListClusters`, `eks:ListAddons`, `ssm:GetPatchBaseline`, `lambda:GetFunctionCodeSigningConfig`, `signer:ListSigningProfiles` |
 | `inventory.ts` | PIY-GIV | Config (aggregators) | `config:DescribeConfigurationAggregators`, `config:DescribeConfigurationRecorders` |
 
 ### AWS-supplement (actions `ReadOnlyAccess` omits)
@@ -233,6 +233,6 @@ node scripts/extract-iam-actions.mjs --check   # CI-style: exit 1 if stale
 
 Use it to spot drift between this curated catalog and the live call sites (e.g.
 a newly added collector that calls an action not yet documented here). It
-currently inventories **136 AWS actions across 39 services** and **41 GCP roles**.
+currently inventories **137 AWS actions across 39 services** and **41 GCP roles**.
 The extractor's pure helpers are unit-tested in
 `tests/core/iam-actions-extract.test.ts`.

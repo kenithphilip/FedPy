@@ -1,9 +1,9 @@
 {
   "_source": "auto-generated from providers/**/*.ts by scripts/extract-iam-actions.mjs",
-  "_generated_at": "2026-05-28T11:11:37.569Z",
+  "_generated_at": "2026-05-28T11:13:57.136Z",
   "_note": "Static analysis of *Command imports (AWS) and roles/* hints (GCP). Complements the curated IAM-PERMISSIONS-CATALOG.md; both are read-only.",
   "aws": {
-    "action_count": 136,
+    "action_count": 137,
     "service_count": 39,
     "services": [
       "access-analyzer",
@@ -99,6 +99,7 @@
       "ecr:GetRegistryScanningConfiguration",
       "ecr:ListImages",
       "eks:DescribeCluster",
+      "eks:ListAddons",
       "eks:ListClusters",
       "elasticloadbalancing:DescribeListeners",
       "elasticloadbalancing:DescribeLoadBalancers",
@@ -226,6 +227,8 @@
         "appmesh:ListMeshes",
         "appmesh:ListVirtualNodes",
         "ec2:DescribeInstances",
+        "eks:ListAddons",
+        "eks:ListClusters",
         "kms:DescribeKey",
         "kms:ListKeys",
         "lambda:GetFunctionCodeSigningConfig",

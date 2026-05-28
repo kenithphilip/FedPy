@@ -6,6 +6,7 @@
  */
 import { ListBucketsCommand, GetBucketLifecycleConfigurationCommand, GetBucketVersioningCommand, GetObjectLockConfigurationCommand } from '@aws-sdk/client-s3';
 import { ListMeshesCommand, ListVirtualNodesCommand, DescribeVirtualNodeCommand } from '@aws-sdk/client-app-mesh';
+import { ListClustersCommand, ListAddonsCommand } from '@aws-sdk/client-eks';
 import { ListFunctionsCommand, GetFunctionCodeSigningConfigCommand, GetFunctionUrlConfigCommand } from '@aws-sdk/client-lambda';
 import { ListSigningProfilesCommand, ListSigningJobsCommand } from '@aws-sdk/client-signer';
 import { ListKeysCommand, DescribeKeyCommand } from '@aws-sdk/client-kms';
@@ -245,13 +246,46 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
     evidence.push(ev('lambda.function_url_audit', { total_urls: lambdaUrlsTotal, without_iam: lambdaUrlsWithoutIam }));
   } catch (e) { warnIfActionable(warnings, e, 'lambda.ListFunctions', 'lambda:ListFunctions'); }
 
+  // EKS service-mesh signal: enumerate clusters + their EKS-managed add-ons. The
+  // EKS API cannot see Helm-installed meshes inside the cluster, but it CAN list
+  // managed add-ons (a mesh add-on ⇒ mesh present) and tells us EKS clusters
+  // exist whose in-cluster mTLS must be validated by the K8s collector.
+  interface EksClusterMesh { cluster: string; addons: string[]; mesh_addons: string[]; }
+  const eksClusters: EksClusterMesh[] = [];
+  const MESH_ADDON_RE = /istio|linkerd|cilium|appmesh|app-mesh|service-mesh|consul/i;
+  try {
+    const eks = aws.eks(ctx.auth);
+    let tok: string | undefined;
+    let iter = 0;
+    do {
+      const r = await eks.send(new ListClustersCommand({ nextToken: tok, maxResults: 100 }));
+      for (const name of r.clusters ?? []) {
+        let addons: string[] = [];
+        try {
+          const a = await eks.send(new ListAddonsCommand({ clusterName: name }));
+          addons = a.addons ?? [];
+        } catch (e) { warnIfActionable(warnings, e, `eks.ListAddons ${name}`, 'eks:ListAddons'); }
+        eksClusters.push({ cluster: name, addons, mesh_addons: addons.filter((x) => MESH_ADDON_RE.test(x)) });
+      }
+      const next = r.nextToken;
+      tok = next && next !== tok ? next : undefined;
+    } while (tok && ++iter < MAX_PAGINATION_ITERATIONS);
+    evidence.push(ev('eks.cluster_mesh_audit', { cluster_count: eksClusters.length, clusters: eksClusters }));
+  } catch (e) { warnIfActionable(warnings, e, 'eks.ListClusters', 'eks:ListClusters'); }
+
+  const eksMeshAddonClusters = eksClusters.filter((c) => c.mesh_addons.length > 0);
+
   const altSatisfiers: AlternativeSatisfier[] = [
     {
       via: 'Istio / Linkerd / Cilium service mesh on EKS',
-      description: 'Service mesh provides mTLS between services. Detection requires EKS cluster inspection (deferred).',
+      description: 'Service mesh provides mTLS between services. The EKS API detects managed mesh add-ons; Helm-installed meshes are validated in-cluster by the K8s collector (providers/k8s/security.ts).',
       evidence_required: ['Service mesh deployment manifests', 'PeerAuthentication / strict mTLS policy', 'mTLS-validated traffic sample'],
-      detected: false,
-      detection_signals: ['Mesh detection requires kubectl access; out of scope for this collector.'],
+      detected: eksMeshAddonClusters.length > 0,
+      detection_signals: eksClusters.length === 0
+        ? ['No EKS clusters found (or no eks:ListClusters permission).']
+        : eksClusters.map((c) => c.mesh_addons.length > 0
+            ? `EKS ${c.cluster}: managed mesh add-on(s) ${c.mesh_addons.join(', ')}`
+            : `EKS ${c.cluster}: no managed mesh add-on — validate in-cluster mesh (Helm Istio/Linkerd) via the K8s collector`),
     },
     {
       via: 'AWS PrivateLink for service-to-service (no public internet)',
