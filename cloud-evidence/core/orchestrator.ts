@@ -26,6 +26,7 @@ import type { ImpactTier } from './envelope.ts';
 import { selectForLevel, getRequirement, appliesAtLevel, actorScopeOf, type RequirementEntry } from './requirements-registry.ts';
 import { buildProcessArtifactEvidence, type AttestationRecord } from './process-artifact-tracker.ts';
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
+import { buildFamilyRollup } from './family-rollup.ts';
 import { buildCsxSum } from './csx-sum-aggregator.ts';
 import { notifyDrift } from './notify.ts';
 import { exportFindingsCsv } from './csv-export.ts';
@@ -911,6 +912,17 @@ export async function main(): Promise<void> {
   };
   const summaryPath = resolve(args.outDir, 'pva-run-summary.json');
   writeFileSafe(summaryPath, JSON.stringify(summary, null, 2));
+
+  // ---- Family roll-up: per-family posture across all emitted evidence ----
+  try {
+    const rollupResult = buildFamilyRollup(args.outDir);
+    writeFileSafe(resolve(args.outDir, 'family-rollup.json'), JSON.stringify(rollupResult, null, 2));
+    const worst = [...rollupResult.families].filter((f) => f.failed > 0).sort((a, b) => a.pass_rate - b.pass_rate).slice(0, 5);
+    console.log(`Family roll-up: ${rollupResult.families.length} families, ${Math.round(rollupResult.totals.pass_rate * 100)}% provider pass rate` +
+      (worst.length ? ` (lowest: ${worst.map((f) => `${f.family} ${Math.round(f.pass_rate * 100)}%`).join(', ')})` : ''));
+  } catch (e: any) {
+    console.error(`Family roll-up failed: ${e?.message ?? e}`);
+  }
 
   console.log();
   console.log(`Run complete: ${summary.rollup.passed}/${summary.rollup.total_ksis} passing`);
