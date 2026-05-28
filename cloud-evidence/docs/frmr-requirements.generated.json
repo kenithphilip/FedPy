@@ -3422,7 +3422,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-AFR-VDR",
@@ -3510,7 +3510,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-CED-DET",
@@ -3839,7 +3839,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-CMT-VTD",
@@ -4267,7 +4267,7 @@
   },
   {
     "id": "KSI-CSX-MAS",
-    "category": "frr-requirement",
+    "category": "ksi-indicator",
     "family": "KSI",
     "family_name": "Key Security Indicators",
     "name": "Application within MAS",
@@ -4309,7 +4309,7 @@
   },
   {
     "id": "KSI-CSX-ORD",
-    "category": "frr-requirement",
+    "category": "ksi-indicator",
     "family": "KSI",
     "family_name": "Key Security Indicators",
     "name": "AFR Order of Criticality",
@@ -4360,7 +4360,7 @@
   },
   {
     "id": "KSI-CSX-SUM",
-    "category": "frr-requirement",
+    "category": "ksi-indicator",
     "family": "KSI",
     "family_name": "Key Security Indicators",
     "name": "Implementation Summaries",
@@ -4842,7 +4842,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-INR-RIR",
@@ -4945,7 +4945,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-MLA-ALA",
@@ -5540,7 +5540,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-RPL-RRO",
@@ -5584,7 +5584,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-RPL-TRC",
@@ -5691,7 +5691,7 @@
         "source": "derived-rev5-pending"
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-SCR-MON",
@@ -5943,7 +5943,7 @@
         "source": null
       }
     },
-    "covered": false
+    "covered": true
   },
   {
     "id": "KSI-SVC-RUD",

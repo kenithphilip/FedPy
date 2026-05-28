@@ -136,9 +136,12 @@ function walkFrr(node, ctx) {
     (typeof node.statement === 'string' || node.varies_by_level) &&
     (node.fka || node.fkas || node.name || node.primary_key_word);
   if (isLeaf) {
+    // KSI-prefixed leaves under the FRR.KSI family (KSI-CSX-SUM/MAS/ORD) are KSIs,
+    // not generic FRRs — classify them as ksi-indicator so all 63 KSIs are counted.
+    const isKsi = typeof ctx.id === 'string' && ctx.id.startsWith('KSI-');
     requirements.push({
       id: ctx.id,
-      category: 'frr-requirement',
+      category: isKsi ? 'ksi-indicator' : 'frr-requirement',
       family: ctx.family,
       family_name: ctx.familyName,
       name: node.name ?? ctx.id,
