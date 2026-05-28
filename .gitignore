@@ -59,3 +59,9 @@ coverage/
 
 # NIST 800-53 r5 reference clone (separate repo, like /docs)
 /nist-r5-data/
+
+# ─── Research: cloned reference repos (analysis inputs, not our code) ─
+# We clone external repos here to analyze them; the analysis reports under
+# research/reports/ ARE tracked, but the raw clones/downloads are not.
+/research/clones/
+/research/downloads/
