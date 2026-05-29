@@ -55,6 +55,7 @@ import { validateEvidenceFile, formatErrors } from './schema.ts';
 import { signRun, verifyRun } from './sign.ts';
 import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
+import { emitOscalSsp } from './oscal-ssp.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
 import { buildFanoutPlan, type FanoutTarget } from './aws-org-fanout.ts';
@@ -107,8 +108,14 @@ interface Args {
   expectedPublicKey: string | null;
   /** When true, emit OSCAL Assessment Results alongside our own evidence files. */
   oscal: boolean;
+  /** When true, emit a draft OSCAL System Security Plan (ssp.json) bootstrapped from evidence. */
+  oscalSsp: boolean;
   /** Organization name to embed in OSCAL metadata. */
   oscalOrgName: string | null;
+  /** System name to embed in the OSCAL SSP. */
+  systemName: string | null;
+  /** System identifier to embed in the OSCAL SSP. */
+  systemId: string | null;
   /** When true, emit crosswalk-report.json mapping NIST controls to SOC2/ISO27001/HIPAA. */
   crosswalk: boolean;
   /** When true, enumerate cloud assets and emit the FedRAMP Integrated Inventory Workbook (CSV + XLSX). */
@@ -163,7 +170,10 @@ function parseArgs(argv: string[]): Args {
     noSign: process.env.CLOUD_EVIDENCE_NO_SIGN === '1',
     expectedPublicKey: process.env.EVIDENCE_EXPECTED_PUBLIC_KEY_PATH ?? null,
     oscal: process.env.CLOUD_EVIDENCE_OSCAL === '1',
+    oscalSsp: process.env.CLOUD_EVIDENCE_OSCAL_SSP === '1',
     oscalOrgName: process.env.CLOUD_EVIDENCE_ORG_NAME ?? null,
+    systemName: process.env.CLOUD_EVIDENCE_SYSTEM_NAME ?? null,
+    systemId: process.env.CLOUD_EVIDENCE_SYSTEM_ID ?? null,
     crosswalk: process.env.CLOUD_EVIDENCE_CROSSWALK === '1',
     inventoryWorkbook: process.env.CLOUD_EVIDENCE_INVENTORY_WORKBOOK === '1',
     inventoryOnly: false,
@@ -252,8 +262,17 @@ function parseArgs(argv: string[]): Args {
       case '--oscal':
         args.oscal = true;
         break;
+      case '--oscal-ssp':
+        args.oscalSsp = true;
+        break;
       case '--oscal-org':
         args.oscalOrgName = argv[++i] ?? null;
+        break;
+      case '--system-name':
+        args.systemName = argv[++i] ?? null;
+        break;
+      case '--system-id':
+        args.systemId = argv[++i] ?? null;
         break;
       case '--crosswalk':
         args.crosswalk = true;
@@ -350,6 +369,11 @@ Post-run artifacts:
   --no-sign              Skip Ed25519 signing of the run manifest (env: CLOUD_EVIDENCE_NO_SIGN=1)
   --expected-public-key  PEM path; assert manifest's embedded key matches (defense vs. key substitution)
   --oscal                Emit OSCAL 1.1 Assessment Results (out/assessment-results.json)
+  --oscal-ssp            Emit a DRAFT OSCAL 1.1 System Security Plan (out/ssp.json) bootstrapped
+                         from evidence: one implemented-requirement per FedRAMP baseline control,
+                         status derived from the control benchmark (env: CLOUD_EVIDENCE_OSCAL_SSP)
+  --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
+  --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
   --crosswalk            Emit crosswalk-report.json (NIST → SOC2/ISO27001/HIPAA mapping)
   --inventory-workbook   Enumerate cloud assets and emit the FedRAMP Integrated Inventory
@@ -1447,6 +1471,39 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL emission failed: ${e.message}`);
       log.error({ event: 'oscal.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- OSCAL System Security Plan (SSP-1) — draft, bootstrapped from evidence.
+  // Runs BEFORE signing so it's covered by the manifest. ----
+  if (args.oscalSsp) {
+    try {
+      const r = emitOscalSsp({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        organizationName: args.oscalOrgName ?? undefined,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        systemDescription: process.env.CLOUD_EVIDENCE_SYSTEM_DESCRIPTION ?? undefined,
+        providers: args.providers,
+      });
+      console.log(`OSCAL SSP (draft): ${r.path} (${r.control_count} controls — ${r.implemented} implemented, ${r.partial} partial, ${r.planned} planned)`);
+      const v = validateOscalFile(r.path, 'ssp');
+      if (v.valid) {
+        console.log('OSCAL schema validation: ssp.json is valid (NIST OSCAL 1.1.2).');
+        ledger.record('oscal_ssp.validate', { status: 'info', valid: true, model: 'ssp', controls: r.control_count, implemented: r.implemented });
+      } else {
+        console.error(`OSCAL SSP schema validation: ${v.errors.length} error(s)${v.schema_found ? '' : ' (schema not committed — run scripts/extract-oscal-schemas.mjs)'}`);
+        for (const e of v.errors.slice(0, 10)) console.error(`  ! ${e}`);
+        ledger.record('oscal_ssp.validate', { status: 'fail', valid: false, model: 'ssp', error_count: v.errors.length });
+        log.warn({ event: 'oscal_ssp.invalid', error_count: v.errors.length });
+        if (args.strictSchema && v.schema_found) process.exitCode = 2;
+      }
+    } catch (e: any) {
+      console.error(`OSCAL SSP emission failed: ${e.message}`);
+      log.error({ event: 'oscal_ssp.fail', err_message: e?.message });
     }
   }
 

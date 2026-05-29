@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — OSCAL System Security Plan emitter (SSP-1)
+A new opt-in emitter (`--oscal-ssp`, env `CLOUD_EVIDENCE_OSCAL_SSP`) generates a **draft**
+OSCAL 1.1.2 System Security Plan (`out/ssp.json`) directly from the run's evidence.
+- **`core/oscal-ssp.ts`** — pure `buildOscalSsp(benchmark, opts)` + disk emitter
+  `emitOscalSsp(opts)`. The SSP documents the **whole FedRAMP Rev5 baseline** for the
+  run's impact level (so it always benchmarks `framework='rev5'`, independent of
+  `--framework`): one `implemented-requirement` per baseline control.
+- **Status mapping** (from the NIST 800-53 control benchmark): satisfied→`implemented`,
+  partially-satisfied→`partial`, not-satisfied→`planned`, not-assessed→`planned` (with a
+  remark to assess manually or document as inherited from the underlying CSP). Each
+  requirement carries a FedRAMP `implementation-status` prop + a `by-component` narrative
+  citing the KSIs/rules and pass counts that produced the evidence.
+- Pre-populates `metadata` (roles/parties), `import-profile` (the published FedRAMP Rev5
+  Low/Moderate/High baseline profile href), `system-characteristics` (FIPS-199 impact,
+  information types, status, boundary placeholder), and `system-implementation`
+  (this-system + leveraged AWS/GCP components, a placeholder user).
+- Emitted **before signing** (covered by the manifest) and **validated against the
+  committed NIST OSCAL SSP schema** (`validateOscalFile(path,'ssp')`); fails the run under
+  `--strict-schema`. New flags `--system-name` / `--system-id` (+ env
+  `CLOUD_EVIDENCE_SYSTEM_NAME`/`_ID`/`_DESCRIPTION`).
+- Deterministic UUIDs (re-running on the same evidence yields a stable diff). Clearly
+  framed as a **starting point** for the system owner, not a final SSP. 4 new tests
+  (schema-valid output, status mapping, required structure, determinism).
+
 ### Added — FedRAMP reference-architecture audit (AWS-CHK / GCP-CHK)
 A new opt-in audit (`--reference-arch`, env `CLOUD_EVIDENCE_REFERENCE_ARCH`) checks the
 **running** AWS/GCP environment against the hardening a FedRAMP-compliant build is

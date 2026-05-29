@@ -52,7 +52,7 @@ const TOOL_VERSION = '0.1.0';
  * OSCAL requires UUIDs everywhere; using deterministic IDs means re-running
  * the emitter on the same evidence produces a stable diff.
  */
-function deterministicUuid(seed: string): string {
+export function deterministicUuid(seed: string): string {
   const h = createHash('sha256').update(seed).digest();
   // Format as a v4-shaped UUID; not technically v5 (would need namespace) but
   // structurally valid and stable.

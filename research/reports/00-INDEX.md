@@ -175,6 +175,7 @@ larger follow-on bets.
 | OSC-1 + OSC-2 | ✅ done | validate emitted OSCAL with `ajv` against committed NIST schemas (`core/oscal-validate.ts`, `scripts/extract-oscal-schemas.mjs`); fixed the OSCAL document-wrapper bug |
 | OSC-3 | ⏳ backlog | optional OSCAL XML output via NIST XSLT (only if needed) |
 | AWS-CHK / GCP-CHK | ✅ done | clean-room reference-architecture audit (`--reference-arch`): `providers/aws/reference-arch.ts` (10 checks → `AUDIT-REFARCH-AWS.json`) + `providers/gcp/reference-arch.ts` (13 checks → `AUDIT-REFARCH-GCP.json`); read-only, fail-open, feeds benchmark/family-rollup (`REFARCH`)/crosswalk/OSCAL/manifest but excluded from the KSI pass-fail rollup (5 tests) |
-| SSP-1 / SSP-2 | ⏳ backlog | OSCAL SSP emitter → Word render |
+| SSP-1 | ✅ done | draft OSCAL SSP emitter (`core/oscal-ssp.ts`, `--oscal-ssp`): one implemented-requirement per FedRAMP Rev5 baseline control, status from the control benchmark, narrative citing KSIs; schema-validated, manifest-covered (4 tests) |
+| SSP-2 | ⏳ backlog | render the OSCAL SSP → FedRAMP Word (.docx); CC0 GoComply approach |
 | AZ-1 / AZ-2 | ⏳ backlog | net-new Azure collector |
 | SCN-1 | ⏳ backlog | significant-change-notification classifier |
