@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — OSCAL SSP → FedRAMP Word (.docx) renderer (SSP-2)
+Renders the draft OSCAL SSP (SSP-1) into a human-readable Word document so a system
+owner can review/circulate it without a GRC tool.
+- **`core/ssp-docx.ts`** — pure `renderSspDocx(ssp)` + disk emitter `emitSspDocx(opts)`.
+  A `.docx` is a ZIP of WordprocessingML (OOXML) parts, so it's built **dependency-free**
+  (no `docx`/python-docx, no network) and packed with the same **store-only ZIP** writer
+  used for the inventory `.xlsx`. The idea (OSCAL → FedRAMP template prose) is drawn
+  clean-room from the CC0 GoComply/fedramp tool; no code copied.
+- **`core/zip.ts`** — extracted the shared store-only ZIP writer + `xmlEscape` (previously
+  private to `inventory-workbook.ts`); both the xlsx and docx writers now use it.
+- The document renders: a title page, document-information table, system characteristics
+  (FIPS-199 impact, information types, status, authorization boundary), system
+  implementation (components + users tables), and a control-implementation section with a
+  status summary + a per-control table (control id/name, status, implementation statement).
+- Wired behind `--ssp-docx` (env `CLOUD_EVIDENCE_SSP_DOCX`), which **implies `--oscal-ssp`**;
+  emitted in the SSP block after the JSON is written + schema-validated. The `.docx` is not
+  in the signed manifest (the signer covers `*.json`), but it's a faithful render of the
+  signed `ssp.json` — reproducible from the signed source. 4 new tests (valid store-only
+  ZIP + required OOXML parts, rendered content, XML escaping, wrapped/unwrapped input).
+
 ### Added — OSCAL System Security Plan emitter (SSP-1)
 A new opt-in emitter (`--oscal-ssp`, env `CLOUD_EVIDENCE_OSCAL_SSP`) generates a **draft**
 OSCAL 1.1.2 System Security Plan (`out/ssp.json`) directly from the run's evidence.

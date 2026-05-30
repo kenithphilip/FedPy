@@ -56,6 +56,7 @@ import { signRun, verifyRun } from './sign.ts';
 import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
+import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
 import { buildFanoutPlan, type FanoutTarget } from './aws-org-fanout.ts';
@@ -110,6 +111,8 @@ interface Args {
   oscal: boolean;
   /** When true, emit a draft OSCAL System Security Plan (ssp.json) bootstrapped from evidence. */
   oscalSsp: boolean;
+  /** When true, also render the OSCAL SSP to a Word document (ssp.docx). Implies oscalSsp. */
+  sspDocx: boolean;
   /** Organization name to embed in OSCAL metadata. */
   oscalOrgName: string | null;
   /** System name to embed in the OSCAL SSP. */
@@ -171,6 +174,7 @@ function parseArgs(argv: string[]): Args {
     expectedPublicKey: process.env.EVIDENCE_EXPECTED_PUBLIC_KEY_PATH ?? null,
     oscal: process.env.CLOUD_EVIDENCE_OSCAL === '1',
     oscalSsp: process.env.CLOUD_EVIDENCE_OSCAL_SSP === '1',
+    sspDocx: process.env.CLOUD_EVIDENCE_SSP_DOCX === '1',
     oscalOrgName: process.env.CLOUD_EVIDENCE_ORG_NAME ?? null,
     systemName: process.env.CLOUD_EVIDENCE_SYSTEM_NAME ?? null,
     systemId: process.env.CLOUD_EVIDENCE_SYSTEM_ID ?? null,
@@ -265,6 +269,10 @@ function parseArgs(argv: string[]): Args {
       case '--oscal-ssp':
         args.oscalSsp = true;
         break;
+      case '--ssp-docx':
+        args.sspDocx = true;
+        args.oscalSsp = true;   // need the SSP JSON to render the Word doc
+        break;
       case '--oscal-org':
         args.oscalOrgName = argv[++i] ?? null;
         break;
@@ -340,6 +348,8 @@ function parseArgs(argv: string[]): Args {
         process.exit(0);
     }
   }
+  // Rendering the SSP Word doc requires the SSP JSON (covers env-set CLOUD_EVIDENCE_SSP_DOCX).
+  if (args.sspDocx) args.oscalSsp = true;
   return args;
 }
 
@@ -372,6 +382,8 @@ Post-run artifacts:
   --oscal-ssp            Emit a DRAFT OSCAL 1.1 System Security Plan (out/ssp.json) bootstrapped
                          from evidence: one implemented-requirement per FedRAMP baseline control,
                          status derived from the control benchmark (env: CLOUD_EVIDENCE_OSCAL_SSP)
+  --ssp-docx             Also render the SSP to a FedRAMP-style Word document (out/ssp.docx).
+                         Implies --oscal-ssp (env: CLOUD_EVIDENCE_SSP_DOCX)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1500,6 +1512,19 @@ export async function main(): Promise<void> {
         ledger.record('oscal_ssp.validate', { status: 'fail', valid: false, model: 'ssp', error_count: v.errors.length });
         log.warn({ event: 'oscal_ssp.invalid', error_count: v.errors.length });
         if (args.strictSchema && v.schema_found) process.exitCode = 2;
+      }
+      // SSP-2: render the SSP to a FedRAMP-style Word document. The .docx itself is
+      // not in the manifest (signer covers *.json only), but it's a faithful render of
+      // the signed ssp.json — reproducible from the signed source.
+      if (args.sspDocx) {
+        try {
+          const d = emitSspDocx({ outDir: args.outDir, sspPath: r.path });
+          console.log(`OSCAL SSP (Word): ${d.path} (${(d.bytes / 1024).toFixed(0)} KB, ${d.control_count} controls)`);
+          ledger.record('ssp_docx.emit', { status: 'info', bytes: d.bytes, controls: d.control_count });
+        } catch (e: any) {
+          console.error(`SSP Word render failed: ${e.message}`);
+          log.error({ event: 'ssp_docx.fail', err_message: e?.message });
+        }
       }
     } catch (e: any) {
       console.error(`OSCAL SSP emission failed: ${e.message}`);
