@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure SVC-EIS + SVC-ACM (security improvement + config management)
+Two more Azure KSIs land in `providers/azure/config.ts`. KSI-SVC-ACM is now
+AWS + GCP + Azure; KSI-SVC-EIS (HYBRID) is too. SVC-ACM stays on AZ-1's
+`Reader`; SVC-EIS needs `Security Reader` to read the `securityresources`
+table (same constraint MLA-EVC already documents).
+
+- **`collectSvcAcm`** (Automating Configuration Management) — 2 findings +
+  KSI-level alternative satisfier:
+  1. `azure.svc.acm.deployment_history_present` (medium) — at least one
+     `microsoft.resources/deployments` row in the last 90 days. JS-side
+     time-window filter so the mock pattern keeps working.
+  2. `azure.svc.acm.policy_compliance_acceptable` (medium) — ≥ 80% of
+     `policyresources/policystates` evaluations report `Compliant`. Reuses
+     the same table CNA-EIS hits, but focuses on the ratio rather than
+     presence. Vacuously passes when no policy-state rows exist (CNA-EIS
+     already flags that scenario).
+  - Alternative satisfier: Terraform Cloud / GitHub Actions / Azure DevOps
+     pipelines as the IaC source of truth.
+- **`collectSvcEis`** (Evaluating and Improving Security — HYBRID) —
+  2 findings + KSI-level alternative satisfier:
+  1. `azure.svc.eis.defender_secure_score_present` (high) — at least one
+     `microsoft.security/securescores` row exists (Defender for Cloud is
+     producing a posture signal).
+  2. `azure.svc.eis.defender_secure_score_acceptable` (medium) — aggregate
+     current/max ratio ≥ 50% (Microsoft's own "needs attention" band).
+     Vacuously passes when no signal is present.
+  - Alternative satisfier: 3rd-party CSPM (Wiz / Lacework / Orca / Prisma)
+     driving the improvement loop.
+- `ksi-map.ts`: `azure` slot wired for both KSI-SVC-ACM and KSI-SVC-EIS.
+- IAM-PERMISSIONS-CATALOG: two rows added (SVC-ACM on `Reader`; SVC-EIS on
+  `Security Reader`).
+- 11 new dedicated tests (6 SVC-ACM: passing / stale-deployment / low
+  compliance / vacuous / alt satisfier / multi-sub aggregation; 5 SVC-EIS:
+  passing / no-signal / low ratio / multi-sub aggregation / alt satisfier).
+  **138 dedicated Azure tests, 648 total. 28 Azure KSIs covered.**
+
 ### Added — Azure INR-RIR + SVC-ASM (incident response routing + Key Vault)
 Two more Azure KSI collectors. KSI-INR-RIR and KSI-SVC-ASM are now AWS + GCP
 + Azure. Both via Resource Graph; no new permissions beyond AZ-1's `Reader`

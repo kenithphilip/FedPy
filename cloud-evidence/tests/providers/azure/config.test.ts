@@ -23,7 +23,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectCnaEis, collectCnaIbp, collectCnaDfp } from '../../../providers/azure/config.ts';
+import { collectCnaEis, collectCnaIbp, collectCnaDfp, collectSvcAcm, collectSvcEis } from '../../../providers/azure/config.ts';
 
 // Substring used to route mock queries to the MCSB-specific route. The
 // collector embeds the (mixed-case) MCSB initiative id literally in the KQL,
@@ -187,5 +187,146 @@ describe('collectCnaDfp (KSI-CNA-DFP Azure)', () => {
     _state.routes = [{ match: 'roledefinitions', rows: [] }];
     const block = await collectCnaDfp(ctx());
     expect(block.findings[0]!.passed).toBe(false);
+  });
+});
+
+// =====================================================================
+// KSI-SVC-ACM — Automating Configuration Management
+// =====================================================================
+const nowIso = () => new Date().toISOString();
+const staleIso = () => new Date(Date.now() - 200 * 86400_000).toISOString();
+
+describe('collectSvcAcm (KSI-SVC-ACM Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES both findings when recent deployments exist AND compliance ratio >= 80%', async () => {
+    _state.routes = [
+      { match: 'microsoft.resources/deployments', rows: [
+        { id: '/dep/1', name: 'recent', subscriptionId: 'sub-1', ts: nowIso(), state: 'Succeeded' },
+      ] },
+      { match: 'policystates', rows: [
+        { subscriptionId: 'sub-1', compliant: 90, non_compliant: 10, total: 100 },
+      ] },
+    ];
+    const block = await collectSvcAcm(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.svc.acm.deployment_history_present')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.svc.acm.policy_compliance_acceptable')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-SVC-ACM');
+  });
+
+  it('FAILS the deployment-history finding when only stale (>90d) deployments exist', async () => {
+    _state.routes = [
+      { match: 'microsoft.resources/deployments', rows: [
+        { id: '/dep/old', subscriptionId: 'sub-1', ts: staleIso(), state: 'Succeeded' },
+      ] },
+      { match: 'policystates', rows: [
+        { subscriptionId: 'sub-1', compliant: 90, non_compliant: 10, total: 100 },
+      ] },
+    ];
+    const block = await collectSvcAcm(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.svc.acm.deployment_history_present')!.passed).toBe(false);
+  });
+
+  it('FAILS the compliance finding when ratio < 80%', async () => {
+    _state.routes = [
+      { match: 'microsoft.resources/deployments', rows: [{ id: '/dep', subscriptionId: 'sub-1', ts: nowIso() }] },
+      { match: 'policystates', rows: [
+        { subscriptionId: 'sub-1', compliant: 30, non_compliant: 70, total: 100 },
+      ] },
+    ];
+    const block = await collectSvcAcm(ctx());
+    const f = block.findings.find((x) => x.rule === 'azure.svc.acm.policy_compliance_acceptable')!;
+    expect(f.passed).toBe(false);
+    expect((f.current_state.observations as any).ratio).toBeCloseTo(0.3, 5);
+  });
+
+  it('PASSES the compliance finding vacuously when no policy-state rows exist (CNA-EIS would already flag this)', async () => {
+    _state.routes = [
+      { match: 'microsoft.resources/deployments', rows: [{ id: '/dep', subscriptionId: 'sub-1', ts: nowIso() }] },
+      { match: 'policystates', rows: [] },
+    ];
+    const block = await collectSvcAcm(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.svc.acm.policy_compliance_acceptable')!.passed).toBe(true);
+  });
+
+  it('exposes Terraform-Cloud alternative satisfier at KSI level', async () => {
+    _state.routes = [
+      { match: 'microsoft.resources/deployments', rows: [] },
+      { match: 'policystates', rows: [] },
+    ];
+    const block = await collectSvcAcm(ctx());
+    const alt = block.ksi_level_alternatives?.[0];
+    expect(alt?.via).toContain('Terraform Cloud');
+    expect(alt?.detected).toBe(false);
+  });
+
+  it('SUMS compliance numerators across multiple subscriptions', async () => {
+    _state.routes = [
+      { match: 'microsoft.resources/deployments', rows: [{ id: '/dep', subscriptionId: 'sub-1', ts: nowIso() }] },
+      { match: 'policystates', rows: [
+        { subscriptionId: 'sub-1', compliant: 40, non_compliant: 10, total: 50 },
+        { subscriptionId: 'sub-2', compliant: 80, non_compliant: 20, total: 100 },
+      ] },
+    ];
+    const block = await collectSvcAcm(ctx(['sub-1', 'sub-2']));
+    const obs = block.findings.find((f) => f.rule === 'azure.svc.acm.policy_compliance_acceptable')!.current_state.observations as any;
+    expect(obs.compliant).toBe(120);
+    expect(obs.non_compliant).toBe(30);
+    expect(obs.total).toBe(150);
+    expect(obs.ratio).toBeCloseTo(120 / 150, 5);
+  });
+});
+
+// =====================================================================
+// KSI-SVC-EIS — Evaluating and Improving Security (HYBRID)
+// =====================================================================
+describe('collectSvcEis (KSI-SVC-EIS Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES both findings when secure-score is present and ratio >= 50%', async () => {
+    _state.routes = [{ match: 'microsoft.security/securescores', rows: [
+      { id: '/score/sub-1', name: 'score', subscriptionId: 'sub-1', current: 70, maxv: 100, weight: 1 },
+    ] }];
+    const block = await collectSvcEis(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_present')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_acceptable')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-SVC-EIS');
+  });
+
+  it('FAILS the presence finding when no secure-score rows exist', async () => {
+    _state.routes = [{ match: 'microsoft.security/securescores', rows: [] }];
+    const block = await collectSvcEis(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_present')!.passed).toBe(false);
+    // Vacuously OK when there's no signal — presence finding does the talking.
+    expect(block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_acceptable')!.passed).toBe(true);
+  });
+
+  it('FAILS the acceptable finding when ratio < 50%', async () => {
+    _state.routes = [{ match: 'microsoft.security/securescores', rows: [
+      { id: '/score/sub-1', subscriptionId: 'sub-1', current: 30, maxv: 100, weight: 1 },
+    ] }];
+    const block = await collectSvcEis(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_acceptable')!.passed).toBe(false);
+  });
+
+  it('AGGREGATES secure-score across subscriptions', async () => {
+    _state.routes = [{ match: 'microsoft.security/securescores', rows: [
+      { id: '/s/1', subscriptionId: 'sub-1', current: 40, maxv: 100, weight: 1 },
+      { id: '/s/2', subscriptionId: 'sub-2', current: 80, maxv: 100, weight: 1 },
+    ] }];
+    const block = await collectSvcEis(ctx(['sub-1', 'sub-2']));
+    const obs = block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_acceptable')!.current_state.observations as any;
+    expect(obs.aggregate_current).toBe(120);
+    expect(obs.aggregate_max).toBe(200);
+    expect(obs.ratio).toBeCloseTo(0.6, 5);
+    // 60% > 50% threshold → passes.
+    expect(block.findings.find((f) => f.rule === 'azure.svc.eis.defender_secure_score_acceptable')!.passed).toBe(true);
+  });
+
+  it('exposes 3rd-party CSPM alternative satisfier at KSI level (detected=false)', async () => {
+    _state.routes = [{ match: 'microsoft.security/securescores', rows: [] }];
+    const block = await collectSvcEis(ctx());
+    expect(block.ksi_level_alternatives?.[0]?.via).toContain('CSPM');
+    expect(block.ksi_level_alternatives?.[0]?.detected).toBe(false);
   });
 });

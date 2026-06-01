@@ -354,6 +354,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cm-2','cm-3','cm-6'],
     aws: awsConfig.collectSvcAcm,
     gcp: gcpConfig.collectSvcAcm,
+    azure: azConfig.collectSvcAcm,
   },
   'KSI-SVC-ASM': {
     id: 'KSI-SVC-ASM',
@@ -373,6 +374,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ca-7','pm-31'],
     aws: awsConfig.collectSvcEis,
     gcp: gcpConfig.collectSvcEis,
+    azure: azConfig.collectSvcEis,
     process_artifacts_required: [
       'Improvement-decision log (baseline changes attributed to findings)',
       'MTTR-by-severity trend report',
