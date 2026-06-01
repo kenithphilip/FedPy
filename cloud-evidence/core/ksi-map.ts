@@ -63,6 +63,7 @@ import * as azLogging from '../providers/azure/logging.ts';
 import * as azNetwork from '../providers/azure/network.ts';
 import * as azConfig from '../providers/azure/config.ts';
 import * as azBackup from '../providers/azure/backup.ts';
+import * as azSecrets from '../providers/azure/secrets.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -362,6 +363,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ia-5','ia-5.1','sc-12','sc-12.2'],
     aws: awsSecrets.collectSvcAsm,
     gcp: gcpSecrets.collectSvcAsm,
+    azure: azSecrets.collectSvcAsm,
   },
   'KSI-SVC-EIS': {
     id: 'KSI-SVC-EIS',
@@ -468,6 +470,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ir-4','ir-4.1'],
     aws: awsLogging.collectInrRir,
     gcp: gcpLogging.collectInrRir,
+    azure: azLogging.collectInrRir,
     process_artifacts_required: ['IR runbook URL', 'Last procedure-review minutes', 'On-call rotation source'],
   },
   // ---- AFR technical pointer: Using Cryptographic Modules (FIPS/CMVP) ----

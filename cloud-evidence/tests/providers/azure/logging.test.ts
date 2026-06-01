@@ -26,7 +26,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectMlaLet, collectMlaOsm, collectMlaAla, collectMlaRvl, collectCmtLmc, collectMlaEvc } from '../../../providers/azure/logging.ts';
+import { collectMlaLet, collectMlaOsm, collectMlaAla, collectMlaRvl, collectCmtLmc, collectMlaEvc, collectInrRir } from '../../../providers/azure/logging.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -357,5 +357,71 @@ describe('collectMlaEvc (KSI-MLA-EVC Azure)', () => {
     _state.routes = [{ match: 'security/assessments', rows: [] }];
     const block = await collectMlaEvc(ctx());
     expect(block.findings[0]!.passed).toBe(false);
+  });
+});
+
+// =====================================================================
+// KSI-INR-RIR
+// =====================================================================
+describe('collectInrRir (KSI-INR-RIR Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES when at least one Action Group has a populated receiver', async () => {
+    _state.routes = [
+      { match: 'microsoft.insights/actiongroups', rows: [
+        { id: '/ag/1', name: 'ag-prod', subscriptionId: 'sub-1', location: 'global',
+          email_count: 2, sms_count: 0, webhook_count: 1, logic_app_count: 0, function_count: 0, eventhub_count: 0 },
+      ] },
+      { match: 'microsoft.securityinsights/automationrules', rows: [] },
+    ];
+    const block = await collectInrRir(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-INR-RIR');
+  });
+
+  it('PASSES on a Sentinel automation rule even without Action Groups', async () => {
+    _state.routes = [
+      { match: 'microsoft.insights/actiongroups', rows: [] },
+      { match: 'microsoft.securityinsights/automationrules', rows: [
+        { id: '/auto/1', name: 'pager-on-incident', subscriptionId: 'sub-1' },
+      ] },
+    ];
+    const block = await collectInrRir(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+    // Detected signal reflected in the alt satisfier list.
+    const sentinelAlt = block.ksi_level_alternatives!.find((a) => a.via.includes('Sentinel'));
+    expect(sentinelAlt?.detected).toBe(true);
+  });
+
+  it('FAILS when Action Groups exist but every one is empty (plumbing without routing)', async () => {
+    _state.routes = [
+      { match: 'microsoft.insights/actiongroups', rows: [
+        { id: '/ag/empty', name: 'empty', email_count: 0, sms_count: 0, webhook_count: 0, logic_app_count: 0, function_count: 0, eventhub_count: 0 },
+      ] },
+      { match: 'microsoft.securityinsights/automationrules', rows: [] },
+    ];
+    const block = await collectInrRir(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
+    expect(block.findings[0]!.current_state.summary).toContain('plumbing without routing');
+  });
+
+  it('FAILS when neither Action Groups nor automation rules exist', async () => {
+    _state.routes = [
+      { match: 'microsoft.insights/actiongroups', rows: [] },
+      { match: 'microsoft.securityinsights/automationrules', rows: [] },
+    ];
+    const block = await collectInrRir(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
+  });
+
+  it('exposes PagerDuty / OpsGenie alternative satisfier at KSI level', async () => {
+    _state.routes = [
+      { match: 'microsoft.insights/actiongroups', rows: [] },
+      { match: 'microsoft.securityinsights/automationrules', rows: [] },
+    ];
+    const block = await collectInrRir(ctx());
+    const pdAlt = block.ksi_level_alternatives!.find((a) => a.via.includes('PagerDuty'));
+    expect(pdAlt).toBeDefined();
+    expect(pdAlt?.detected).toBe(false);
   });
 });

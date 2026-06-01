@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure INR-RIR + SVC-ASM (incident response routing + Key Vault)
+Two more Azure KSI collectors. KSI-INR-RIR and KSI-SVC-ASM are now AWS + GCP
++ Azure. Both via Resource Graph; no new permissions beyond AZ-1's `Reader`
+role — we deliberately stay on the management plane for Key Vault (no
+secrets / keys / certs contents are read).
+
+- **`collectInrRir`** (Reviewing Incident Response Procedures — HYBRID) in
+  `providers/azure/logging.ts` — 1 finding + KSI-level alternative satisfiers:
+  - `azure.inr.rir.alert_routing_plumbing_present` (high) — at least one
+    Azure Monitor Action Group with a populated receiver (email / SMS /
+    webhook / Logic App / Function / EventHub) OR a Sentinel automation
+    rule exists. Vacant Action Groups are flagged as "plumbing without
+    routing" rather than passing silently.
+  - Alternative satisfiers: PagerDuty / OpsGenie via webhook or ITSM
+    receiver (always exposed), and Sentinel automation rules + Logic App
+    playbooks (auto-detects via Resource Graph). The IR runbook + last
+    procedure-review minutes remain `process_artifacts_required`.
+- **`collectSvcAsm`** (Automating Secret Management) in new
+  `providers/azure/secrets.ts` — 3 findings:
+  1. `azure.svc.asm.key_vault_present` (high) — at least one Key Vault
+     exists.
+  2. `azure.svc.asm.key_vault_soft_delete_enabled` (high) — every vault
+     has soft-delete enabled (treats `null` as enabled to handle older API
+     shapes; only explicit `false` fails).
+  3. `azure.svc.asm.key_vault_rbac_or_purge_protection` (medium) — every
+     vault uses RBAC authorization (modern least-privilege) OR purge
+     protection (backstop for legacy access-policy vaults).
+  - Alternative satisfier: HC Vault running in-cluster (with audit log
+     evidence).
+- `ksi-map.ts`: `azure` slot wired for KSI-INR-RIR and KSI-SVC-ASM.
+- IAM-PERMISSIONS-CATALOG: two rows added (logging.ts INR-RIR + the new
+  secrets.ts file) — both `Reader` is sufficient.
+- 12 new dedicated tests (5 INR-RIR: Action Group receivers / Sentinel
+  automation / vacant action groups / nothing / alt-satisfier exposure;
+  7 SVC-ASM: all-passing vault / RBAC-only / purge-only / no-vault /
+  soft-delete off / legacy unprotected / null-soft-delete). **127
+  dedicated Azure tests, 637 total. 26 Azure KSIs covered.**
+
 ### Added — Azure RPL family: RPL-ABO + RPL-TRC (backup + restore recovery)
 Two Azure recovery KSIs land in `providers/azure/backup.ts`. KSI-RPL-ABO and
 KSI-RPL-TRC are now AWS + GCP + Azure. All via Resource Graph's `Resources`

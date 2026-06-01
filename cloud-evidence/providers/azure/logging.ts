@@ -14,7 +14,7 @@
  * Each KQL query is try/catch'd; failures surface as warnings, not throws.
  */
 import * as azure from '../../core/auth/azure.ts';
-import type { ProviderBlock, RawEvidence, Finding } from '../../core/envelope.ts';
+import type { ProviderBlock, RawEvidence, Finding, AlternativeSatisfier } from '../../core/envelope.ts';
 import type { CollectorContext } from '../../core/ksi-map.ts';
 import { finding } from '../../core/findings.ts';
 
@@ -500,4 +500,115 @@ export async function collectMlaEvc(ctx: CollectorContext): Promise<ProviderBloc
   }));
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-INR-RIR — Reviewing Incident Response Procedures (HYBRID)
+// Azure proxy: at least one Action Group exists (the Azure Monitor canonical
+// "where do alerts go" primitive — wraps email / webhook / PagerDuty / ITSM
+// / Logic-App / Function / EventHub receivers). Sentinel automation rules
+// count too, as a higher-level orchestration signal.
+//
+// The deep IR runbook + last-procedure-review minutes stay as process
+// artifacts in ksi-map.ts.
+// =====================================================================
+export async function collectInrRir(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // 1) Azure Monitor Action Groups.
+  const actionGroups = await runKql(subs,
+    'Resources | where type =~ "microsoft.insights/actiongroups" ' +
+    '| extend receivers = properties.emailReceivers, smsReceivers = properties.smsReceivers, ' +
+    'webhookReceivers = properties.webhookReceivers, logicAppReceivers = properties.logicAppReceivers, ' +
+    'azureFunctionReceivers = properties.azureFunctionReceivers, eventHubReceivers = properties.eventHubReceivers ' +
+    '| project id, name, subscriptionId, location, ' +
+    'email_count = array_length(receivers), sms_count = array_length(smsReceivers), ' +
+    'webhook_count = array_length(webhookReceivers), logic_app_count = array_length(logicAppReceivers), ' +
+    'function_count = array_length(azureFunctionReceivers), eventhub_count = array_length(eventHubReceivers)');
+  if (actionGroups.error) warnings.push(actionGroups.error);
+
+  // 2) Sentinel automation rules — bonus signal (do not require, but record).
+  const automationRules = await runKql(subs,
+    'Resources | where type =~ "microsoft.securityinsights/automationrules" ' +
+    '| project id, name, subscriptionId');
+  if (automationRules.error) warnings.push(automationRules.error);
+
+  evidence.push(ev('resourcegraph.action_groups', {
+    total: actionGroups.rows.length,
+    sample: actionGroups.rows.slice(0, 20),
+  }));
+  evidence.push(ev('resourcegraph.sentinel_automation_rules', {
+    total: automationRules.rows.length,
+    sample: automationRules.rows.slice(0, 10),
+  }));
+
+  // Receivers-per-action-group breakdown: we want at least one Action Group
+  // that points somewhere off-Azure (webhook/Logic App/Function/EventHub/SMS)
+  // OR has email receivers. A vacant Action Group is plumbing-without-routing.
+  const populatedActionGroups = actionGroups.rows.filter((g: any) => {
+    return Number(g.email_count ?? 0) + Number(g.sms_count ?? 0) + Number(g.webhook_count ?? 0)
+      + Number(g.logic_app_count ?? 0) + Number(g.function_count ?? 0) + Number(g.eventhub_count ?? 0) > 0;
+  }).length;
+
+  const altSatisfiers: AlternativeSatisfier[] = [
+    {
+      via: 'PagerDuty / OpsGenie via Action Group webhook or ITSM receiver',
+      description: 'Action Groups commonly route alerts to a 3rd-party paging platform via webhook / ITSM connector.',
+      evidence_required: ['Action Group webhook URL (redacted)', 'Sample paging event from the vendor', 'Runbook URL'],
+      detected: false, detection_signals: [],
+    },
+    {
+      via: 'Sentinel automation rules + Logic Apps playbooks',
+      description: 'Sentinel automation rules run Logic-App playbooks as response orchestration.',
+      evidence_required: ['Automation rule export', 'Playbook run history'],
+      detected: automationRules.rows.length > 0,
+      detection_signals: automationRules.rows.length > 0 ? [`${automationRules.rows.length} automation rule(s) detected via Resource Graph`] : [],
+    },
+  ];
+
+  findings.push(finding({
+    rule: 'azure.inr.rir.alert_routing_plumbing_present',
+    passed: populatedActionGroups >= 1 || automationRules.rows.length >= 1,
+    severity: 'high',
+    current: {
+      summary: (populatedActionGroups >= 1 || automationRules.rows.length >= 1)
+        ? `${actionGroups.rows.length} Action Group(s) (${populatedActionGroups} with at least one receiver) and ${automationRules.rows.length} Sentinel automation rule(s) — alert routing is wired.`
+        : (actionGroups.rows.length > 0
+          ? `${actionGroups.rows.length} Action Group(s) exist but none have any receiver wired — plumbing without routing.`
+          : 'No Azure Monitor Action Groups or Sentinel automation rules — alerts are not being routed anywhere.'),
+      observations: {
+        action_groups_total: actionGroups.rows.length,
+        action_groups_with_receivers: populatedActionGroups,
+        sentinel_automation_rules: automationRules.rows.length,
+      },
+    },
+    target: { summary: 'At least one Azure Monitor Action Group with a populated receiver list (email / webhook / Logic App / Function / EventHub) OR a Sentinel automation rule exists.', rationale: 'NIST IR-4, IR-4(1). IR procedures need a routing fabric — Action Groups are the Azure-canonical primitive.' },
+    gap: { description: 'Without alert routing, IR procedures are manual / nobody gets paged.', affected_resources: [{ type: 'azure_monitor_action_group', identifier: 'none', attributes: {} }] },
+    remediation: {
+      summary: 'Provision an Action Group bound to email + a webhook to the incident-management platform (PagerDuty / OpsGenie / ServiceNow).',
+      options: [
+        { approach: 'Terraform azurerm_monitor_action_group with email + webhook receiver.', mechanism: 'terraform', steps: [
+          'Declare azurerm_monitor_action_group with email_receiver { ... } and webhook_receiver { ... }',
+          'Reference the Action Group from azurerm_monitor_metric_alert / scheduled_query_rules_alert',
+          'Send a test event; confirm it lands in the paging platform',
+        ] },
+        { approach: 'Sentinel automation rule wired to a Logic-App playbook.', mechanism: 'console', steps: [
+          'Sentinel → Automation → New automation rule',
+          'Trigger: when a Sentinel incident is created',
+          'Action: run playbook (Logic App) that pages on-call',
+        ] },
+      ],
+    },
+    alternative_satisfiers: altSatisfiers,
+    nist_controls: ['ir-4', 'ir-4.1'],
+    cross_ksi_dependencies: [
+      { ksi_id: 'KSI-IAM-SUS', relationship: 'shares-remediation', note: 'IAM-SUS covers IAM-specific alerts; INR-RIR is the broader routing fabric.' },
+      { ksi_id: 'KSI-MLA-OSM', relationship: 'depends-on', note: 'Sentinel SIEM is the upstream signal generator the action groups route from.' },
+    ],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings, ksi_level_alternatives: altSatisfiers };
 }
