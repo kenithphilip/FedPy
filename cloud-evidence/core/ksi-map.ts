@@ -66,6 +66,7 @@ import * as azBackup from '../providers/azure/backup.ts';
 import * as azSecrets from '../providers/azure/secrets.ts';
 import * as azSupplychain from '../providers/azure/supplychain.ts';
 import * as azData from '../providers/azure/data.ts';
+import * as azInventory from '../providers/azure/inventory.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -460,6 +461,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cm-8','cm-8.1','pm-5'],
     aws: awsInventory.collectPiyGiv,
     gcp: gcpInventory.collectPiyGiv,
+    azure: azInventory.collectPiyGiv,
   },
   'KSI-SCR-MON': {
     id: 'KSI-SCR-MON',
@@ -469,6 +471,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['sr-3','ra-5'],
     aws: awsSupplychain.collectScrMon,
     gcp: gcpSupplychain.collectScrMon,
+    azure: azSupplychain.collectScrMon,
     process_artifacts_required: ['Supply-chain monitoring policy', 'Vendor advisory subscription list', 'Severity-SLA matrix'],
   },
   'KSI-INR-RIR': {

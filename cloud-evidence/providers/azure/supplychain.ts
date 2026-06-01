@@ -19,8 +19,16 @@
  *       2. Defender for Containers is on Standard tier (otherwise the
  *          registry / runtime image scanning isn't producing findings).
  *
- * RMV is on AZ-1's `Reader` only. VTD needs `Security Reader` for the
- * `securityresources` table (same constraint MLA-EVC + SVC-EIS document).
+ *   - KSI-SCR-MON — Monitoring Supply Chain Risk (HYBRID). Two signals:
+ *       1. Microsoft Defender Vulnerability Management is producing
+ *          evidence — proxied by `microsoft.security/pricings` for
+ *          VirtualMachines / Servers / Containers on Standard tier.
+ *       2. At least one Defender security contact is configured with an
+ *          email — vulnerability advisories actually reach a human.
+ *
+ * RMV is on AZ-1's `Reader` only. VTD + SCR-MON need `Security Reader`
+ * for the `securityresources` table (same constraint MLA-EVC + SVC-EIS
+ * document).
  */
 import * as azure from '../../core/auth/azure.ts';
 import type { ProviderBlock, RawEvidence, Finding, AlternativeSatisfier } from '../../core/envelope.ts';
@@ -285,6 +293,133 @@ export async function collectCmtVtd(ctx: CollectorContext): Promise<ProviderBloc
     alternative_satisfiers: altSatisfiers,
     nist_controls: ['sa-11', 'si-7'],
     cross_ksi_dependencies: [{ ksi_id: 'KSI-MLA-EVC', relationship: 'shares-remediation', note: 'Both depend on Defender for Cloud being enabled.' }],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings, ksi_level_alternatives: altSatisfiers };
+}
+
+// =====================================================================
+// KSI-SCR-MON — Monitoring Supply Chain Risk (HYBRID)
+// =====================================================================
+// Plan names from Defender for Cloud that deliver upstream-vulnerability
+// telemetry (Microsoft Defender Vulnerability Management bundles into these
+// plans). Any one of them on Standard tier proves MDVM is producing evidence.
+const MDVM_PLANS = new Set(['virtualmachines', 'servers', 'containers', 'containerregistry']);
+
+export async function collectScrMon(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // 1) Defender plans gating MDVM. We reuse the same pricings table CMT-VTD
+  // queries but filter to the MDVM-bearing plans.
+  const pricings = await runKql(subs,
+    'securityresources | where type =~ "microsoft.security/pricings" ' +
+    '| extend planName = tostring(name), tier = tostring(properties.pricingTier) ' +
+    '| project id, name, subscriptionId, planName, tier');
+  if (pricings.error) warnings.push(pricings.error);
+  const mdvmStandard = pricings.rows.filter((p: any) => {
+    const plan = String(p.planName ?? '').toLowerCase();
+    return MDVM_PLANS.has(plan) && String(p.tier ?? '').toLowerCase() === 'standard';
+  });
+
+  // 2) Security contacts — proves vulnerability advisories actually reach a human.
+  // microsoft.security/securityContacts carries properties.emails (comma-joined)
+  // and properties.alertNotifications.state = "On" / "Off".
+  const contacts = await runKql(subs,
+    'securityresources | where type =~ "microsoft.security/securitycontacts" ' +
+    '| extend emails = tostring(properties.emails), ' +
+    'alertState = tostring(properties.alertNotifications.state) ' +
+    '| project id, name, subscriptionId, emails, alertState');
+  if (contacts.error) warnings.push(contacts.error);
+  const goodContacts = contacts.rows.filter((c: any) => {
+    const email = String(c.emails ?? '').trim();
+    const alert = String(c.alertState ?? '').toLowerCase();
+    return email.length > 0 && (alert === '' || alert === 'on');
+  });
+
+  evidence.push(ev('resourcegraph.defender_mdvm_pricings', {
+    rows: pricings.rows.length,
+    standard_plan_subscriptions: new Set(mdvmStandard.map((p: any) => String(p.subscriptionId ?? ''))).size,
+    standard_plans: mdvmStandard.map((p: any) => ({ sub: p.subscriptionId, plan: p.planName })),
+    sample: pricings.rows.slice(0, 10),
+  }));
+  evidence.push(ev('resourcegraph.defender_security_contacts', {
+    total: contacts.rows.length,
+    with_email_and_alerts: goodContacts.length,
+    sample: contacts.rows.slice(0, 10),
+  }));
+
+  const altSatisfiers: AlternativeSatisfier[] = [
+    {
+      via: '3rd-party vulnerability-feed subscription (Snyk Advisor / GitHub Dependabot / Mend Renovate)',
+      description: 'Upstream-CVE monitoring runs entirely outside Defender; advisories land in the SCM platform with auto-PR remediation.',
+      evidence_required: ['Tool tenant URL', 'Sample advisory + auto-PR', 'Severity-SLA matrix'],
+      detected: false, detection_signals: [],
+    },
+    {
+      via: 'Vendor advisory mailing lists (CISA, MSRC, NVD RSS) routed to security@',
+      description: 'Operator subscribes to authoritative upstream advisory channels manually.',
+      evidence_required: ['Subscription list', 'Last-30-days advisory triage log'],
+      detected: false, detection_signals: [],
+    },
+  ];
+
+  // -------- Finding 1: MDVM-bearing plan on Standard --------
+  findings.push(finding({
+    rule: 'azure.scr.mon.defender_mdvm_active', passed: mdvmStandard.length >= 1, severity: 'high',
+    current: {
+      summary: mdvmStandard.length >= 1
+        ? `Defender Vulnerability Management is active via ${mdvmStandard.length} Standard-tier plan(s) (${mdvmStandard.map((p: any) => p.planName).join(', ')}).`
+        : (pricings.rows.length > 0
+          ? `${pricings.rows.length} Defender pricing row(s) but none of VirtualMachines / Servers / Containers / ContainerRegistry is on Standard — MDVM feed isn't running.`
+          : 'No Defender pricing rows visible — either Defender is off or Security Reader is missing.'),
+      observations: {
+        mdvm_standard_plans: mdvmStandard.length,
+        total_pricing_rows: pricings.rows.length,
+      },
+    },
+    target: { summary: 'At least one of VirtualMachines / Servers / Containers / ContainerRegistry Defender plans is on Standard tier, OR a 3rd-party vuln-feed is documented as alt satisfier.', rationale: 'NIST SR-3, RA-5. Upstream-vulnerability monitoring needs a feed.' },
+    gap: { description: 'No upstream-vulnerability telemetry from Defender — relies on the alt-satisfier path or undocumented manual review.', affected_resources: [{ type: 'azure_defender_pricing', identifier: 'mdvm-aggregate', attributes: { standard_count: mdvmStandard.length } }] },
+    remediation: {
+      summary: 'Turn on Defender for Servers (or Containers / VirtualMachines) on Standard tier in at least one in-scope subscription, OR document the 3rd-party feed.',
+      options: [
+        { approach: 'az CLI per subscription.', mechanism: 'cli', steps: ['az security pricing create -n VirtualMachines --tier Standard --subscription <id>', 'az security pricing create -n Containers --tier Standard --subscription <id>'] },
+      ],
+    },
+    alternative_satisfiers: altSatisfiers,
+    nist_controls: ['sr-3', 'ra-5'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-CMT-VTD', relationship: 'shares-remediation', note: 'CMT-VTD checks Containers plan; SCR-MON broadens to the Servers / VMs surface for upstream CVE feeds.' }],
+  }));
+
+  // -------- Finding 2: security contact with email + alerts on --------
+  findings.push(finding({
+    rule: 'azure.scr.mon.security_contact_configured', passed: goodContacts.length >= 1, severity: 'medium',
+    current: {
+      summary: goodContacts.length >= 1
+        ? `${goodContacts.length} Defender security contact(s) with email + alert notifications enabled — advisories reach a human.`
+        : (contacts.rows.length > 0
+          ? `${contacts.rows.length} security contact(s) exist but none have an email + alert-state of On — Defender advisories drop on the floor.`
+          : 'No Defender security contacts configured — vulnerability advisories have no destination.'),
+      observations: {
+        total_contacts: contacts.rows.length, contacts_with_email_and_alerts: goodContacts.length,
+      },
+    },
+    target: { summary: 'At least one Defender security contact has a non-empty `emails` field AND `alertNotifications.state = "On"`.', rationale: 'NIST IR-6, SR-3. Vulnerability advisories that nobody reads are no advisories at all.' },
+    gap: { description: 'Defender advisories have no destination — the upstream CVE feed exists but signals never reach an operator.', affected_resources: [{ type: 'azure_defender_security_contact', identifier: 'none', attributes: {} }] },
+    remediation: {
+      summary: 'Set the Defender security contact in the portal: Defender for Cloud → Environment settings → subscription → Email notifications.',
+      options: [
+        { approach: 'Defender for Cloud → Email notifications.', mechanism: 'console', steps: [
+          'Defender for Cloud → Environment settings',
+          'Pick subscription → Email notifications',
+          'Set the on-call distribution list as the recipient; toggle High-severity + Attack-path alerts on',
+        ] },
+      ],
+    },
+    alternative_satisfiers: altSatisfiers,
+    nist_controls: ['ir-6', 'sr-3'],
   }));
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings, ksi_level_alternatives: altSatisfiers };

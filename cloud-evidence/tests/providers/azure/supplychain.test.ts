@@ -23,7 +23,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectCmtRmv, collectCmtVtd } from '../../../providers/azure/supplychain.ts';
+import { collectCmtRmv, collectCmtVtd, collectScrMon } from '../../../providers/azure/supplychain.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -169,5 +169,90 @@ describe('collectCmtVtd (KSI-CMT-VTD Azure)', () => {
     const labels = block.ksi_level_alternatives?.map((a) => a.via) ?? [];
     expect(labels.some((l) => l.includes('GitHub Advanced Security'))).toBe(true);
     expect(labels.some((l) => l.includes('3rd-party CI gates'))).toBe(true);
+  });
+});
+
+// =====================================================================
+// KSI-SCR-MON
+// =====================================================================
+describe('collectScrMon (KSI-SCR-MON Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES both findings when an MDVM plan is Standard and a contact has email + alerts on', async () => {
+    _state.routes = [
+      { match: 'microsoft.security/pricings', rows: [
+        { id: '/p/srv', name: 'Servers', subscriptionId: 'sub-1', planName: 'Servers', tier: 'Standard' },
+      ] },
+      { match: 'securitycontacts', rows: [
+        { id: '/sc/1', subscriptionId: 'sub-1', emails: 'security@example.com', alertState: 'On' },
+      ] },
+    ];
+    const block = await collectScrMon(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.scr.mon.defender_mdvm_active')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.scr.mon.security_contact_configured')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-SCR-MON');
+  });
+
+  it('ACCEPTS any of VirtualMachines / Containers / ContainerRegistry on Standard', async () => {
+    _state.routes = [
+      { match: 'microsoft.security/pricings', rows: [
+        { id: '/p/vm', name: 'VirtualMachines', subscriptionId: 'sub-1', planName: 'VirtualMachines', tier: 'Standard' },
+      ] },
+      { match: 'securitycontacts', rows: [
+        { id: '/sc/1', emails: 'sec@example.com', alertState: 'On' },
+      ] },
+    ];
+    const block = await collectScrMon(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.scr.mon.defender_mdvm_active')!.passed).toBe(true);
+  });
+
+  it('REJECTS unrelated plan names (e.g. AppServices) — MDVM gating is plan-specific', async () => {
+    _state.routes = [
+      { match: 'microsoft.security/pricings', rows: [
+        { id: '/p/app', name: 'AppServices', subscriptionId: 'sub-1', planName: 'AppServices', tier: 'Standard' },
+      ] },
+      { match: 'securitycontacts', rows: [
+        { id: '/sc/1', emails: 'sec@example.com', alertState: 'On' },
+      ] },
+    ];
+    const block = await collectScrMon(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.scr.mon.defender_mdvm_active')!.passed).toBe(false);
+  });
+
+  it('FAILS the security-contact finding when the contact has no email', async () => {
+    _state.routes = [
+      { match: 'microsoft.security/pricings', rows: [
+        { id: '/p/srv', planName: 'Servers', subscriptionId: 'sub-1', tier: 'Standard' },
+      ] },
+      { match: 'securitycontacts', rows: [
+        { id: '/sc/empty', emails: '', alertState: 'On' },
+      ] },
+    ];
+    const block = await collectScrMon(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.scr.mon.security_contact_configured')!.passed).toBe(false);
+  });
+
+  it('FAILS the security-contact finding when alertNotifications.state is Off', async () => {
+    _state.routes = [
+      { match: 'microsoft.security/pricings', rows: [
+        { id: '/p/srv', planName: 'Servers', subscriptionId: 'sub-1', tier: 'Standard' },
+      ] },
+      { match: 'securitycontacts', rows: [
+        { id: '/sc/off', emails: 'sec@example.com', alertState: 'Off' },
+      ] },
+    ];
+    const block = await collectScrMon(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.scr.mon.security_contact_configured')!.passed).toBe(false);
+  });
+
+  it('exposes 3rd-party vuln-feed + vendor-advisory mailing-list alt satisfiers at KSI level', async () => {
+    _state.routes = [
+      { match: 'microsoft.security/pricings', rows: [] },
+      { match: 'securitycontacts', rows: [] },
+    ];
+    const block = await collectScrMon(ctx());
+    const labels = block.ksi_level_alternatives?.map((a) => a.via) ?? [];
+    expect(labels.some((l) => l.includes('Snyk Advisor') || l.includes('Dependabot'))).toBe(true);
+    expect(labels.some((l) => l.includes('Vendor advisory mailing lists'))).toBe(true);
   });
 });

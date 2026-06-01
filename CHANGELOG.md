@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure SCR-MON + PIY-GIV (supply-chain monitoring + inventory)
+Two more Azure KSI collectors. KSI-PIY-GIV is now AWS + GCP + Azure;
+KSI-SCR-MON (HYBRID) is too.
+
+- **`collectScrMon`** (Monitoring Supply Chain Risk — HYBRID) extends
+  `providers/azure/supplychain.ts` — 2 findings + KSI-level alt
+  satisfiers:
+  1. `azure.scr.mon.defender_mdvm_active` (high) — at least one of
+     Defender for VirtualMachines / Servers / Containers /
+     ContainerRegistry on Standard tier. These plans are the carriers
+     for Microsoft Defender Vulnerability Management (MDVM) — the Azure-
+     native upstream-CVE feed.
+  2. `azure.scr.mon.security_contact_configured` (medium) — at least one
+     `microsoft.security/securitycontacts` row has a non-empty email AND
+     `alertNotifications.state` not equal to `Off`.
+  - Alt satisfiers: 3rd-party vuln-feed (Snyk Advisor / Dependabot /
+    Mend Renovate); vendor-advisory mailing lists (CISA / MSRC / NVD
+    RSS) routed to security@.
+- **`collectPiyGiv`** (Generating Inventories) in new
+  `providers/azure/inventory.ts` — 1 finding:
+  - `azure.piy.giv.inventory_signal_active` (high) — Resource Graph
+    returns non-zero assets across the configured subscriptions, with a
+    by-type breakdown captured as observations (top 20 types). Resource
+    Graph is the Azure-canonical authoritative real-time inventory; the
+    KSI signal is simply "is the inventory query path live and the
+    runner principal bound to Reader everywhere?".
+- `ksi-map.ts`: `azure` slot wired for KSI-SCR-MON and KSI-PIY-GIV.
+- IAM-PERMISSIONS-CATALOG: SCR-MON on `Security Reader`; PIY-GIV on
+  `Reader` (same backbone the inventory-workbook generator uses).
+- 10 new dedicated tests (6 SCR-MON: full pass / accept VM plan /
+  reject unrelated plan / no-email contact / alert-off / alt satisfiers;
+  4 PIY-GIV: non-zero / zero / many types aggregation / no-subscriptions
+  warning). **174 dedicated Azure tests, 684 total. 35 Azure KSIs
+  covered.**
+
 ### Added — Azure SVC-RUD + SVC-VCM + SVC-VRI (data plane KSIs)
 Three Azure data-plane KSI collectors land in new `providers/azure/data.ts`.
 KSI-SVC-RUD and KSI-SVC-VRI are now AWS + GCP + Azure; KSI-SVC-VCM (HYBRID)
