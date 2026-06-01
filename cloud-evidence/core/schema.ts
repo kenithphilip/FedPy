@@ -19,7 +19,7 @@ import addFormats from 'ajv-formats';
 import type { EvidenceFile } from './envelope.ts';
 
 const SEVERITY_VALUES = ['critical', 'high', 'medium', 'low', 'info'] as const;
-const PROVIDER_VALUES = ['aws', 'gcp', 'k8s'] as const;
+const PROVIDER_VALUES = ['aws', 'gcp', 'azure', 'k8s'] as const;
 const SCOPE_VALUES = ['CLOUD', 'HYBRID', 'PROCESS', 'INHERITED'] as const;
 const IMPACT_VALUES = ['none', 'low', 'medium', 'high'] as const;
 const EFFORT_VALUES = ['minutes', 'hours', 'days', 'weeks', 'months'] as const;

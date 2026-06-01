@@ -114,6 +114,24 @@ Bind the runner SA to these predefined roles at the org level:
 
 DO NOT grant `roles/editor` or any `*.admin` role.
 
+### Azure
+
+Bind the runner principal to these built-in RBAC roles at the **management group** scope
+(or per-subscription if MG access isn't available):
+
+- `Reader` — broad ARM read + Resource Graph (`Microsoft.ResourceGraph/resources/read`)
+- `Security Reader` — Defender for Cloud findings + secure-score
+- `Log Analytics Reader` — diagnostic settings + workspace queries
+
+DO NOT grant `Contributor`, `Owner`, or any `*Admin*` role. The Azure read-only Proxy
+guardrail (`core/readonly-guardrail-azure.ts`) blocks every `create*`/`update*`/`delete*`/
+`begin*`/`patch*`/`set*` SDK call as defense in depth, but RBAC is the primary defence.
+
+`DefaultAzureCredential` picks up credentials in this order: env vars
+(`AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`) → workload identity (GitHub OIDC)
+→ managed identity → `az login` → `azd auth login` → `Connect-AzAccount`. For local
+runs the simplest path is `az login`; for CI prefer federated workload identity.
+
 ### Kubernetes
 
 For each cluster the collector targets, bind the runner identity to the built-in `view` ClusterRole. The cloud-evidence GCP/AWS Proxy guardrails apply at the SDK layer; the K8s guardrail is implicit because we only call list/get verbs.
@@ -151,6 +169,8 @@ Most operators don't need these. They exist for incident response, debugging, an
 | `ANTHROPIC_API_URL` | `https://api.anthropic.com/v1/messages` | Override for proxy / VPC endpoints. |
 | `LLM_MODEL` | `claude-opus-4-5` | Model selection. Use `claude-haiku-4-5` for cost-sensitive runs (see COST.md). |
 | `CLOUD_EVIDENCE_DISABLE_GCP_GUARDRAIL` | `0` | Set to `1` to bypass the GCP read-only Proxy. Use ONLY for diagnosing why a collector throws ReadOnlyGcpViolationError — never in production. |
+| `CLOUD_EVIDENCE_DISABLE_AZURE_GUARDRAIL` | `0` | Set to `1` to bypass the Azure read-only Proxy. Use ONLY for diagnosing why a collector throws ReadOnlyAzureViolationError — never in production. |
+| `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` | (none) | Service-principal credentials picked up by `DefaultAzureCredential.EnvironmentCredential`. For CI without `az login` or a managed identity. |
 | `CLOUD_EVIDENCE_K8S_TIMEOUT_MS` | `10000` | Per-call timeout for Kubernetes API requests. Lower in CI so an unreachable cluster fails fast instead of hanging the run. |
 | `CLOUD_EVIDENCE_IMPACT_LEVEL` | `moderate` | FedRAMP impact tier: `low`/`moderate`/`high`. Overrides `config.yaml` `impact_level`; `--impact-level` overrides this. High is DERIVED from NIST 800-53 Rev5. |
 | `CLOUD_EVIDENCE_FRAMEWORK` | `20x` | NIST 800-53 control-benchmark framing: `20x` (score only the controls the evaluated 20x KSIs reference) or `rev5` (score the full SP 800-53B baseline for the level). `--framework` overrides this. Drives `control-benchmark.json`. |

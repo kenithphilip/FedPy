@@ -71,7 +71,7 @@ export const APPENDIX_M_COLUMNS: readonly InvColumn[] = [
  * output is honestly partial rather than fabricated.
  */
 export interface CloudAsset {
-  provider: 'aws' | 'gcp';
+  provider: 'aws' | 'gcp' | 'azure';
   /** ARN / GCP self-link / resource id — fills Unique Asset Identifier + Serial/Asset Tag. */
   uniqueId: string;
   /** One or more IPs; >1 fans out into one workbook row per IP (per template guidance). */

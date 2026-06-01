@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure collector scaffolding (AZ-1)
+Third-cloud foundation. The collector can now enumerate Azure subscriptions and feed
+the inventory workbook (`--inventory-workbook`) alongside AWS + GCP. KSI collectors
+land in AZ-2.
+- **`core/auth/azure.ts`** — `DefaultAzureCredential` (env / workload identity / managed
+  identity / `az login` / azd / PowerShell). `whoAmIAzure` is JWT-based (no API call —
+  decodes the ARM token) so it works even without subscription-list permission. Client
+  factories `resourceGraph()` and `resources(subscriptionId)`. Every client is wrapped
+  in the read-only guardrail.
+- **`core/readonly-guardrail-azure.ts`** — Azure-flavoured mirror of the GCP guardrail.
+  Adds the Azure long-running-operation `begin*` prefix family (`beginCreate`,
+  `beginCreateOrUpdate`, `beginDeleteAndWait`, …) to the write denylist. Disable with
+  `CLOUD_EVIDENCE_DISABLE_AZURE_GUARDRAIL=1` only for debugging.
+- **`providers/azure/discover.ts`** — Azure Resource Graph as the breadth discovery
+  backbone (the Azure analog of AWS Config Advanced Query and GCP CAI
+  `searchAllResources`). One KQL query across all configured subscriptions returns every
+  resource with the projection the inventory workbook needs.
+- **`providers/azure/inventory-assets.ts`** — depth enricher for storage accounts
+  (public-blob access, encryption key source, CMK URI, TLS floor) and virtual machines
+  (image / SKU / provisioning state).
+- Orchestrator: `azure` is now a third provider alongside `aws`/`gcp` (default
+  `--providers aws,gcp,azure`; silently skipped unless `config.azure.enabled` is true).
+  `Config.azure` block in `config.yaml` (`enabled`, `subscriptions`, `tenant_id?`).
+  Schema: `azure` added to `ProviderName` (validator unblocks it as a provider value).
+- 19 new tests (12 Azure guardrail classification + wrap/throw, 7 discover + inventory
+  pagination + row → CloudAsset mapping). tsc clean; 486 tests pass.
+
 ### Added — OSCAL SSP → FedRAMP Word (.docx) renderer (SSP-2)
 Renders the draft OSCAL SSP (SSP-1) into a human-readable Word document so a system
 owner can review/circulate it without a GRC tool.

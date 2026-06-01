@@ -125,6 +125,43 @@ Bind these predefined roles to the runner principal at the **org or folder** lev
 
 ---
 
+## Azure
+
+### Fastest path: built-in roles (RBAC)
+
+Assign these built-in roles to the runner principal at the **management group** scope (or
+per-subscription if MG access isn't available):
+
+| Role | Why |
+|---|---|
+| `Reader` | Broad ARM read across all resource types — includes Resource Graph (`Microsoft.ResourceGraph/resources/read`), Resources, Compute, Storage metadata, Networking, Key Vault metadata. |
+| `Security Reader` | Defender for Cloud findings, secure-score recommendations, regulatory compliance assessments. |
+| `Log Analytics Reader` | Read access to Log Analytics workspaces (diagnostic settings, queries). |
+| `Storage Blob Data Reader` | Optional — only if a collector needs blob *contents* (not metadata). Inventory uses metadata only. |
+
+### Per-collector role/permission map
+
+| Collector (file) | KSIs / artifact | Azure service | Required role / permission |
+|---|---|---|---|
+| `auth/azure.ts` | whoAmI (token decode) | AAD | (none — token-only) |
+| `discover.ts` | Inventory backbone (`--inventory-workbook`) | Resource Graph | `Reader` (`Microsoft.ResourceGraph/resources/read`) |
+| `inventory-assets.ts` | Inventory depth (`--inventory-workbook`) | Resource Graph (Storage / Compute / NICs projections) | `Reader` (same as backbone — projections are KQL only) |
+
+### Azure auth notes
+
+- The collector uses `DefaultAzureCredential` from `@azure/identity`, which auto-discovers
+  credentials in this order:
+  `EnvironmentCredential` → `WorkloadIdentityCredential` → `ManagedIdentityCredential`
+  → `AzureCliCredential` → `AzureDeveloperCliCredential` → `AzurePowerShellCredential`.
+- For local runs the simplest setup is `az login`; for CI use a federated workload identity
+  (GitHub OIDC + AAD app) or a service principal via env vars
+  (`AZURE_TENANT_ID`/`AZURE_CLIENT_ID`/`AZURE_CLIENT_SECRET`).
+- Every Azure client we construct is wrapped in the read-only Proxy guardrail
+  (`core/readonly-guardrail-azure.ts`) — defense in depth on top of the RBAC role.
+  Disable with `CLOUD_EVIDENCE_DISABLE_AZURE_GUARDRAIL=1` only for debugging.
+
+---
+
 ## Kubernetes
 
 The K8s collector (`providers/k8s/security.ts`) needs **read** on RBAC resources.

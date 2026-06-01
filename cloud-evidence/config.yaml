@@ -40,5 +40,18 @@ gcp:
     key: env
     values: [prod, production]
 
+# Azure configuration (optional — omit the whole block to disable)
+azure:
+  enabled: false
+  # Subscription IDs the collector will inspect. With Reader at the management-group
+  # level you can list them all; otherwise enumerate the ones you have access to.
+  subscriptions: []
+  # Optional tenant id (the credential chain auto-discovers it, but pin if needed).
+  tenant_id: null
+  # Tag-based prod filter (mirror of aws.prod_tag / gcp.prod_label).
+  prod_tag:
+    key: env
+    values: [prod, production]
+
 # Output directory (relative to this file)
 output_dir: ./out

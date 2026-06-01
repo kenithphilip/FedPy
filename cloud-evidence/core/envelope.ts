@@ -13,7 +13,7 @@
  * cloud-native primitives.
  */
 
-export type ProviderName = 'aws' | 'gcp' | 'k8s';
+export type ProviderName = 'aws' | 'gcp' | 'azure' | 'k8s';
 export type KsiScope = 'CLOUD' | 'HYBRID' | 'PROCESS' | 'INHERITED';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type ImpactLevel = 'none' | 'low' | 'medium' | 'high';

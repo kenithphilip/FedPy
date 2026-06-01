@@ -31,6 +31,9 @@ import { buildControlBenchmark, type BenchmarkFramework } from './control-benchm
 import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, applyDataClassification, type CloudAsset } from './inventory-workbook.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
+import { collectAzureAssets } from '../providers/azure/inventory-assets.ts';
+import { discoverAzureAssets } from '../providers/azure/discover.ts';
+import { whoAmIAzure } from './auth/azure.ts';
 import { discoverAwsAssets } from '../providers/aws/discover.ts';
 import { discoverGcpAssets } from '../providers/gcp/discover.ts';
 import { readPreviousInventory, diffInventory, writeInventoryDiff, writeInventoryOscal, writeInventoryCmdb } from './inventory-emit.ts';
@@ -80,7 +83,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..');
 
 interface Args {
-  providers: Array<'aws' | 'gcp'>;
+  providers: Array<'aws' | 'gcp' | 'azure'>;
   ksiFilter: string[] | null;
   /** FedRAMP impact tier to evaluate against. Resolved from CLI > config > 'moderate'. */
   impactLevel: ImpactTier | null;
@@ -155,7 +158,7 @@ interface Args {
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
-    providers: ['aws', 'gcp'],
+    providers: ['aws', 'gcp', 'azure'],
     ksiFilter: null,
     impactLevel: (process.env.CLOUD_EVIDENCE_IMPACT_LEVEL as ImpactTier) || null,
     framework: (process.env.CLOUD_EVIDENCE_FRAMEWORK as BenchmarkFramework) === 'rev5' ? 'rev5' : '20x',
@@ -362,7 +365,8 @@ Usage:
   tsx core/orchestrator.ts [options]
 
 Options:
-  --providers <list>     Comma-separated providers (default: aws,gcp)
+  --providers <list>     Comma-separated providers (default: aws,gcp,azure; azure is silently
+                         skipped unless config.azure.enabled is true)
   --ksis <list>          Comma-separated KSI IDs (default: all supported)
   --out <dir>            Output directory (default: ./out)
   --config <file>        Config file path (default: ./config.yaml)
@@ -629,6 +633,7 @@ interface Config {
   impact_level?: ImpactTier;
   aws: { enabled: boolean; regions: string[]; prod_tag?: { key: string; values: string[] } };
   gcp: { enabled: boolean; organization_id: string | null; projects: string[]; prod_label?: { key: string; values: string[] } };
+  azure?: { enabled: boolean; subscriptions: string[]; tenant_id?: string | null; prod_tag?: { key: string; values: string[] } };
   output_dir: string;
 }
 
@@ -670,6 +675,16 @@ function loadConfig(path: string): Config {
     if (typeof parsed.gcp.enabled !== 'boolean') errors.push('gcp.enabled must be boolean');
     if (parsed.gcp.enabled && !Array.isArray(parsed.gcp.projects)) {
       errors.push('gcp.projects must be an array (may be empty) when gcp.enabled is true');
+    }
+  }
+  // azure is optional (omit → disabled; introduced in AZ-1 so existing configs keep working).
+  if (parsed.azure !== undefined && parsed.azure !== null) {
+    if (typeof parsed.azure !== 'object') errors.push('azure must be an object when present');
+    else {
+      if (typeof parsed.azure.enabled !== 'boolean') errors.push('azure.enabled must be boolean');
+      if (parsed.azure.enabled && !Array.isArray(parsed.azure.subscriptions)) {
+        errors.push('azure.subscriptions must be an array (may be empty) when azure.enabled is true');
+      }
     }
   }
   if (parsed.impact_level != null && !['low', 'moderate', 'high'].includes(String(parsed.impact_level))) {
@@ -958,6 +973,19 @@ export async function main(): Promise<void> {
         console.error('      gcloud auth application-default login --impersonate-service-account=<sa>@<project>.iam.gserviceaccount.com');
       }
       args.providers = args.providers.filter((p) => p !== 'gcp');
+    }
+  }
+  if (args.providers.includes('azure') && config.azure?.enabled) {
+    try {
+      const me = await whoAmIAzure();
+      console.log(`Azure authenticated as ${me.principal}${me.tenantId ? ` (tenant ${me.tenantId})` : ''}`);
+    } catch (e: any) {
+      console.error(`Azure auth failed: ${e?.message ?? e}`);
+      console.error('  → No credential found in the DefaultAzureCredential chain. Run one of:');
+      console.error('      az login                                          # local CLI session');
+      console.error('      export AZURE_TENANT_ID=... AZURE_CLIENT_ID=... AZURE_CLIENT_SECRET=...   # service principal');
+      console.error('    or run from an Azure resource with a Managed Identity attached.');
+      args.providers = args.providers.filter((p) => p !== 'azure');
     }
   }
   if (args.providers.length === 0) {
@@ -1341,6 +1369,14 @@ export async function main(): Promise<void> {
           const r = await collectGcpAssets(project);
           assets.push(...r.assets); invWarnings.push(...r.warnings);
         }
+      }
+      if (args.providers.includes('azure') && config.azure?.enabled) {
+        // Azure Resource Graph is multi-subscription: one query covers them all.
+        const subs = config.azure.subscriptions ?? [];
+        const disc = await discoverAzureAssets(subs);
+        assets.push(...disc.assets); invWarnings.push(...disc.warnings);
+        const r = await collectAzureAssets(subs);
+        assets.push(...r.assets); invWarnings.push(...r.warnings);
       }
       // Merge duplicates (same resource seen by backbone + enricher / multiple passes).
       assets = dedupeAssets(assets);

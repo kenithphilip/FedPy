@@ -162,7 +162,7 @@ export interface SspSystemOptions {
   importProfileHref?: string;
   systemStatus?: OscalSsp['system-characteristics']['status']['state'];
   /** Providers in play — drive the leveraged infrastructure components. */
-  providers?: Array<'aws' | 'gcp'>;
+  providers?: Array<'aws' | 'gcp' | 'azure'>;
 }
 
 export interface SspBuildContext {
@@ -229,7 +229,7 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
       `controls) and must be reviewed and completed by the system owner.`;
 
   const thisSystemUuid = deterministicUuid(`ssp:component:this-system:${systemId}`);
-  const providers = opts.providers && opts.providers.length ? opts.providers : ['aws', 'gcp'];
+  const providers: Array<'aws' | 'gcp' | 'azure'> = opts.providers && opts.providers.length ? opts.providers : ['aws', 'gcp'];
 
   const components: OscalComponent[] = [
     {
@@ -240,13 +240,19 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
       status: { state: 'operational' },
     },
   ];
+  const providerLabel: Record<'aws' | 'gcp' | 'azure', { full: string; short: string }> = {
+    aws: { full: 'Amazon Web Services (leveraged cloud infrastructure)', short: 'AWS' },
+    gcp: { full: 'Google Cloud Platform (leveraged cloud infrastructure)', short: 'GCP' },
+    azure: { full: 'Microsoft Azure (leveraged cloud infrastructure)', short: 'Azure' },
+  };
   for (const p of providers) {
+    const lbl = providerLabel[p];
     components.push({
       uuid: deterministicUuid(`ssp:component:leveraged:${p}`),
       type: 'service',
-      title: p === 'aws' ? 'Amazon Web Services (leveraged cloud infrastructure)' : 'Google Cloud Platform (leveraged cloud infrastructure)',
+      title: lbl.full,
       description:
-        `Underlying ${p === 'aws' ? 'AWS' : 'GCP'} cloud infrastructure. Many infrastructure ` +
+        `Underlying ${lbl.short} cloud infrastructure. Many infrastructure ` +
         `controls are inherited from this provider's FedRAMP authorization; confirm and ` +
         `document the customer-responsibility split (CRM) for each.`,
       props: [{ name: 'leveraged-authorization', ns: FEDRAMP_NS, value: p }],
