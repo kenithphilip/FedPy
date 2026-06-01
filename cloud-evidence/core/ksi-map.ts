@@ -60,6 +60,7 @@ import * as awsIam from '../providers/aws/iam.ts';
 import * as gcpIam from '../providers/gcp/iam.ts';
 import * as azIam from '../providers/azure/iam.ts';
 import * as azLogging from '../providers/azure/logging.ts';
+import * as azNetwork from '../providers/azure/network.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -190,6 +191,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-4','sc-7','sc-32'],
     aws: awsNetwork.collectCnaUln,
     gcp: gcpNetwork.collectCnaUln,
+    azure: azNetwork.collectCnaUln,
   },
   'KSI-CNA-RVP': {
     id: 'KSI-CNA-RVP',
@@ -199,6 +201,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['sc-5','sc-5.1','sc-5.2'],
     aws: awsNetwork.collectCnaRvp,
     gcp: gcpNetwork.collectCnaRvp,
+    azure: azNetwork.collectCnaRvp,
   },
   'KSI-CNA-DFP': {
     id: 'KSI-CNA-DFP',
@@ -381,6 +384,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['sc-8','sc-8.1','sc-13'],
     aws: awsNetwork.collectSvcSnt,
     gcp: gcpNetwork.collectSvcSnt,
+    azure: azNetwork.collectSvcSnt,
   },
   'KSI-SVC-VCM': {
     id: 'KSI-SVC-VCM',

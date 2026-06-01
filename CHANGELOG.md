@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure network family start (AZ-CNA-ULN + AZ-CNA-RVP + AZ-SVC-SNT)
+First three Azure CNA / SVC network KSIs land. KSI-CNA-ULN / KSI-CNA-RVP /
+KSI-SVC-SNT are now AWS + GCP + Azure. All via Resource Graph; no new
+permissions beyond AZ-1's Reader role.
+- **`providers/azure/network.ts`** (new) — three collectors:
+  - **`collectCnaUln`** (Using Logical Networking) — 1 finding:
+    - `azure.cna.uln.nsg_flow_logs_enabled` (high) — at least one enabled NSG
+      flow log. Reports the `with_workspace` (Traffic Analytics) sub-count.
+  - **`collectCnaRvp`** (Reviewing Protections / DoS) — 1 finding:
+    - `azure.cna.rvp.waf_present` (high) — at least one **enabled** Azure WAF
+      policy (Application Gateway WAF **or** Azure Front Door WAF). Matches
+      the `policySettings.state` (AGW) or `policySettings.enabledState` (FD)
+      shape difference between the two Azure WAF flavors.
+  - **`collectSvcSnt`** (Securing Network Traffic) — 2 findings:
+    - `azure.svc.snt.appgateway_https_only` (high) — no Application Gateway
+      `httpListener` accepts plaintext `Http`.
+    - `azure.svc.snt.storage_https_only` (high) — every storage account has
+      `supportsHttpsTrafficOnly = true`.
+- IAM-PERMISSIONS-CATALOG row added covering the network ARM tables; Reader
+  remains sufficient.
+- 12 new dedicated tests covering all three (passing, failing, mixed,
+  empty-tenant vacuously-passes paths). 585 tests pass.
+
 ### Added — Azure logging closeout (AZ-MLA-ALA + AZ-MLA-RVL + AZ-CMT-LMC)
 Three more Azure logging KSI collectors land on the AZ-MLA-LET/OSM foundation —
 all via Resource Graph (no new permissions beyond Reader + RBAC read).
