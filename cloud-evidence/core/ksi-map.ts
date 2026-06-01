@@ -173,6 +173,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-3','ac-4','sc-7','sc-7.5'],
     aws: awsNetwork.collectCnaMat,
     gcp: gcpNetwork.collectCnaMat,
+    azure: azNetwork.collectCnaMat,
   },
   'KSI-CNA-RNT': {
     id: 'KSI-CNA-RNT',
@@ -182,6 +183,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-4','sc-7','sc-7.5'],
     aws: awsNetwork.collectCnaRnt,
     gcp: gcpNetwork.collectCnaRnt,
+    azure: azNetwork.collectCnaRnt,
   },
   'KSI-CNA-ULN': {
     id: 'KSI-CNA-ULN',

@@ -225,3 +225,181 @@ export async function collectSvcSnt(ctx: CollectorContext): Promise<ProviderBloc
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings };
 }
+
+// =====================================================================
+// KSI-CNA-MAT — Minimizing Attack Surface
+// =====================================================================
+/**
+ * Two attack-surface checks:
+ *   1. Every subnet has an NSG attached. A "default" subnet with no NSG
+ *      delegates traffic control to the VNet-level only, expanding the lateral
+ *      blast radius.
+ *   2. No NSG carries an overly-permissive rule that allows ANY protocol from
+ *      ANY source to ANY destination on ANY port. The poster-child rule is the
+ *      classic "AllowAll from * to *". Such a rule effectively nullifies the
+ *      NSG.
+ */
+const INTERNET_PREFIXES = ['*', 'Internet', '0.0.0.0/0', '0.0.0.0/1'];
+
+export async function collectCnaMat(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // 1) Subnets without an NSG attached.
+  const subnets = await runKql(subs,
+    'Resources | where type =~ "microsoft.network/virtualnetworks" ' +
+    '| mv-expand subnet = properties.subnets ' +
+    '| extend subnetName = tostring(subnet.name), nsg = tostring(subnet.properties.networkSecurityGroup.id) ' +
+    '| project subscriptionId, vnet = name, vnetId = id, subnetName, nsg');
+  if (subnets.error) warnings.push(subnets.error);
+
+  // GatewaySubnet, AzureFirewallSubnet, AzureBastionSubnet, RouteServerSubnet
+  // can't carry an NSG on the Azure platform — never count them as "missing NSG".
+  const SYSTEM_SUBNETS = new Set(['GatewaySubnet', 'AzureFirewallSubnet', 'AzureFirewallManagementSubnet', 'AzureBastionSubnet', 'RouteServerSubnet']);
+  const userSubnets = subnets.rows.filter((s) => !SYSTEM_SUBNETS.has(String(s.subnetName ?? '')));
+  const subnetsMissingNsg = userSubnets.filter((s) => !s.nsg);
+  evidence.push(ev('resourcegraph.subnets', {
+    total: subnets.rows.length,
+    user_subnets: userSubnets.length,
+    missing_nsg: subnetsMissingNsg.length,
+    sample_missing: subnetsMissingNsg.slice(0, 20),
+  }));
+
+  findings.push(finding({
+    rule: 'azure.cna.mat.all_subnets_have_nsg', passed: subnetsMissingNsg.length === 0, severity: 'high',
+    current: {
+      summary: subnetsMissingNsg.length === 0
+        ? userSubnets.length === 0 ? 'No user subnets observed.' : `All ${userSubnets.length} user subnet(s) have an NSG attached.`
+        : `${subnetsMissingNsg.length}/${userSubnets.length} user subnet(s) have no NSG attached — traffic to/from those subnets is governed by the VNet defaults only.`,
+      observations: { user_subnets: userSubnets.length, missing_nsg: subnetsMissingNsg.length },
+    },
+    target: { summary: 'Every user-managed subnet has a Network Security Group attached (system subnets — Gateway / Firewall / Bastion / RouteServer — are exempt because Azure rejects NSG attachment on them).', rationale: 'NIST AC-3, AC-4, SC-7, SC-7(5). Per-subnet enforcement constrains lateral movement.' },
+    gap: { description: 'Subnets without an NSG attached expand the lateral blast radius.', affected_resources: subnetsMissingNsg.slice(0, 50).map((s: any) => ({ type: 'azure_subnet', identifier: `${s.vnet}/${s.subnetName}`, attributes: {} })) },
+    remediation: { summary: 'Attach an NSG to every user-managed subnet — enforce tenant-wide via the built-in policy "Subnets should be associated with a Network Security Group".', options: [{ approach: 'Terraform azurerm_subnet_network_security_group_association.', mechanism: 'terraform', steps: ['Add azurerm_subnet_network_security_group_association blocks for each subnet', 'Enforce via the built-in DINE policy'] }] },
+    nist_controls: ['ac-3', 'ac-4', 'sc-7', 'sc-7.5'],
+  }));
+
+  // 2) Overly-permissive NSG rules (Allow * from * to * on any/all ports).
+  const allowAllRules = await runKql(subs,
+    'Resources | where type =~ "microsoft.network/networksecuritygroups" ' +
+    '| mv-expand rule = properties.securityRules ' +
+    '| extend access = tostring(rule.properties.access), ' +
+    '  direction = tostring(rule.properties.direction), ' +
+    '  proto = tostring(rule.properties.protocol), ' +
+    '  srcPrefix = tostring(rule.properties.sourceAddressPrefix), ' +
+    '  dstPrefix = tostring(rule.properties.destinationAddressPrefix), ' +
+    '  dstPort = tostring(rule.properties.destinationPortRange), ' +
+    '  ruleName = tostring(rule.name) ' +
+    '| where access == "Allow" and proto == "*" ' +
+    '  and srcPrefix == "*" and dstPrefix == "*" and dstPort == "*" ' +
+    '| project subscriptionId, nsgId = id, nsgName = name, ruleName, direction');
+  if (allowAllRules.error) warnings.push(allowAllRules.error);
+  evidence.push(ev('resourcegraph.nsg_allow_all_rules', { offenders: allowAllRules.rows.length, sample: allowAllRules.rows.slice(0, 20) }));
+
+  findings.push(finding({
+    rule: 'azure.cna.mat.no_nsg_allow_all_rule', passed: allowAllRules.rows.length === 0, severity: 'critical',
+    current: {
+      summary: allowAllRules.rows.length === 0
+        ? 'No NSG carries a fully-wildcard `Allow * from * to *` rule.'
+        : `${allowAllRules.rows.length} NSG rule(s) Allow * from * to * on all ports — the NSG is effectively unconstrained.`,
+      observations: { offenders: allowAllRules.rows.slice(0, 50) },
+    },
+    target: { summary: 'No NSG has a rule that allows any protocol from any source to any destination on any port. Wildcard rules of that breadth defeat the purpose of the NSG.', rationale: 'NIST AC-4, SC-7, SC-7(5).' },
+    gap: { description: 'Wildcard Allow rules nullify NSG enforcement.', affected_resources: allowAllRules.rows.slice(0, 50).map((r: any) => ({ type: 'azure_nsg_rule', identifier: `${r.nsgName}::${r.ruleName}`, attributes: { direction: r.direction } })) },
+    remediation: { summary: 'Delete or scope the offending rules to the minimum required source / destination / port set.', options: [{ approach: 'Terraform: tighten azurerm_network_security_rule.', mechanism: 'terraform', steps: ['Replace `*` with a specific CIDR / service tag', 'Replace `*` destination_port_range with the actual port the service uses', 'Re-run vitest + verify the offender count drops to 0'] }] },
+    nist_controls: ['ac-4', 'sc-7', 'sc-7.5'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-CNA-RNT — Restricting Network Traffic
+// =====================================================================
+/**
+ * Two restriction checks:
+ *   1. No NSG INBOUND rule allows traffic from `*` / `Internet` / `0.0.0.0/0`
+ *      on ALL ports (any catch-all internet ingress, not just the SSH/RDP
+ *      check that lives on the reference-arch audit).
+ *   2. No NSG OUTBOUND rule allows traffic to `*` / `Internet` / `0.0.0.0/0`
+ *      on ALL ports — egress should be constrained, not wide open.
+ */
+export async function collectCnaRnt(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  const rules = await runKql(subs,
+    'Resources | where type =~ "microsoft.network/networksecuritygroups" ' +
+    '| mv-expand rule = properties.securityRules ' +
+    '| extend access = tostring(rule.properties.access), ' +
+    '  direction = tostring(rule.properties.direction), ' +
+    '  srcPrefix = tostring(rule.properties.sourceAddressPrefix), ' +
+    '  dstPrefix = tostring(rule.properties.destinationAddressPrefix), ' +
+    '  dstPort = tostring(rule.properties.destinationPortRange), ' +
+    '  ruleName = tostring(rule.name) ' +
+    '| where access == "Allow" ' +
+    '| project subscriptionId, nsgId = id, nsgName = name, ruleName, access, direction, srcPrefix, dstPrefix, dstPort');
+  if (rules.error) warnings.push(rules.error);
+
+  // Defensive JS-side filter: only count Allow rules. The KQL `where access == "Allow"`
+  // is the primary gate, but we re-check in JS so the contract doesn't silently
+  // rely on Resource Graph behaviour.
+  const allRules = rules.rows.filter((r) => String(r.access ?? '') === 'Allow' || r.access === undefined);
+  const ingressWildcards = allRules.filter((r) =>
+    String(r.direction ?? '') === 'Inbound' &&
+    INTERNET_PREFIXES.includes(String(r.srcPrefix ?? '')) &&
+    String(r.dstPort ?? '') === '*',
+  );
+  const egressWildcards = allRules.filter((r) =>
+    String(r.direction ?? '') === 'Outbound' &&
+    INTERNET_PREFIXES.includes(String(r.dstPrefix ?? '')) &&
+    String(r.dstPort ?? '') === '*',
+  );
+  evidence.push(ev('resourcegraph.nsg_traffic_rules', {
+    total_allow_rules: allRules.length,
+    ingress_wildcards: ingressWildcards.length,
+    egress_wildcards: egressWildcards.length,
+    sample_ingress: ingressWildcards.slice(0, 20),
+    sample_egress: egressWildcards.slice(0, 20),
+  }));
+
+  findings.push(finding({
+    rule: 'azure.cna.rnt.no_unrestricted_ingress', passed: ingressWildcards.length === 0, severity: 'high',
+    current: {
+      summary: ingressWildcards.length === 0
+        ? 'No NSG inbound rule allows all ports from `*` / `Internet` / `0.0.0.0/0`.'
+        : `${ingressWildcards.length} NSG inbound rule(s) allow all ports from "*" / "Internet".`,
+      observations: { offenders: ingressWildcards.slice(0, 50) },
+    },
+    target: { summary: 'NSG inbound rules name a specific destination port (or constrained port-range) rather than `*` when the source is `*` / `Internet`.', rationale: 'NIST AC-4, SC-7, SC-7(5). Restrict inbound; route through Application Gateway / Bastion / Azure Firewall.' },
+    gap: { description: 'Inbound traffic from the Internet is unrestricted on at least one NSG.', affected_resources: ingressWildcards.slice(0, 50).map((r: any) => ({ type: 'azure_nsg_rule', identifier: `${r.nsgName}::${r.ruleName}`, attributes: { src: r.srcPrefix, dstPort: r.dstPort } })) },
+    remediation: { summary: 'Tighten the listed rules: replace the `*` destination port with the specific port range your service needs, or front the workload with Application Gateway / Azure Firewall.', options: [{ approach: 'Terraform.', mechanism: 'terraform', steps: ['azurerm_network_security_rule.destination_port_range = "443"  # (or a tight range)', 'Restrict source_address_prefix to a managed CIDR / service tag'] }] },
+    nist_controls: ['ac-4', 'sc-7', 'sc-7.5'],
+  }));
+
+  findings.push(finding({
+    rule: 'azure.cna.rnt.no_unrestricted_egress', passed: egressWildcards.length === 0, severity: 'medium',
+    current: {
+      summary: egressWildcards.length === 0
+        ? 'No NSG outbound rule allows all ports to `*` / `Internet` / `0.0.0.0/0`.'
+        : `${egressWildcards.length} NSG outbound rule(s) allow all ports to "*" / "Internet" — egress is essentially unconstrained.`,
+      observations: { offenders: egressWildcards.slice(0, 50) },
+    },
+    target: { summary: 'NSG outbound rules constrain destination + port, or workloads egress through a centralised Azure Firewall / NAT Gateway with rules.', rationale: 'NIST AC-4, SC-7. Constraining egress limits data exfil + C2.' },
+    gap: { description: 'Egress traffic to the Internet is wildcard-permitted on at least one NSG.', affected_resources: egressWildcards.slice(0, 50).map((r: any) => ({ type: 'azure_nsg_rule', identifier: `${r.nsgName}::${r.ruleName}`, attributes: { dst: r.dstPrefix, dstPort: r.dstPort } })) },
+    remediation: {
+      summary: 'Restrict the egress rules to required destinations + ports, or front egress through Azure Firewall with FQDN allow-lists.',
+      options: [
+        { approach: 'Centralised egress via Azure Firewall.', mechanism: 'terraform', steps: ['Provision an Azure Firewall in the hub VNet', 'Configure FQDN + IP allow-rules', 'Route all VNet egress through the firewall via a User-Defined Route'] },
+        { approach: 'Tighten the NSG outbound rule.', mechanism: 'terraform', steps: ['destination_address_prefix = <specific CIDR / service tag>', 'destination_port_range = <required port set>'] },
+      ],
+    },
+    nist_controls: ['ac-4', 'sc-7'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}

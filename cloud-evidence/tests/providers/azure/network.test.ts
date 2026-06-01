@@ -23,7 +23,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectCnaUln, collectCnaRvp, collectSvcSnt } from '../../../providers/azure/network.ts';
+import { collectCnaUln, collectCnaRvp, collectSvcSnt, collectCnaMat, collectCnaRnt } from '../../../providers/azure/network.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -193,5 +193,119 @@ describe('collectSvcSnt (KSI-SVC-SNT Azure)', () => {
     const block = await collectSvcSnt(ctx());
     expect(block.findings.find((f) => f.rule === 'azure.svc.snt.storage_https_only')!.passed).toBe(true);
     expect(block.findings.find((f) => f.rule === 'azure.svc.snt.appgateway_https_only')!.passed).toBe(true);
+  });
+});
+
+// =====================================================================
+// KSI-CNA-MAT
+// =====================================================================
+describe('collectCnaMat (KSI-CNA-MAT Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES both findings when every user subnet has an NSG and no Allow-* rule exists', async () => {
+    _state.routes = [
+      { match: 'microsoft.network/virtualnetworks', rows: [
+        { subscriptionId: 'sub-1', vnet: 'vnet1', vnetId: '/vnet', subnetName: 'app', nsg: '/nsg' },
+      ] },
+      { match: 'networksecuritygroups', rows: [] },
+    ];
+    const block = await collectCnaMat(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.mat.all_subnets_have_nsg')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.cna.mat.no_nsg_allow_all_rule')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-CNA-MAT');
+  });
+
+  it('FAILS the subnet-NSG finding when a user subnet lacks an NSG', async () => {
+    _state.routes = [
+      { match: 'microsoft.network/virtualnetworks', rows: [
+        { subscriptionId: 'sub-1', vnet: 'vnet1', subnetName: 'unprotected', nsg: '' },
+      ] },
+      { match: 'networksecuritygroups', rows: [] },
+    ];
+    const block = await collectCnaMat(ctx());
+    const f = block.findings.find((x) => x.rule === 'azure.cna.mat.all_subnets_have_nsg')!;
+    expect(f.passed).toBe(false);
+    expect(f.gap?.affected_resources[0]?.identifier).toBe('vnet1/unprotected');
+  });
+
+  it('IGNORES system subnets (GatewaySubnet / AzureFirewallSubnet / AzureBastionSubnet) when checking NSG attachment', async () => {
+    _state.routes = [
+      { match: 'microsoft.network/virtualnetworks', rows: [
+        { vnet: 'hub', subnetName: 'GatewaySubnet', nsg: '' },
+        { vnet: 'hub', subnetName: 'AzureFirewallSubnet', nsg: '' },
+        { vnet: 'hub', subnetName: 'AzureBastionSubnet', nsg: '' },
+      ] },
+      { match: 'networksecuritygroups', rows: [] },
+    ];
+    const block = await collectCnaMat(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.mat.all_subnets_have_nsg')!.passed).toBe(true);
+  });
+
+  it('FAILS the wildcard finding when an Allow * from * to * rule exists', async () => {
+    _state.routes = [
+      { match: 'microsoft.network/virtualnetworks', rows: [{ subnetName: 'ok', nsg: '/nsg' }] },
+      { match: 'networksecuritygroups', rows: [
+        { subscriptionId: 'sub-1', nsgId: '/nsg', nsgName: 'nsg-bad', ruleName: 'allow-all', direction: 'Inbound' },
+      ] },
+    ];
+    const block = await collectCnaMat(ctx());
+    const f = block.findings.find((x) => x.rule === 'azure.cna.mat.no_nsg_allow_all_rule')!;
+    expect(f.passed).toBe(false);
+    expect(f.severity).toBe('critical');
+    expect(f.gap?.affected_resources[0]?.identifier).toContain('allow-all');
+  });
+});
+
+// =====================================================================
+// KSI-CNA-RNT
+// =====================================================================
+describe('collectCnaRnt (KSI-CNA-RNT Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES both findings when no NSG Allow rule is wildcard ingress or wildcard egress', async () => {
+    _state.routes = [{ match: 'networksecuritygroups', rows: [
+      // Tight inbound rule — specific port + source — does NOT count as wildcard.
+      { subscriptionId: 'sub-1', nsgId: '/nsg', nsgName: 'nsg', ruleName: 'app-443', direction: 'Inbound', srcPrefix: 'CorpNet', dstPrefix: '*', dstPort: '443' },
+    ] }];
+    const block = await collectCnaRnt(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_ingress')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_egress')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-CNA-RNT');
+  });
+
+  it('FAILS ingress finding when an inbound rule allows all ports from Internet', async () => {
+    _state.routes = [{ match: 'networksecuritygroups', rows: [
+      { nsgName: 'nsg', ruleName: 'allow-inet-all', direction: 'Inbound', srcPrefix: 'Internet', dstPrefix: '*', dstPort: '*' },
+    ] }];
+    const block = await collectCnaRnt(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_ingress')!.passed).toBe(false);
+  });
+
+  it('FAILS ingress finding for the * (any) source prefix as well', async () => {
+    _state.routes = [{ match: 'networksecuritygroups', rows: [
+      { nsgName: 'nsg', ruleName: 'allow-any-all', direction: 'Inbound', srcPrefix: '*', dstPrefix: '10.0.0.0/8', dstPort: '*' },
+    ] }];
+    const block = await collectCnaRnt(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_ingress')!.passed).toBe(false);
+  });
+
+  it('FAILS egress finding when an outbound rule allows all ports to Internet', async () => {
+    _state.routes = [{ match: 'networksecuritygroups', rows: [
+      { nsgName: 'nsg', ruleName: 'allow-out-all', direction: 'Outbound', srcPrefix: '10.0.0.0/8', dstPrefix: 'Internet', dstPort: '*' },
+    ] }];
+    const block = await collectCnaRnt(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_egress')!.passed).toBe(false);
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_ingress')!.passed).toBe(true);
+  });
+
+  it('IGNORES Deny rules even if their src/dst/port look wildcard (JS-side defensive filter)', async () => {
+    _state.routes = [{ match: 'networksecuritygroups', rows: [
+      // A Deny rule with wildcards is good security — must NOT be flagged.
+      // The mock bypasses KQL evaluation, so we depend on the collector's
+      // defensive JS-side `access === "Allow"` filter to reject this row.
+      { nsgName: 'nsg', ruleName: 'deny-internet', access: 'Deny', direction: 'Inbound', srcPrefix: 'Internet', dstPrefix: '*', dstPort: '*' },
+    ] }];
+    const block = await collectCnaRnt(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.cna.rnt.no_unrestricted_ingress')!.passed).toBe(true);
   });
 });

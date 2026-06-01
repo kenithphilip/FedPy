@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure CNA-MAT + CNA-RNT (network segmentation + traffic restriction)
+Two more Azure network KSIs. KSI-CNA-MAT and KSI-CNA-RNT are now AWS + GCP + Azure.
+All Resource Graph; no new permissions beyond AZ-1's Reader role.
+
+- **`collectCnaMat`** (Minimizing Attack Surface) — 2 findings:
+  1. `azure.cna.mat.all_subnets_have_nsg` (high) — every user-managed subnet has
+     an NSG attached. **System subnets** (GatewaySubnet / AzureFirewallSubnet /
+     AzureBastionSubnet / RouteServerSubnet) are exempt because Azure rejects
+     NSG attachment on them.
+  2. `azure.cna.mat.no_nsg_allow_all_rule` (critical) — no NSG carries the
+     poster-child `Allow * from * to *` wildcard rule that effectively
+     nullifies the NSG.
+
+- **`collectCnaRnt`** (Restricting Network Traffic) — 2 findings:
+  1. `azure.cna.rnt.no_unrestricted_ingress` (high) — no NSG inbound `Allow`
+     rule permits all ports from `*` / `Internet` / `0.0.0.0/0`.
+  2. `azure.cna.rnt.no_unrestricted_egress` (medium) — no NSG outbound `Allow`
+     rule permits all ports to `*` / `Internet` / `0.0.0.0/0`. Remediation
+     steers toward centralised Azure Firewall + FQDN allow-list egress.
+  **JS-authoritative `access == "Allow"` filter** — Deny rules with broad
+  wildcards (which are good security) are never flagged, even if the mock
+  bypasses the KQL `where access == "Allow"` gate.
+
+- 9 new dedicated tests (system-subnet exemption, allow-all rule, wildcard
+  ingress/egress with `*` and `Internet` source/destination, Deny-rule
+  exclusion). 594 tests pass.
+
 ### Added — Azure network family start (AZ-CNA-ULN + AZ-CNA-RVP + AZ-SVC-SNT)
 First three Azure CNA / SVC network KSIs land. KSI-CNA-ULN / KSI-CNA-RVP /
 KSI-SVC-SNT are now AWS + GCP + Azure. All via Resource Graph; no new
