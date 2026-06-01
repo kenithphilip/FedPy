@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure logging collectors (AZ-MLA-LET + AZ-MLA-OSM)
+First non-IAM Azure family. Both KSIs run a couple of Azure Resource Graph
+queries — **no new permissions** beyond AZ-1's `Reader` role. KSI-MLA-LET and
+KSI-MLA-OSM are now AWS + GCP + Azure.
+
+- **`providers/azure/logging.ts`** — new file.
+- **`collectMlaLet`** (Logging Event Types) — 2 findings:
+  1. `azure.diagnostic_settings_present` (high) — at least one
+     `microsoft.insights/diagnosticsettings` child resource exists somewhere in
+     the configured subscriptions. Reports the count + how many subscriptions
+     have any diagnostic settings.
+  2. `azure.log_analytics_workspace_present` (high) — at least one Log
+     Analytics workspace exists as the substrate for diagnostic-setting output.
+- **`collectMlaOsm`** (Operating SIEM Capability) — 2 findings:
+  1. `azure.siem.workspace_substrate_present` — workspace ready for Sentinel.
+  2. `azure.siem.sentinel_deployed` (high) — Microsoft Sentinel is onboarded
+     on a workspace, detected via either the legacy
+     `microsoft.operationsmanagement/solutions` (name starts with
+     `SecurityInsights`) **or** the newer
+     `microsoft.securityinsights/onboardingstates` resource. 3rd-party SIEM
+     consumers (Splunk, Datadog, etc.) surfaced as an awareness alternative
+     satisfier — this collector can't see those flows from ARM data alone.
+- **Multi-subscription support**: `CollectorContext.azure.subscription_ids:
+  string[]` plumbed through the orchestrator so Resource Graph collectors query
+  the entire configured subscription set (orchestrator dispatch sets it).
+  Backward-compatible: collectors that only carry `subscription_id` still work.
+- 10 new tests (passing, failing, fall-back-to-`subscription_id`, no-subs
+  warning, alternative-satisfier surface). tsc clean; 560 tests pass.
+
 ### Added — Azure IAM family completion (IAM-APM / IAM-SNU / IAM-JIT / IAM-SUS)
 Last four KSIs in the Entra ID / Microsoft Graph track land — **every IAM KSI is
 now AWS + GCP + Azure** (7 of 7). No new auth infrastructure; reuses the Graph

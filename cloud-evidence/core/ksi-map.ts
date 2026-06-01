@@ -26,8 +26,10 @@ export interface CollectorContext {
   azure?: {
     /** Tenant id (Entra ID); collectors that need it can also read it from whoAmIAzure(). */
     tenant_id?: string | null;
-    /** Optional subscription id for resource-scoped Azure collectors (most IAM/AAD work is tenant-scoped). */
+    /** Optional single subscription id for resource-scoped Azure collectors (most IAM/AAD work is tenant-scoped). */
     subscription_id?: string | null;
+    /** All configured subscription ids — for Azure Resource Graph collectors that query across the tenant. */
+    subscription_ids?: string[];
   };
   k8s?: { context: string; auth?: K8sAuth };
 }
@@ -57,6 +59,7 @@ export interface KsiEntry {
 import * as awsIam from '../providers/aws/iam.ts';
 import * as gcpIam from '../providers/gcp/iam.ts';
 import * as azIam from '../providers/azure/iam.ts';
+import * as azLogging from '../providers/azure/logging.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -261,6 +264,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['au-2','au-3','au-12'],
     aws: awsLogging.collectMlaLet,
     gcp: gcpLogging.collectMlaLet,
+    azure: azLogging.collectMlaLet,
     process_artifacts_required: [
       'Documented list of in-scope information resources × event types',
       'SIEM ingestion topology diagram',
@@ -274,6 +278,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['au-2','au-6','au-6.1','au-7'],
     aws: awsLogging.collectMlaOsm,
     gcp: gcpLogging.collectMlaOsm,
+    azure: azLogging.collectMlaOsm,
     process_artifacts_required: [
       'SIEM vendor + tenant ID',
       'Alert rule count + sample query',

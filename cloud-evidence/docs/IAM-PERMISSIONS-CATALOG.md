@@ -154,6 +154,7 @@ per-subscription if MG access isn't available):
 | `iam.ts` (`collectIamSnu`) | KSI-IAM-SNU | Microsoft Graph (`/applications?$select=…,passwordCredentials,keyCredentials`) | App-role `Application.Read.All`. |
 | `iam.ts` (`collectIamJit`) | KSI-IAM-JIT | Microsoft Graph (`/roleManagement/directory/roleAssignmentScheduleRequests`) | App-role `RoleManagement.Read.Directory` (same as IAM-ELP — no new permission needed). |
 | `iam.ts` (`collectIamSus`) | KSI-IAM-SUS | Microsoft Graph (`/identity/conditionalAccess/policies`) | App-role `Policy.Read.All`. Risk-level conditions also require Entra ID P2 to be present in the tenant for the data to be non-empty. |
+| `logging.ts` (`collectMlaLet`, `collectMlaOsm`) | KSI-MLA-LET, KSI-MLA-OSM | Resource Graph (`microsoft.insights/diagnosticsettings`, `microsoft.operationalinsights/workspaces`, `microsoft.operationsmanagement/solutions`, `microsoft.securityinsights/onboardingstates`) | `Reader` is sufficient — no new permissions beyond AZ-1. |
 
 ### Azure auth notes
 

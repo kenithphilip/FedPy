@@ -828,7 +828,7 @@ async function runOneKsi(
     // collectors (added later) can iterate config.azure.subscriptions themselves.
     const startedAt = Date.now();
     try {
-      const block = await ksi.azure({ azure: { tenant_id: config.azure.tenant_id ?? null, subscription_id: config.azure.subscriptions[0] ?? null } });
+      const block = await ksi.azure({ azure: { tenant_id: config.azure.tenant_id ?? null, subscription_id: config.azure.subscriptions[0] ?? null, subscription_ids: config.azure.subscriptions ?? [] } });
       providers.push(block);
       adaptive?.onSuccess('azure');
       ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'azure', status: 'ok', duration_ms: Date.now() - startedAt });
