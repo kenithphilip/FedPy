@@ -146,6 +146,7 @@ per-subscription if MG access isn't available):
 | `auth/azure.ts` | whoAmI (token decode) | AAD | (none — token-only) |
 | `discover.ts` | Inventory backbone (`--inventory-workbook`) | Resource Graph | `Reader` (`Microsoft.ResourceGraph/resources/read`) |
 | `inventory-assets.ts` | Inventory depth (`--inventory-workbook`) | Resource Graph (Storage / Compute / NICs projections) | `Reader` (same as backbone — projections are KQL only) |
+| `reference-arch.ts` | Reference-arch audit (`--reference-arch`) | Resource Graph (`Resources`, `PolicyResources`, `SecurityResources` tables) | `Reader` covers `Resources` + `PolicyResources`; `Security Reader` is required for `SecurityResources` (Defender pricing tiers). All 11 checks degrade to warnings if their table isn't readable. |
 
 ### Azure auth notes
 

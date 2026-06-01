@@ -178,5 +178,6 @@ larger follow-on bets.
 | SSP-1 | ✅ done | draft OSCAL SSP emitter (`core/oscal-ssp.ts`, `--oscal-ssp`): one implemented-requirement per FedRAMP Rev5 baseline control, status from the control benchmark, narrative citing KSIs; schema-validated, manifest-covered (4 tests) |
 | SSP-2 | ✅ done | render the OSCAL SSP → FedRAMP Word (`core/ssp-docx.ts`, `--ssp-docx`): dependency-free OOXML via the shared store-only ZIP writer (`core/zip.ts`); title page + system characteristics + implementation + per-control table (4 tests) |
 | AZ-1 | ✅ done | Azure scaffolding: DefaultAzureCredential auth + JWT-based whoAmI + read-only Proxy guardrail (incl. `begin*` long-running-op denylist), Resource Graph discovery backbone + storage/VM depth enrichers, `azure` as a 3rd provider + config block (19 tests) |
-| AZ-2 | ⏳ backlog | Azure per-KSI collectors (IAM/network/logging/etc. mapped to Azure services) |
+| AZ-CHK | ✅ done | Azure reference-architecture audit (`providers/azure/reference-arch.ts`, `--reference-arch`): 11 KQL checks (Defender, FedRAMP policy, storage public-blob/HTTPS/network, Key Vault hardening, CMK, disk encryption, NSG open admin, no VM public IPs, workspace retention); feeds benchmark/family-rollup/crosswalk/OSCAL but excluded from KSI pass-fail (5 tests) |
+| AZ-2 | ⏳ backlog | Azure per-KSI collectors (IAM/network/logging/etc. mapped to Azure services) — to be split per family in follow-up commits |
 | SCN-1 | ⏳ backlog | significant-change-notification classifier |

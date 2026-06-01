@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure FedRAMP reference-architecture audit (AZ-CHK)
+Third leg of the multi-cloud reference-arch trio. Joins the existing AWS-CHK / GCP-CHK
+audits behind the same `--reference-arch` flag (env `CLOUD_EVIDENCE_REFERENCE_ARCH`)
+and emits `AUDIT-REFARCH-AZURE.json` whose findings flow into the NIST 800-53
+benchmark, family roll-up (`REFARCH`), crosswalk, OSCAL, and the signed manifest.
+Derived **clean-room** from the Coalfire Azure RAMPpak reference architecture
+(research report 03 — idea source, MIT, no code copied).
+
+- **`providers/azure/reference-arch.ts`** → `AUDIT-REFARCH-AZURE.json` (11 checks):
+  Defender for Cloud enabled, FedRAMP policy initiative assigned, storage no
+  public-blob, storage HTTPS-only + TLS 1.2+, storage public-network-access
+  restricted, Key Vault soft-delete + purge protection + RBAC, CMK in use, managed
+  disk encryption (not platform-key-only), NSGs with no SSH/RDP open to the
+  Internet, no public IPs attached directly to VM NICs, Log Analytics workspace
+  with retention ≥ 90 days.
+- Every check is a **single Azure Resource Graph KQL query** against the
+  `Resources` / `PolicyResources` / `SecurityResources` tables — no extra SDK deps
+  beyond the AZ-1 scaffolding. Reuses the existing read-only Azure Proxy
+  guardrail. Each check try/catch → warning (fail-open contract), so a missing
+  RBAC grant for one table doesn't break the run.
+- Excluded from the KSI pass/fail rollup (hardening audit, not a KSI obligation)
+  — same convention as AWS-CHK / GCP-CHK.
+- 5 new tests (passing scenario, degraded/empty fail-open, storage offender
+  detection, NSG offender detection, no-subscriptions warning). tsc clean;
+  491 tests pass.
+
 ### Added — Azure collector scaffolding (AZ-1)
 Third-cloud foundation. The collector can now enumerate Azure subscriptions and feed
 the inventory workbook (`--inventory-workbook`) alongside AWS + GCP. KSI collectors

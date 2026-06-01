@@ -40,6 +40,7 @@ import { readPreviousInventory, diffInventory, writeInventoryDiff, writeInventor
 import { collectAwsCost, collectMacieSensitiveBuckets } from '../providers/aws/inventory-cost.ts';
 import { collectAwsReferenceArch } from '../providers/aws/reference-arch.ts';
 import { collectGcpReferenceArch } from '../providers/gcp/reference-arch.ts';
+import { collectAzureReferenceArch } from '../providers/azure/reference-arch.ts';
 import { createRunLedger, type RunLedger } from './run-ledger.ts';
 import { acquireRunLock, RunLockHeldError, type RunLock } from './run-lock.ts';
 import { AdaptiveLimiter } from './rate-control.ts';
@@ -1189,6 +1190,21 @@ export async function main(): Promise<void> {
       } catch (e: any) {
         console.error(`Reference-arch (GCP) failed: ${e?.message ?? e}`);
         log.error({ event: 'reference_arch.gcp.fail', err_message: e?.message });
+      }
+    }
+    if (args.providers.includes('azure') && config.azure?.enabled) {
+      try {
+        const subs = config.azure.subscriptions ?? [];
+        const ev = await collectAzureReferenceArch(subs, refCtx);
+        writeFileSafe(resolve(args.outDir, 'AUDIT-REFARCH-AZURE.json'), JSON.stringify(ev, null, 2));
+        const total = ev.rollup.passing_findings + ev.rollup.failing_findings;
+        console.log(`Reference-arch (Azure): ${ev.rollup.passing_findings}/${total} checks pass across ${subs.length} subscription(s) → AUDIT-REFARCH-AZURE.json` +
+          (ev.rollup.warnings.length ? ` · ${ev.rollup.warnings.length} warning(s)` : ''));
+        for (const w of ev.rollup.warnings) console.error(`  ! refarch(azure): ${w}`);
+        ledger.record('reference_arch.azure', { status: 'info', pass: ev.rollup.passing_findings, fail: ev.rollup.failing_findings, subscriptions: subs.length, warnings: ev.rollup.warnings.length });
+      } catch (e: any) {
+        console.error(`Reference-arch (Azure) failed: ${e?.message ?? e}`);
+        log.error({ event: 'reference_arch.azure.fail', err_message: e?.message });
       }
     }
   }
