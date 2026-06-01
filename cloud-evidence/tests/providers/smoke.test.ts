@@ -41,6 +41,18 @@ vi.mock('../../core/auth/azure-graph.ts', () => ({
   _resetTokenCache: () => { /* noop */ },
 }));
 
+// Azure ARM stubs (DefaultAzureCredential / Resource Graph). Without this the
+// real azure.resourceGraph() constructs a DefaultAzureCredential chain probe
+// that hangs for ~30s+ in CI (no Azure creds present) and the smoke test times
+// out. We return a Resource Graph client whose `resources()` call yields an
+// empty page — collectors exercise their no-data path.
+vi.mock('../../core/auth/azure.ts', () => ({
+  whoAmIAzure: async () => ({ principal: 'smoke', tenantId: 'smoke-tenant', appId: null }),
+  guardAzure: <T extends object>(c: T) => c,
+  resourceGraph: () => ({ async resources(_req: any) { return { data: [] }; } }),
+  resources: (_id: string) => ({}),
+}));
+
 vi.mock('../../core/auth/k8s.ts', () => ({
   makeK8sAuth: () => ({
     context: 'smoke',
