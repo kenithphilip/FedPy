@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure CNA-EIS + CNA-IBP (Azure Policy + Microsoft Cloud Security Benchmark)
+Two more Azure KSIs land. KSI-CNA-EIS and KSI-CNA-IBP are now AWS + GCP + Azure.
+All via Resource Graph's `policyresources` table; no new permissions beyond
+AZ-1's `Reader` role.
+
+- **`providers/azure/config.ts`** (new):
+  - **`collectCnaEis`** (Enforcing Intended State) — 2 findings:
+    1. `azure.cna.eis.policy_assignments_present` (high) — at least one Azure
+       Policy assignment exists somewhere in the configured subscriptions.
+    2. `azure.cna.eis.policy_evaluations_running` (medium) — the
+       `microsoft.policyinsights/policystates` table is non-empty (Azure Policy
+       is actively scanning), with `non_compliant` count surfaced in
+       observations.
+  - **`collectCnaIbp`** (Implementing Best Practices) — 2 findings:
+    1. `azure.cna.ibp.mcsb_assigned` (high) — the Microsoft Cloud Security
+       Benchmark (MCSB) initiative is assigned. Matched by the well-known
+       built-in initiative GUID `1f3afdf9-…-89da613e70a8`.
+    2. `azure.cna.ibp.regulatory_initiative_assigned` (medium) — a regulatory
+       initiative whose displayName / policyDefinitionId matches
+       `/fedramp.?(moderate|high)/`, `/nist.?sp.?800.?53/`, or
+       `/nist.?sp.?800.?171/` is also assigned, giving compliance-state
+       evidence keyed to the authorization-package controls.
+- IAM-PERMISSIONS-CATALOG row added for the new `config.ts` file.
+- 9 new dedicated tests (passing, failing, mixed, regulatory-via-displayName,
+  regulatory-via-defId paths). 603 tests pass.
+
 ### Added — Azure CNA-MAT + CNA-RNT (network segmentation + traffic restriction)
 Two more Azure network KSIs. KSI-CNA-MAT and KSI-CNA-RNT are now AWS + GCP + Azure.
 All Resource Graph; no new permissions beyond AZ-1's Reader role.

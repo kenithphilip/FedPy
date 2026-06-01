@@ -61,6 +61,7 @@ import * as gcpIam from '../providers/gcp/iam.ts';
 import * as azIam from '../providers/azure/iam.ts';
 import * as azLogging from '../providers/azure/logging.ts';
 import * as azNetwork from '../providers/azure/network.ts';
+import * as azConfig from '../providers/azure/config.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -222,6 +223,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ca-2.1','ca-7.1'],
     aws: awsConfig.collectCnaEis,
     gcp: gcpConfig.collectCnaEis,
+    azure: azConfig.collectCnaEis,
   },
   'KSI-CNA-IBP': {
     id: 'KSI-CNA-IBP',
@@ -231,6 +233,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cm-6','cm-7','sa-8'],
     aws: awsConfig.collectCnaIbp,
     gcp: gcpConfig.collectCnaIbp,
+    azure: azConfig.collectCnaIbp,
   },
   'KSI-CNA-OFA': {
     id: 'KSI-CNA-OFA',
