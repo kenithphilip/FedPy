@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure IAM-ELP + IAM-AAM collectors (next AZ-2 slice)
+Two more Azure KSI collectors land on the Microsoft Graph + per-KSI Azure
+dispatch foundation shipped with AZ-IAM-MFA. KSI-IAM-ELP and KSI-IAM-AAM are
+now AWS + GCP + **Azure**.
+- **`collectIamElp`** (Ensuring Least Privilege) — two findings:
+  1. `aad.global_admin_count_within_threshold` — passes when total Global
+     Administrators is ≤ 5 (FedRAMP / Microsoft guidance: ≥ 2 for emergency
+     access, ≤ 5 to limit concentration of risk). Warning emitted when the
+     role isn't yet activated (no members) so the human reviewer notices the
+     emergency-access gap.
+  2. `aad.pim_eligible_for_admin_roles` — passes when at least one PIM-eligible
+     assignment covers a privileged directory role (Global / Privileged Role /
+     Application / Security / User Administrator). Encourages just-in-time
+     activation over standing admin grants. Cross-KSI link to KSI-IAM-JIT.
+- **`collectIamAam`** (Automating Account Management) — two findings derived
+  from the `signInActivity` field on `/users`:
+  1. `aad.no_dormant_enabled_accounts` — passes when no enabled member account
+     has been silent for > 90 days. Ignores guests (`userType=Guest`) and
+     disabled accounts. **Degrades to a "data-missing" warning** (rather than
+     false positives) when `signInActivity` is absent on every user —
+     reliable signal that `AuditLog.Read.All` is missing.
+  2. `aad.no_severely_dormant_accounts` (severity `critical`) — same data with
+     a 365-day threshold.
+- IAM-PERMISSIONS-CATALOG: added rows for `RoleManagement.Read.Directory`,
+  `Directory.Read.All`, `User.Read.All`, `AuditLog.Read.All`.
+- 13 new dedicated tests covering both passing + failing scenarios + degraded
+  paths (no role activated, AuditLog missing, guests/disabled-users ignored).
+  532 tests pass.
+
 ### Added — Azure IAM-MFA collector (AZ-IAM-MFA, first slice of AZ-2)
 The first per-KSI Azure collector — establishes the Microsoft Graph + KSI-dispatch
 infrastructure follow-up Azure KSIs reuse.

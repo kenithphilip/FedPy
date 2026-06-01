@@ -148,6 +148,8 @@ per-subscription if MG access isn't available):
 | `inventory-assets.ts` | Inventory depth (`--inventory-workbook`) | Resource Graph (Storage / Compute / NICs projections) | `Reader` (same as backbone — projections are KQL only) |
 | `reference-arch.ts` | Reference-arch audit (`--reference-arch`) | Resource Graph (`Resources`, `PolicyResources`, `SecurityResources` tables) | `Reader` covers `Resources` + `PolicyResources`; `Security Reader` is required for `SecurityResources` (Defender pricing tiers). All 11 checks degrade to warnings if their table isn't readable. |
 | `iam.ts` (`collectIamMfa`) | KSI-IAM-MFA | Microsoft Graph (`/policies/identitySecurityDefaultsEnforcementPolicy`, `/identity/conditionalAccess/policies`) | App-role `Policy.Read.All` (and `Directory.Read.All` for richer role-template hydration in later collectors). Graph requests are plain REST; the runner principal needs the Graph app role assigned in Entra ID. |
+| `iam.ts` (`collectIamElp`) | KSI-IAM-ELP | Microsoft Graph (`/directoryRoles`, `/directoryRoles/{id}/members`, `/roleManagement/directory/roleEligibilitySchedules`) | App-role `RoleManagement.Read.Directory` (PIM eligibility + role assignments) + `Directory.Read.All` (directory-role membership). |
+| `iam.ts` (`collectIamAam`) | KSI-IAM-AAM | Microsoft Graph (`/users?$select=…,signInActivity,accountEnabled`) | App-roles `User.Read.All` (user list + `accountEnabled`) AND `AuditLog.Read.All` (populates the `signInActivity` field). Without `AuditLog.Read.All` the collector degrades to a "data-missing" warning rather than reporting false positives. |
 
 ### Azure auth notes
 

@@ -89,6 +89,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-2.2','ac-2.3','ac-2.13','ac-6.7','ia-4.4','ia-12','ia-12.2','ia-12.3','ia-12.5'],
     aws: awsIam.collectIamAam,
     gcp: gcpIam.collectIamAam,
+    azure: azIam.collectIamAam,
   },
   'KSI-IAM-APM': {
     id: 'KSI-IAM-APM',
@@ -107,6 +108,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-2','ac-6','ac-6.5'],
     aws: awsIam.collectIamElp,
     gcp: gcpIam.collectIamElp,
+    azure: azIam.collectIamElp,
   },
   'KSI-IAM-JIT': {
     id: 'KSI-IAM-JIT',
