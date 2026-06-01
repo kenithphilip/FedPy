@@ -33,6 +33,14 @@ vi.mock('../../core/auth/gcp.ts', () => ({
   guardGcp: (x: any) => x,
 }));
 
+// Azure Microsoft Graph stub: every Graph fetch returns an empty list / null body,
+// so collectors exercise their no-data path without network or auth.
+vi.mock('../../core/auth/azure-graph.ts', () => ({
+  graphFetchAll: async () => ({ items: [], warnings: [] }),
+  graphFetchOne: async () => ({ data: null, warnings: [] }),
+  _resetTokenCache: () => { /* noop */ },
+}));
+
 vi.mock('../../core/auth/k8s.ts', () => ({
   makeK8sAuth: () => ({
     context: 'smoke',
@@ -76,7 +84,7 @@ function makeK8sApiStub(): any {
 
 // ---- Tests ----
 
-function validateBlock(block: ProviderBlock, ksiId: string, provider: 'aws' | 'gcp' | 'k8s'): void {
+function validateBlock(block: ProviderBlock, ksiId: string, provider: 'aws' | 'gcp' | 'azure' | 'k8s'): void {
   expect(block.provider).toBe(provider);
   // Wrap in a minimal EvidenceFile so we can reuse validateEvidenceFile
   const envelope: EvidenceFile = {
@@ -155,6 +163,25 @@ describe('Provider smoke test — GCP collectors', () => {
     }
     if (failures.length > 0) {
       throw new Error(`GCP collector smoke failures (${failures.length}):\n${failures.join('\n')}`);
+    }
+  }, 30_000);
+});
+
+describe('Provider smoke test — Azure collectors', () => {
+  it('every Azure collector returns a schema-valid ProviderBlock with provider=azure', async () => {
+    const failures: string[] = [];
+    for (const ksiId of supportedKsis) {
+      const ksi = ksiMap[ksiId];
+      if (!ksi?.azure) continue;
+      try {
+        const block = await ksi.azure({ azure: { tenant_id: 'smoke-tenant', subscription_id: 'smoke-sub' } });
+        validateBlock(block, ksiId, 'azure');
+      } catch (e: any) {
+        failures.push(`${ksiId}: ${e.message}`);
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(`Azure collector smoke failures (${failures.length}):\n${failures.join('\n')}`);
     }
   }, 30_000);
 });

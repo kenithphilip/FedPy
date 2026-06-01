@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure IAM-MFA collector (AZ-IAM-MFA, first slice of AZ-2)
+The first per-KSI Azure collector — establishes the Microsoft Graph + KSI-dispatch
+infrastructure follow-up Azure KSIs reuse.
+- **`core/auth/azure-graph.ts`** — Microsoft Graph access via plain REST (`fetch`)
+  using a Graph-scoped token from `DefaultAzureCredential`. No `@microsoft/microsoft-graph-client`
+  dep. Read-only by API design: only `graphFetchAll` (paginated, follows
+  `@odata.nextLink`) and `graphFetchOne` are exposed. Graph errors are surfaced as
+  readable warnings (401 / 403 / 404 / 429 classified).
+- **`providers/azure/iam.ts`** — `collectIamMfa(ctx)` returns a `ProviderBlock` with two findings:
+  1. `aad.security_defaults_or_ca_mfa_for_all_users` — passes when Security Defaults
+     are on **or** an enabled Conditional Access policy enforces MFA on `includeUsers = All`.
+  2. `aad.ca_mfa_for_admin_roles` (severity `critical`) — passes when at least one
+     enabled CA policy includes a privileged directory-role template (Global Admin,
+     Privileged Role Admin, Application Admin, Security Admin, etc.) and grants MFA.
+  Authentication-strength references are treated as MFA-equivalent. Disabled policies
+  are ignored. External SAML/OIDC IdPs are surfaced as a `ksi_level_alternatives` entry.
+- **KSI dispatch wired through:** `KsiEntry` and `CollectorContext` gain an `azure?`
+  slot in `core/ksi-map.ts`; `runOneKsi` gets an Azure branch (single tenant-scoped
+  call, mirrors the GCP per-project branch). `KSI-IAM-MFA` is now AWS + GCP + **Azure**.
+- 9 new dedicated tests + Azure smoke iterating all `ksi.azure` collectors (no-data
+  degraded path, schema-valid output). 519 tests pass.
+
 ### Added — Significant Change Notification (SCN) classifier (SCN-1)
 A new opt-in classifier (`--scn`, env `CLOUD_EVIDENCE_SCN`) takes the run's existing diff
 outputs and labels each change with a FedRAMP **significance level**, a recommended

@@ -822,6 +822,38 @@ async function runOneKsi(
     }
   }
 
+  if (args.providers.includes('azure') && config.azure?.enabled && ksi.azure) {
+    // Most Azure IAM / AAD reads are tenant-scoped, not subscription-scoped, so
+    // we make ONE call per KSI (not one per subscription). Resource-scoped Azure
+    // collectors (added later) can iterate config.azure.subscriptions themselves.
+    const startedAt = Date.now();
+    try {
+      const block = await ksi.azure({ azure: { tenant_id: config.azure.tenant_id ?? null, subscription_id: config.azure.subscriptions[0] ?? null } });
+      providers.push(block);
+      adaptive?.onSuccess('azure');
+      ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'azure', status: 'ok', duration_ms: Date.now() - startedAt });
+    } catch (e: any) {
+      const klass = classifyError(e);
+      if (klass === 'throttling') adaptive?.onThrottle('azure');
+      ledger?.record('collector.run', { ksi_id: ksi.id, provider: 'azure', status: 'fail', duration_ms: Date.now() - startedAt, err_class: klass, err_message: e?.message });
+      ksiLog.error({
+        event: 'collector.fail',
+        provider: 'azure', ksi_id: ksi.id,
+        err_name: e?.name, err_message: e?.message, err_class: klass,
+      });
+      const reqRole = klass === 'access_denied'
+        ? 'Reader + the Microsoft Graph *.Read.All scopes the collector needs (see RUNBOOK §2.3 / IAM-PERMISSIONS-CATALOG.md)'
+        : '(see warning)';
+      providers.push({
+        provider: 'azure',
+        account_id: null,
+        evidence: [],
+        findings: [],
+        warnings: [`azure:${ksi.id}: ${e?.message ?? e} — required: ${reqRole}`],
+      });
+    }
+  }
+
   const rollup = makeRollup(providers);
   const summary_for_llm = buildSummaryForLlm(ksi, providers, rollup);
   // Resolve impact-tier metadata from the requirement registry (if this KSI is in it).

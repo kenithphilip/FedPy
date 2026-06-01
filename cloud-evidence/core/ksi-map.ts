@@ -23,6 +23,12 @@ export interface CollectorContext {
     auth?: AwsAuth;
   };
   gcp?: { project_id: string };
+  azure?: {
+    /** Tenant id (Entra ID); collectors that need it can also read it from whoAmIAzure(). */
+    tenant_id?: string | null;
+    /** Optional subscription id for resource-scoped Azure collectors (most IAM/AAD work is tenant-scoped). */
+    subscription_id?: string | null;
+  };
   k8s?: { context: string; auth?: K8sAuth };
 }
 
@@ -43,12 +49,14 @@ export interface KsiEntry {
   /** Provider collectors. A KSI may be AWS-only, GCP-only, or both. */
   aws?: ProviderCollector;
   gcp?: ProviderCollector;
+  azure?: ProviderCollector;
   /** For HYBRID KSIs, items the human reviewer must still attach in the tracker. */
   process_artifacts_required?: string[];
 }
 
 import * as awsIam from '../providers/aws/iam.ts';
 import * as gcpIam from '../providers/gcp/iam.ts';
+import * as azIam from '../providers/azure/iam.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -120,6 +128,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     statement: 'Enforce multi-factor authentication (MFA) using methods that are difficult to intercept or impersonate (phishing-resistant MFA) for all user authentication.',
     nist_controls: ['ia-2.1','ia-2.2','ia-2.6','ia-2.8'],
     aws: awsIam.collectIamMfa,
+    azure: azIam.collectIamMfa,
     gcp: gcpIam.collectIamMfa,
   },
   'KSI-IAM-SNU': {
