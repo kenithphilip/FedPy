@@ -52,6 +52,7 @@ import { notifyDrift } from './notify.ts';
 import { exportFindingsCsv } from './csv-export.ts';
 import { generateHtmlReport } from './html-report.ts';
 import { diffReport, snapshotRun } from './diff-report.ts';
+import { buildScnReport, writeScnReport } from './scn-classifier.ts';
 import { checkCoverage } from './coverage-check.ts';
 import { pushAllToParamify } from './paramify-push.ts';
 import { pushAllToTracker, pushRunTelemetry } from './tracker-push.ts';
@@ -100,6 +101,10 @@ interface Args {
   htmlReport: boolean;
   csvExport: boolean;
   diffReport: boolean;
+  /** When true, classify the run's diff (findings + inventory + optional proposed changes) as a FedRAMP Significant Change Notification report. */
+  scn: boolean;
+  /** Optional path to a JSON file of operator-proposed changes (consumed by the SCN classifier). */
+  scnProposedPath: string | null;
   pushParamify: boolean;
   pushTracker: boolean;
   notifyOnDrift: boolean;
@@ -169,6 +174,8 @@ function parseArgs(argv: string[]): Args {
     htmlReport: false,
     csvExport: false,
     diffReport: false,
+    scn: process.env.CLOUD_EVIDENCE_SCN === '1',
+    scnProposedPath: process.env.CLOUD_EVIDENCE_SCN_PROPOSED_PATH ?? null,
     pushParamify: false,
     pushTracker: false,
     notifyOnDrift: false,
@@ -243,6 +250,13 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--diff-report':
         args.diffReport = true;
+        break;
+      case '--scn':
+        args.scn = true;
+        args.diffReport = true;   // SCN consumes diff-report.json — make sure it gets written
+        break;
+      case '--scn-proposed':
+        args.scnProposedPath = resolve(argv[++i] ?? '');
         break;
       case '--push-paramify':
         args.pushParamify = true;
@@ -354,6 +368,8 @@ function parseArgs(argv: string[]): Args {
   }
   // Rendering the SSP Word doc requires the SSP JSON (covers env-set CLOUD_EVIDENCE_SSP_DOCX).
   if (args.sspDocx) args.oscalSsp = true;
+  // SCN consumes diff-report.json — guarantee it's produced (covers env-set CLOUD_EVIDENCE_SCN).
+  if (args.scn) args.diffReport = true;
   return args;
 }
 
@@ -377,6 +393,11 @@ Post-run artifacts:
   --html-report          Generate self-contained HTML report (out/report.html)
   --csv-export           Export all findings as CSV (out/findings.csv)
   --diff-report          Generate run-over-run diff (out/diff-report.{json,html})
+  --scn                  Classify the run's diff as a FedRAMP Significant Change Notification
+                         report (out/scn-classification.json + scn-notice-draft.md). Implies
+                         --diff-report. (env: CLOUD_EVIDENCE_SCN)
+  --scn-proposed <path>  Optional JSON file of operator-proposed changes to include in the SCN
+                         classification (env: CLOUD_EVIDENCE_SCN_PROPOSED_PATH)
   --all-reports          Shortcut for the three above
   --notify-on-drift      Send Slack/PagerDuty notification on negative drift
   --strict-schema        Fail-hard if any emitted EvidenceFile violates the schema
@@ -1659,6 +1680,24 @@ export async function main(): Promise<void> {
   }
   // Persist current snapshot for next run regardless
   try { snapshotRun(args.outDir, snapshotPath); } catch (e: any) { console.error(`Snapshot failed: ${e.message}`); }
+
+  // ---- SCN-1: classify the diff as a FedRAMP Significant Change Notification ----
+  if (args.scn) {
+    try {
+      const scn = buildScnReport({
+        outDir: args.outDir, runId,
+        proposedChangesPath: args.scnProposedPath ?? undefined,
+        systemName: args.systemName ?? undefined,
+        cspName: args.oscalOrgName ?? undefined,
+      });
+      writeScnReport(scn, resolve(args.outDir, 'scn-classification.json'), resolve(args.outDir, 'scn-notice-draft.md'));
+      console.log(`SCN: ${scn.totals.significant} significant, ${scn.totals.advisory} advisory, ${scn.totals.not_significant} not-significant (of ${scn.totals.total} change(s)) → scn-classification.json + scn-notice-draft.md`);
+      ledger.record('scn.classify', { status: 'info', ...scn.totals });
+    } catch (e: any) {
+      console.error(`SCN classification failed: ${e?.message ?? e}`);
+      log.error({ event: 'scn.fail', err_message: e?.message });
+    }
+  }
 
   // ---- HTML report ----
   if (args.htmlReport) {

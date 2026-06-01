@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Significant Change Notification (SCN) classifier (SCN-1)
+A new opt-in classifier (`--scn`, env `CLOUD_EVIDENCE_SCN`) takes the run's existing diff
+outputs and labels each change with a FedRAMP **significance level**, a recommended
+notification window, and the artifacts the change requires. Emits a starting-point
+notice email so the CSP can complete + send to the authorizing agency before applying.
+Clean-room from the huntridge-labs/argus AGPL project (research report 08 — idea source
+only, no code copied).
+
+- **`core/scn-classifier.ts`** — pure `classifyChange`/`classifyChanges`/`harvestChanges`/
+  `draftNotice` + a thin disk reader/emitter (`buildScnReport`/`writeScnReport`).
+- **Harvest sources:** `diff-report.json` (regressed / new-failing / fixed findings),
+  `inventory-diff.json` (added / removed / mutated assets), and an optional
+  operator-supplied proposed-changes JSON (forward-looking — `--scn-proposed <path>` or
+  env `CLOUD_EVIDENCE_SCN_PROPOSED_PATH`).
+- **Categories:** boundary · authentication · cryptography · network · data-flow ·
+  personnel · platform-version · subprocessor · configuration · improvement. Field-aware
+  categorization on inventory diffs (e.g. `publicFacing` change → `network`; `kmsKeyId`
+  change → `cryptography`; `osNameVersion` change → `platform-version`).
+- **Default rule library** (10 rules) covers the FedRAMP "significant change" taxonomy
+  (SP 800-37 r2 § 3.6 + the FedRAMP SCR guide), with each rule mapping a category to:
+  significance (`significant` / `advisory` / `not-significant`), a recommended
+  notice-days window (30 for boundary/auth/crypto/network/data-flow/subprocessor/personnel,
+  14 for platform-major upgrades, 7 for config regressions), and the required artifacts
+  (updated SSP narratives, updated FIPS-199, POA&M entries, FIPS 140-3 cert, network
+  diagrams, etc.). Caller can pass a custom rule set.
+- **Outputs:** `out/scn-classification.json` (structured) + `out/scn-notice-draft.md`
+  (markdown notice the CSP refines). Wired into the orchestrator after the diff-report
+  block (`--scn` implies `--diff-report`).
+- 18 new tests (rule matching, harvesting from real diff shapes, categorisation
+  heuristics, totals aggregation, draft-notice render, end-to-end disk reader,
+  proposed-changes JSON in both array and `{changes:[...]}` shapes). tsc clean;
+  509 tests pass.
+
 ### Added — Azure FedRAMP reference-architecture audit (AZ-CHK)
 Third leg of the multi-cloud reference-arch trio. Joins the existing AWS-CHK / GCP-CHK
 audits behind the same `--reference-arch` flag (env `CLOUD_EVIDENCE_REFERENCE_ARCH`)
