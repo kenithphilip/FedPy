@@ -155,6 +155,7 @@ per-subscription if MG access isn't available):
 | `iam.ts` (`collectIamJit`) | KSI-IAM-JIT | Microsoft Graph (`/roleManagement/directory/roleAssignmentScheduleRequests`) | App-role `RoleManagement.Read.Directory` (same as IAM-ELP — no new permission needed). |
 | `iam.ts` (`collectIamSus`) | KSI-IAM-SUS | Microsoft Graph (`/identity/conditionalAccess/policies`) | App-role `Policy.Read.All`. Risk-level conditions also require Entra ID P2 to be present in the tenant for the data to be non-empty. |
 | `logging.ts` (`collectMlaLet`, `collectMlaOsm`) | KSI-MLA-LET, KSI-MLA-OSM | Resource Graph (`microsoft.insights/diagnosticsettings`, `microsoft.operationalinsights/workspaces`, `microsoft.operationsmanagement/solutions`, `microsoft.securityinsights/onboardingstates`) | `Reader` is sufficient — no new permissions beyond AZ-1. |
+| `logging.ts` (`collectMlaAla`, `collectMlaRvl`, `collectCmtLmc`) | KSI-MLA-ALA, KSI-MLA-RVL, KSI-CMT-LMC | Resource Graph — same tables as MLA-LET/OSM **plus** the `authorizationresources` table for workspace-scope RBAC reads | `Reader` + `Reader and Data Access` (or any role granting `Microsoft.Authorization/roleAssignments/read`) for the workspace-scope RBAC check. Defender for Cloud / Change-Tracking checks reuse the SecurityResources + OperationsManagement tables (Reader suffices). |
 
 ### Azure auth notes
 

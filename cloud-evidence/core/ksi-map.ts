@@ -246,6 +246,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['si-11','ac-3'],
     aws: awsLogging.collectMlaAla,
     gcp: gcpLogging.collectMlaAla,
+    azure: azLogging.collectMlaAla,
   },
   'KSI-MLA-EVC': {
     id: 'KSI-MLA-EVC',
@@ -293,6 +294,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['au-6'],
     aws: awsLogging.collectMlaRvl,
     gcp: gcpLogging.collectMlaRvl,
+    azure: azLogging.collectMlaRvl,
   },
 
   // ---- CMT: Change Management ----
@@ -304,6 +306,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['au-2','au-3','au-12','cm-3.1','cm-5.1'],
     aws: awsLogging.collectCmtLmc,
     gcp: gcpLogging.collectCmtLmc,
+    azure: azLogging.collectCmtLmc,
   },
   'KSI-CMT-RMV': {
     id: 'KSI-CMT-RMV',

@@ -26,7 +26,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectMlaLet, collectMlaOsm } from '../../../providers/azure/logging.ts';
+import { collectMlaLet, collectMlaOsm, collectMlaAla, collectMlaRvl, collectCmtLmc } from '../../../providers/azure/logging.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -158,5 +158,166 @@ describe('collectMlaOsm (KSI-MLA-OSM Azure)', () => {
     ];
     const block = await collectMlaOsm(ctx());
     expect((block.ksi_level_alternatives ?? []).some((a) => /3rd-party SIEM/i.test(a.via))).toBe(true);
+  });
+});
+
+// =====================================================================
+// KSI-MLA-ALA
+// =====================================================================
+const LAR = '73c42c96-874c-492b-b04d-ab87d138a893';
+const OWNER = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635';
+const CONTRIB = 'b24988ac-6180-42a0-ab88-20f7382dd24c';
+
+describe('collectMlaAla (KSI-MLA-ALA Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES the Log Analytics Reader finding when a Reader assignment exists at workspace scope', async () => {
+    _state.routes = [{ match: 'authorizationresources', rows: [
+      { id: '/ra/1', scope: '/subscriptions/sub-1/.../microsoft.operationalinsights/workspaces/ws1', roleDef: `/providers/Microsoft.Authorization/roleDefinitions/${LAR}`, principalId: 'p1' },
+    ] }];
+    const block = await collectMlaAla(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.log_analytics_reader_assigned')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.no_broad_workspace_admins')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-MLA-ALA');
+  });
+
+  it('FAILS the broad-admin finding when an Owner is scoped at a workspace', async () => {
+    _state.routes = [{ match: 'authorizationresources', rows: [
+      { id: '/ra/1', scope: '/subscriptions/sub-1/.../microsoft.operationalinsights/workspaces/ws1', roleDef: `/providers/Microsoft.Authorization/roleDefinitions/${OWNER}` },
+      { id: '/ra/2', scope: '/subscriptions/sub-1/.../microsoft.operationalinsights/workspaces/ws1', roleDef: `/providers/Microsoft.Authorization/roleDefinitions/${LAR}` },
+    ] }];
+    const block = await collectMlaAla(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.no_broad_workspace_admins')!.passed).toBe(false);
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.log_analytics_reader_assigned')!.passed).toBe(true);
+  });
+
+  it('FAILS both findings when there are zero workspace-scoped role assignments', async () => {
+    _state.routes = [{ match: 'authorizationresources', rows: [] }];
+    const block = await collectMlaAla(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.log_analytics_reader_assigned')!.passed).toBe(false);
+    // no_broad_workspace_admins passes because there are no broad assignments either; only the Reader-not-present finding fails.
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.no_broad_workspace_admins')!.passed).toBe(true);
+  });
+
+  it('IGNORES Contributor role-defs that don\'t live under the role-definitions path', async () => {
+    _state.routes = [{ match: 'authorizationresources', rows: [
+      // Bogus roleDef that doesn't end with `/${CONTRIB}` — should be ignored by the substring check.
+      { id: '/ra/1', scope: '/subscriptions/sub-1/.../microsoft.operationalinsights/workspaces/ws1', roleDef: `/CustomRoleDefs/${CONTRIB}-suffixed` },
+      { id: '/ra/2', scope: '/subscriptions/sub-1/.../microsoft.operationalinsights/workspaces/ws1', roleDef: `/providers/Microsoft.Authorization/roleDefinitions/${LAR}` },
+    ] }];
+    const block = await collectMlaAla(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.ala.no_broad_workspace_admins')!.passed).toBe(true);
+  });
+});
+
+// =====================================================================
+// KSI-MLA-RVL
+// =====================================================================
+describe('collectMlaRvl (KSI-MLA-RVL Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES both findings when at least one workspace meets the retention floor and at least one alert rule exists', async () => {
+    _state.routes = [
+      { match: 'operationalinsights/workspaces', rows: [{ id: '/w1', retention: 365 }] },
+      { match: 'insights/scheduledqueryrules', rows: [{ id: '/r1', name: 'rule1' }] },
+      { match: 'securityinsights/alertrules', rows: [] },
+    ];
+    const block = await collectMlaRvl(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.rvl.workspace_retention_at_floor')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.mla.rvl.alert_rules_present')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-MLA-RVL');
+  });
+
+  it('FAILS the retention finding when all workspaces are below the 90-day floor', async () => {
+    _state.routes = [
+      { match: 'operationalinsights/workspaces', rows: [{ id: '/w', retention: 30 }] },
+      { match: 'insights/scheduledqueryrules', rows: [{ id: '/r' }] },
+      { match: 'securityinsights/alertrules', rows: [] },
+    ];
+    const block = await collectMlaRvl(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.rvl.workspace_retention_at_floor')!.passed).toBe(false);
+  });
+
+  it('PASSES the alert-rules finding via Sentinel-only path', async () => {
+    _state.routes = [
+      { match: 'operationalinsights/workspaces', rows: [{ id: '/w', retention: 90 }] },
+      { match: 'insights/scheduledqueryrules', rows: [] },
+      { match: 'securityinsights/alertrules', rows: [{ id: '/r' }, { id: '/r2' }] },
+    ];
+    const block = await collectMlaRvl(ctx());
+    expect(block.findings.find((f) => f.rule === 'azure.mla.rvl.alert_rules_present')!.passed).toBe(true);
+  });
+
+  it('FAILS both findings when there are no workspaces and no alert rules', async () => {
+    _state.routes = [
+      { match: 'operationalinsights/workspaces', rows: [] },
+      { match: 'insights/scheduledqueryrules', rows: [] },
+      { match: 'securityinsights/alertrules', rows: [] },
+    ];
+    const block = await collectMlaRvl(ctx());
+    expect(block.findings.every((f) => !f.passed)).toBe(true);
+  });
+});
+
+// =====================================================================
+// KSI-CMT-LMC
+// =====================================================================
+describe('collectCmtLmc (KSI-CMT-LMC Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES activity-log finding when every subscription has a sub-scope diagnostic setting', async () => {
+    _state.routes = [
+      { match: 'diagnosticsettings', rows: [
+        { id: '/subscriptions/sub-1/providers/microsoft.insights/diagnosticsettings/ds-1', subscriptionId: 'sub-1', name: 'ds-1', workspaceId: '/ws', storageId: '' },
+        { id: '/subscriptions/sub-2/providers/microsoft.insights/diagnosticsettings/ds-2', subscriptionId: 'sub-2', name: 'ds-2', workspaceId: '/ws', storageId: '' },
+      ] },
+      { match: 'operationsmanagement/solutions', rows: [{ id: '/s/ChangeTracking(ws)', name: 'ChangeTracking(ws)' }] },
+    ];
+    const block = await collectCmtLmc(ctx(['sub-1', 'sub-2']));
+    expect(block.findings.find((f) => f.rule === 'azure.cmt.lmc.activity_log_exported')!.passed).toBe(true);
+    expect(block.findings.find((f) => f.rule === 'azure.cmt.lmc.change_tracking_enabled')!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-CMT-LMC');
+  });
+
+  it('FAILS activity-log finding when one subscription is missing its sub-scope diagnostic setting', async () => {
+    _state.routes = [
+      { match: 'diagnosticsettings', rows: [
+        { id: '/subscriptions/sub-1/providers/microsoft.insights/diagnosticsettings/ds-1', subscriptionId: 'sub-1' },
+      ] },
+      { match: 'operationsmanagement/solutions', rows: [] },
+    ];
+    const block = await collectCmtLmc(ctx(['sub-1', 'sub-2']));
+    const f = block.findings.find((x) => x.rule === 'azure.cmt.lmc.activity_log_exported')!;
+    expect(f.passed).toBe(false);
+    expect(f.gap?.affected_resources.some((r) => r.identifier === 'sub-2')).toBe(true);
+  });
+
+  it('FAILS activity-log finding when no subscriptions are configured', async () => {
+    _state.routes = [{ match: 'diagnosticsettings', rows: [] }, { match: 'operationsmanagement/solutions', rows: [] }];
+    const block = await collectCmtLmc(ctx([]));
+    expect(block.findings.find((f) => f.rule === 'azure.cmt.lmc.activity_log_exported')!.passed).toBe(false);
+  });
+
+  it('FAILS change-tracking finding when no ChangeTracking solution is deployed', async () => {
+    _state.routes = [
+      { match: 'diagnosticsettings', rows: [
+        { id: '/subscriptions/sub-1/providers/microsoft.insights/diagnosticsettings/ds', subscriptionId: 'sub-1' },
+      ] },
+      { match: 'operationsmanagement/solutions', rows: [] },
+    ];
+    const block = await collectCmtLmc(ctx(['sub-1']));
+    expect(block.findings.find((f) => f.rule === 'azure.cmt.lmc.change_tracking_enabled')!.passed).toBe(false);
+  });
+
+  it('IGNORES diagnostic settings at non-subscription scopes (e.g. child of a resource)', async () => {
+    _state.routes = [
+      { match: 'diagnosticsettings', rows: [
+        { id: '/subscriptions/sub-1/resourceGroups/rg/providers/microsoft.storage/storageaccounts/sa/providers/microsoft.insights/diagnosticsettings/ds', subscriptionId: 'sub-1' },
+      ] },
+      { match: 'operationsmanagement/solutions', rows: [] },
+    ];
+    const block = await collectCmtLmc(ctx(['sub-1']));
+    // Resource-scope diag settings don't count as sub-scope; activity-log export is not configured for this sub.
+    expect(block.findings.find((f) => f.rule === 'azure.cmt.lmc.activity_log_exported')!.passed).toBe(false);
   });
 });

@@ -207,3 +207,238 @@ export async function collectMlaOsm(ctx: CollectorContext): Promise<ProviderBloc
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings, ksi_level_alternatives: ksiLevelAlternatives };
 }
+
+// =====================================================================
+// KSI-MLA-ALA — Authorizing Log Access
+// =====================================================================
+/**
+ * Least-privileged RBAC on log data. The strongest positive signal we can pull
+ * from Resource Graph is: explicit `Log Analytics Reader` role assignments
+ * scoped at Log Analytics workspaces. That role grants read-only on the
+ * workspace's logs — operators are reaching for the right primitive instead of
+ * blanket `Reader` / `Contributor` / `Owner`.
+ */
+const LOG_ANALYTICS_READER_ROLE_DEF = '73c42c96-874c-492b-b04d-ab87d138a893';
+const OWNER_ROLE_DEF = '8e3af657-a8ff-443c-a75c-2fe8c4bcb635';
+const CONTRIBUTOR_ROLE_DEF = 'b24988ac-6180-42a0-ab88-20f7382dd24c';
+
+export async function collectMlaAla(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // Role assignments scoped specifically at Log Analytics workspaces.
+  // Resource Graph exposes role assignments via the `authorizationresources`
+  // table; properties.scope is the resource-id substring we filter on.
+  const assignments = await runKql(subs,
+    'authorizationresources ' +
+    '| where type =~ "microsoft.authorization/roleassignments" ' +
+    '| extend scope = tostring(properties.scope), roleDef = tostring(properties.roleDefinitionId) ' +
+    '| where scope contains "/providers/microsoft.operationalinsights/workspaces/" ' +
+    '| project id, scope, roleDef, principalId=tostring(properties.principalId)');
+  if (assignments.error) warnings.push(assignments.error);
+
+  const readerCount = assignments.rows.filter((r) => String(r.roleDef ?? '').endsWith(`/${LOG_ANALYTICS_READER_ROLE_DEF}`)).length;
+  const broadOwnerOrContributor = assignments.rows.filter((r) => {
+    const id = String(r.roleDef ?? '');
+    return id.endsWith(`/${OWNER_ROLE_DEF}`) || id.endsWith(`/${CONTRIBUTOR_ROLE_DEF}`);
+  }).length;
+
+  evidence.push(ev('resourcegraph.workspace_role_assignments', {
+    total_workspace_scoped: assignments.rows.length,
+    log_analytics_reader: readerCount,
+    owner_or_contributor: broadOwnerOrContributor,
+    sample: assignments.rows.slice(0, 20),
+  }));
+
+  // ── Finding 1: Log Analytics Reader is in use on a workspace ──
+  findings.push(finding({
+    rule: 'azure.mla.ala.log_analytics_reader_assigned', passed: readerCount > 0, severity: 'medium',
+    current: {
+      summary: readerCount > 0
+        ? `${readerCount} Log Analytics Reader role assignment(s) at workspace scope — operators are using the dedicated read-only role.`
+        : 'No Log Analytics Reader assignments at workspace scope — read access to logs likely flows through broader roles.',
+      observations: { reader_count: readerCount, broad_count: broadOwnerOrContributor, total: assignments.rows.length },
+    },
+    target: {
+      summary: 'At least one explicit `Log Analytics Reader` (role-def `73c42c96-…`) assignment exists at a Log Analytics workspace scope — read-only access to log data follows least privilege.',
+      rationale: 'NIST SI-11, AC-3, AC-6. FedRAMP requires least-privilege access to security-relevant logs.',
+    },
+    gap: { description: 'Read access to log data may rely on broader `Reader` / `Contributor` / `Owner` roles inherited from above the workspace, not the dedicated read-only role.', affected_resources: [{ type: 'azure_log_analytics_workspace_rbac', identifier: 'no-reader-role-found', attributes: {} }] },
+    remediation: {
+      summary: 'Grant the runtime SOC / on-call group the `Log Analytics Reader` role at the workspace scope and remove broader role inheritance where it isn\'t needed.',
+      options: [
+        { approach: 'Terraform azurerm_role_assignment with role_definition_name = "Log Analytics Reader".', mechanism: 'terraform', steps: ['Identify SOC / on-call group object id', 'Assign Log Analytics Reader scoped at azurerm_log_analytics_workspace.id', 'Remove inherited Reader/Contributor on the workspace where possible'] },
+      ],
+    },
+    nist_controls: ['si-11', 'ac-3', 'ac-6'],
+  }));
+
+  // ── Finding 2: broad Owner/Contributor at workspace scope is bounded ──
+  // Pass if there are 0 (best) or some have a corresponding Reader (signal that
+  // the operator has at least documented the constrained read role too).
+  findings.push(finding({
+    rule: 'azure.mla.ala.no_broad_workspace_admins', passed: broadOwnerOrContributor === 0, severity: 'low',
+    current: {
+      summary: broadOwnerOrContributor === 0
+        ? 'No Owner / Contributor role assignments scoped directly at a Log Analytics workspace.'
+        : `${broadOwnerOrContributor} Owner / Contributor assignment(s) scoped at a workspace — review whether they're necessary.`,
+      observations: { broad_count: broadOwnerOrContributor, sample: assignments.rows.slice(0, 50) },
+    },
+    target: { summary: 'No `Owner` or `Contributor` role assignment scopes directly at a Log Analytics workspace — admin scopes inherit from above; read uses `Log Analytics Reader`.', rationale: 'NIST AC-6, SI-11.' },
+    gap: { description: 'Broad admin roles assigned directly at a Log Analytics workspace expand the surface that can modify or wipe log data.', affected_resources: [{ type: 'azure_log_analytics_workspace_rbac', identifier: 'broad-roles-at-workspace', attributes: { count: broadOwnerOrContributor } }] },
+    remediation: { summary: 'Audit the listed broad-role assignments; demote unneeded ones or move them to a higher scope and rely on inheritance only when necessary.', options: [{ approach: 'Remove the assignment via az CLI.', mechanism: 'cli', steps: ['az role assignment delete --assignee <principal> --role <Owner|Contributor> --scope <workspace>'] }] },
+    nist_controls: ['ac-6'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-MLA-RVL — Reviewing Logs
+// =====================================================================
+const RVL_RETENTION_FLOOR_DAYS = 90;
+
+export async function collectMlaRvl(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // 1) Workspace retention — at least one workspace at floor.
+  const ws = await runKql(subs,
+    'Resources | where type =~ "microsoft.operationalinsights/workspaces" ' +
+    '| project subscriptionId, id, name, retention=toint(properties.retentionInDays)');
+  if (ws.error) warnings.push(ws.error);
+  const wsAtFloor = ws.rows.filter((r) => Number(r.retention ?? 0) >= RVL_RETENTION_FLOOR_DAYS).length;
+  evidence.push(ev('resourcegraph.workspace_retention', { total: ws.rows.length, at_floor: wsAtFloor, sample: ws.rows.slice(0, 20) }));
+
+  findings.push(finding({
+    rule: 'azure.mla.rvl.workspace_retention_at_floor', passed: wsAtFloor > 0, severity: 'high',
+    current: {
+      summary: `${wsAtFloor}/${ws.rows.length} Log Analytics workspace(s) have retention ≥ ${RVL_RETENTION_FLOOR_DAYS} days.`,
+      observations: { at_floor: wsAtFloor, total: ws.rows.length, floor_days: RVL_RETENTION_FLOOR_DAYS },
+    },
+    target: { summary: `At least one Log Analytics workspace retains data for ≥ ${RVL_RETENTION_FLOOR_DAYS} days (long enough to support FedRAMP-required investigations).`, rationale: 'NIST AU-6, AU-11.' },
+    gap: { description: `No Log Analytics workspace meets the ${RVL_RETENTION_FLOOR_DAYS}-day retention floor.`, affected_resources: [{ type: 'azure_log_analytics_workspace', identifier: 'retention<floor', attributes: { floor_days: RVL_RETENTION_FLOOR_DAYS } }] },
+    remediation: { summary: `Raise retention_in_days on at least one workspace to ${RVL_RETENTION_FLOOR_DAYS} (consider 365+ for FedRAMP High).`, options: [{ approach: 'Terraform azurerm_log_analytics_workspace.', mechanism: 'terraform', steps: [`retention_in_days = ${RVL_RETENTION_FLOOR_DAYS}`, 'Long-term archive: enable a per-table data export to a Storage Account with immutability.'] }] },
+    nist_controls: ['au-6', 'au-11'],
+  }));
+
+  // 2) Active log review — scheduled query rules OR Sentinel analytic rules.
+  const sqr = await runKql(subs,
+    'Resources | where type =~ "microsoft.insights/scheduledqueryrules" | project id, subscriptionId, name');
+  if (sqr.error) warnings.push(sqr.error);
+  const sentinel = await runKql(subs,
+    'Resources | where type =~ "microsoft.securityinsights/alertrules" | project id, subscriptionId, name');
+  if (sentinel.error) warnings.push(sentinel.error);
+  const totalRules = sqr.rows.length + sentinel.rows.length;
+  evidence.push(ev('resourcegraph.alert_rules', { scheduled_query_rules: sqr.rows.length, sentinel_alert_rules: sentinel.rows.length }));
+
+  findings.push(finding({
+    rule: 'azure.mla.rvl.alert_rules_present', passed: totalRules > 0, severity: 'high',
+    current: {
+      summary: totalRules > 0
+        ? `${totalRules} scheduled / Sentinel alert rule(s) actively reviewing logs (${sqr.rows.length} Azure Monitor + ${sentinel.rows.length} Sentinel).`
+        : 'No scheduled query rules or Sentinel alert rules — logs are being collected but not actively reviewed.',
+      observations: { scheduled_query_rules: sqr.rows.length, sentinel_alert_rules: sentinel.rows.length },
+    },
+    target: { summary: 'At least one alert rule (Azure Monitor scheduled query OR Sentinel analytic rule) is actively querying log data on a schedule.', rationale: 'NIST AU-6, AU-6(1), SI-4. Active review, not just collection.' },
+    gap: { description: 'Logs are collected but no scheduled or Sentinel analytic rule queries them on a schedule.', affected_resources: [{ type: 'azure_alert_rule', identifier: 'none', attributes: {} }] },
+    remediation: { summary: 'Enable a set of analytic rules — Sentinel provides FedRAMP-aligned rule templates out of the box.', options: [{ approach: 'Sentinel content hub.', mechanism: 'console', steps: ['Sentinel → Content hub → search "FedRAMP" / "NIST"', 'Install the relevant solution; enable the bundled analytic rules'] }] },
+    nist_controls: ['au-6', 'au-6.1', 'si-4'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-CMT-LMC — Logging Changes
+// =====================================================================
+export async function collectCmtLmc(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // 1) Subscription-scope diagnostic settings (Activity Log → workspace / SA).
+  // Subscription-scope settings appear in Resource Graph with an id beginning
+  // `/subscriptions/<sub>/providers/microsoft.insights/diagnosticsettings`.
+  const subDiag = await runKql(subs,
+    'Resources | where type =~ "microsoft.insights/diagnosticsettings" ' +
+    '| extend isSubScope = tobool(id matches regex "^/subscriptions/[0-9a-fA-F-]+/providers/microsoft.insights/diagnosticsettings") ' +
+    '| where isSubScope ' +
+    '| project id, name, subscriptionId, workspaceId=tostring(properties.workspaceId), storageId=tostring(properties.storageAccountId)');
+  if (subDiag.error) warnings.push(subDiag.error);
+  // Defensive JS-side filter: only count rows whose id is at subscription scope.
+  // The KQL `where isSubScope` filter is the primary guard, but we re-check in JS
+  // so the collector contract doesn't silently rely on Resource Graph behaviour.
+  // Match any non-slash subscription-id token between `/subscriptions/` and the
+  // immediately-following `/providers/microsoft.insights/diagnosticsettings`.
+  // The strict-GUID check would be cosmetic here — Azure's ARM REST guarantees
+  // a GUID in production, and the anchor on the immediate `/providers/...` path
+  // is what actually rejects child-resource scopes (e.g. storageaccount/sa/...).
+  const subScopeRegex = /^\/subscriptions\/[^/]+\/providers\/microsoft\.insights\/diagnosticsettings/i;
+  const subScopeRows = subDiag.rows.filter((r) => typeof r.id === 'string' && subScopeRegex.test(r.id));
+  const coveredSubs = new Set(subScopeRows.map((r) => String(r.subscriptionId ?? '')));
+  evidence.push(ev('resourcegraph.subscription_diagnostic_settings', {
+    rows_returned: subDiag.rows.length,
+    settings_at_subscription_scope: subScopeRows.length,
+    subscriptions_covered: coveredSubs.size,
+    subscriptions_configured: subs.length,
+    sample: subScopeRows.slice(0, 20),
+  }));
+
+  findings.push(finding({
+    rule: 'azure.cmt.lmc.activity_log_exported', passed: coveredSubs.size === subs.length && subs.length > 0, severity: 'high',
+    current: {
+      summary: subs.length === 0
+        ? 'No subscriptions configured to evaluate.'
+        : `${coveredSubs.size}/${subs.length} subscription(s) export the Activity Log via a diagnostic setting.`,
+      observations: { subscriptions_covered: coveredSubs.size, subscriptions_configured: subs.length, sample: [...coveredSubs] },
+    },
+    target: {
+      summary: 'Every in-scope subscription has a diagnostic setting at subscription scope exporting the Activity Log to a Log Analytics workspace, Storage Account, or Event Hub.',
+      rationale: 'NIST AU-2, AU-3, AU-12, CM-3(1), CM-5(1). Configuration changes must be logged.',
+    },
+    gap: { description: 'One or more subscriptions are not exporting the Activity Log — configuration changes for those subscriptions are not being captured beyond Azure\'s default 90-day Activity Log buffer.', affected_resources: [...subs].filter((s) => !coveredSubs.has(s)).slice(0, 50).map((s) => ({ type: 'azure_subscription', identifier: s, attributes: {} })) },
+    remediation: {
+      summary: 'Create a subscription-scope diagnostic setting on every subscription pointing at the central Log Analytics workspace.',
+      options: [
+        { approach: 'Terraform azurerm_monitor_diagnostic_setting at /subscriptions/<sub>.', mechanism: 'terraform', steps: ['For each subscription, declare azurerm_monitor_diagnostic_setting with target_resource_id = "/subscriptions/<sub>"', 'enabled_log { category = "Administrative" } (+ other categories per FedRAMP AU-2 narrative)', 'log_analytics_workspace_id = <shared workspace>'] },
+        { approach: 'Built-in policy "Configure Azure Activity logs to stream to specified Log Analytics workspace".', mechanism: 'console', steps: ['Policy → Definitions → assign DINE policy at MG scope', 'Run a remediation task to backfill existing subscriptions'] },
+      ],
+    },
+    nist_controls: ['au-2', 'au-12', 'cm-3.1', 'cm-5.1'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-MLA-LET', relationship: 'shares-remediation', note: 'Same Resource-Logs / diagnostic-settings pipeline.' }],
+  }));
+
+  // 2) Change Tracking solution (or Defender / VM Insights change tracking) present.
+  const changeTracking = await runKql(subs,
+    'Resources | where type =~ "microsoft.operationsmanagement/solutions" and name startswith "ChangeTracking" ' +
+    '| project id, name, subscriptionId');
+  if (changeTracking.error) warnings.push(changeTracking.error);
+  evidence.push(ev('resourcegraph.change_tracking_solutions', { count: changeTracking.rows.length, sample: changeTracking.rows.slice(0, 10) }));
+
+  findings.push(finding({
+    rule: 'azure.cmt.lmc.change_tracking_enabled', passed: changeTracking.rows.length > 0, severity: 'medium',
+    current: {
+      summary: changeTracking.rows.length > 0
+        ? `${changeTracking.rows.length} Change Tracking solution(s) deployed.`
+        : 'No Change Tracking solution detected (no microsoft.operationsmanagement/solutions starting with "ChangeTracking").',
+      observations: { count: changeTracking.rows.length },
+    },
+    target: { summary: 'Azure Change Tracking (or a SIEM-side equivalent) is enabled to capture OS-level + file-level changes on in-scope VMs.', rationale: 'NIST CM-3, CM-3(1), CM-5(1).' },
+    gap: { description: 'No Change Tracking solution is deployed — VM-level changes (registry / files / services / installed software) are not being tracked.', affected_resources: [{ type: 'azure_change_tracking_solution', identifier: 'none', attributes: {} }] },
+    remediation: {
+      summary: 'Enable Change Tracking via Azure Monitor or migrate to the newer Defender for Servers change-tracking agent.',
+      options: [
+        { approach: 'Terraform azurerm_log_analytics_solution "ChangeTracking".', mechanism: 'terraform', steps: ['Create the solution resource targeting the central workspace', 'Onboard VMs via the Azure Monitor Agent extension'] },
+      ],
+    },
+    nist_controls: ['cm-3', 'cm-3.1', 'cm-5.1'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}

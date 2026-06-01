@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure logging closeout (AZ-MLA-ALA + AZ-MLA-RVL + AZ-CMT-LMC)
+Three more Azure logging KSI collectors land on the AZ-MLA-LET/OSM foundation —
+all via Resource Graph (no new permissions beyond Reader + RBAC read).
+- **`collectMlaAla`** (Authorizing Log Access) — 2 findings:
+  1. `azure.mla.ala.log_analytics_reader_assigned` — at least one explicit
+     `Log Analytics Reader` role assignment (`73c42c96-…`) exists at a Log
+     Analytics workspace scope. Strong signal that operators use the dedicated
+     read-only role for log access.
+  2. `azure.mla.ala.no_broad_workspace_admins` — no Owner / Contributor role
+     assignments scope directly at a workspace (admin scopes should inherit
+     from above, not be granted at the workspace itself).
+- **`collectMlaRvl`** (Reviewing Logs) — 2 findings:
+  1. `azure.mla.rvl.workspace_retention_at_floor` (high) — at least one Log
+     Analytics workspace has retention ≥ 90 days.
+  2. `azure.mla.rvl.alert_rules_present` (high) — at least one Azure Monitor
+     `scheduledQueryRules` OR Sentinel `securityinsights/alertrules` rule is
+     actively querying logs on a schedule (active review, not just collection).
+- **`collectCmtLmc`** (Logging Changes) — 2 findings:
+  1. `azure.cmt.lmc.activity_log_exported` (high) — every configured
+     subscription has a **subscription-scope** diagnostic setting exporting the
+     Activity Log. Filter is JS-authoritative (the regex anchor on
+     `/subscriptions/{id}/providers/microsoft.insights/diagnosticsettings`
+     correctly rejects resource-scope child diag settings).
+  2. `azure.cmt.lmc.change_tracking_enabled` (medium) — a Change Tracking
+     solution (`microsoft.operationsmanagement/solutions` with name starting
+     `ChangeTracking`) is deployed.
+- IAM-PERMISSIONS-CATALOG: row added noting `authorizationresources` table
+  needs an RBAC-read role; `Reader and Data Access` (or any role granting
+  `Microsoft.Authorization/roleAssignments/read`) is sufficient.
+- 13 new dedicated tests covering all three (passing, failing, mixed,
+  no-subs, child-resource diag-setting exclusion). 573 tests pass.
+
 ### Added — Azure logging collectors (AZ-MLA-LET + AZ-MLA-OSM)
 First non-IAM Azure family. Both KSIs run a couple of Azure Resource Graph
 queries — **no new permissions** beyond AZ-1's `Reader` role. KSI-MLA-LET and
