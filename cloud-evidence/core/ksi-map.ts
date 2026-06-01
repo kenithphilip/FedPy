@@ -99,6 +99,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ia-2','ia-2.1','ia-5','ia-5.1'],
     aws: awsIam.collectIamApm,
     gcp: gcpIam.collectIamApm,
+    azure: azIam.collectIamApm,
   },
   'KSI-IAM-ELP': {
     id: 'KSI-IAM-ELP',
@@ -118,6 +119,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-2','ac-6.7'],
     aws: awsIam.collectIamJit,
     gcp: gcpIam.collectIamJit,
+    azure: azIam.collectIamJit,
     process_artifacts_required: [
       '3rd-party JIT tool name + tenant (if used)',
       'sample request/approval audit log (last 30 days)',
@@ -141,6 +143,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-2.7','ia-5','ia-9'],
     aws: awsIam.collectIamSnu,
     gcp: gcpIam.collectIamSnu,
+    azure: azIam.collectIamSnu,
   },
   'KSI-IAM-SUS': {
     id: 'KSI-IAM-SUS',
@@ -150,6 +153,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['au-6','ir-4','si-4'],
     aws: awsIam.collectIamSus,
     gcp: gcpIam.collectIamSus,
+    azure: azIam.collectIamSus,
     process_artifacts_required: [
       'response runbook URL',
       'record of last simulated suspicious-activity drill',

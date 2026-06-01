@@ -403,3 +403,312 @@ export async function collectIamAam(_ctx: CollectorContext): Promise<ProviderBlo
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings };
 }
+
+// =====================================================================
+// KSI-IAM-APM — Adopting Passwordless Methods
+// =====================================================================
+/**
+ * "Adopting Passwordless Methods" maps cleanly to Microsoft Entra ID's
+ * `authenticationStrength` references in Conditional Access. A CA policy that
+ * grants only when the user satisfies a phishing-resistant strength (FIDO2,
+ * Windows Hello for Business, certificate-based auth) is what FedRAMP wants.
+ *
+ * We look for any enabled CA policy whose `grantControls.authenticationStrength`
+ * is non-null — and a stricter variant for admin roles specifically.
+ */
+export async function collectIamApm(_ctx: CollectorContext): Promise<ProviderBlock> {
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  const ca = await graphFetchAll<CaPolicy>('/identity/conditionalAccess/policies', { maxPages: 20 });
+  warnings.push(...ca.warnings);
+
+  const enabledStrengthPolicies = ca.items.filter((p) => p.state === 'enabled' && !!p.grantControls?.authenticationStrength?.id);
+  const adminStrengthPolicies = enabledStrengthPolicies.filter(targetsAdminRoles);
+  evidence.push(ev('graph.conditionalAccess.authenticationStrength', {
+    enabled_with_strength: enabledStrengthPolicies.length,
+    admin_strength: adminStrengthPolicies.length,
+    sample: enabledStrengthPolicies.slice(0, 10).map((p) => ({ id: p.id, displayName: p.displayName, strengthId: p.grantControls?.authenticationStrength?.id })),
+  }));
+
+  // ── Finding 1: at least one enabled CA policy uses authenticationStrength ──
+  findings.push(finding({
+    rule: 'aad.ca_uses_authentication_strength', passed: enabledStrengthPolicies.length > 0, severity: 'medium',
+    current: {
+      summary: enabledStrengthPolicies.length > 0
+        ? `${enabledStrengthPolicies.length} enabled Conditional Access policy(ies) require a passwordless / phishing-resistant authentication strength.`
+        : 'No enabled Conditional Access policy uses authenticationStrength — all sign-ins fall back to the default password-or-MFA path.',
+      observations: { enabled_with_strength: enabledStrengthPolicies.length },
+    },
+    target: {
+      summary: 'At least one enabled Conditional Access policy uses `grantControls.authenticationStrength` (FIDO2 / Windows Hello for Business / certificate-based) instead of the legacy "require MFA" built-in control.',
+      rationale: 'NIST IA-2(11), IA-5(1)(c). FedRAMP guidance is to prefer phishing-resistant methods (PIV, FIDO2) for interactive sign-in.',
+    },
+    gap: { description: 'Authentication strength (the passwordless / phishing-resistant policy track) is not in use.', affected_resources: [{ type: 'azure_aad_ca_policy', identifier: 'none-using-strength', attributes: {} }] },
+    remediation: {
+      summary: 'Create a Conditional Access policy whose grant requires a built-in phishing-resistant strength (e.g. "Phishing-resistant MFA").',
+      options: [
+        { approach: 'Terraform azuread_conditional_access_policy.', mechanism: 'terraform', steps: ['grant_controls.authentication_strength_policy_id = <id of Phishing-resistant MFA built-in strength>', 'state = "enabled"', 'Roll out via a "report-only" stage first to find user-impact gaps'] },
+      ],
+    },
+    nist_controls: ['ia-2.11', 'ia-5.1'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-IAM-MFA', relationship: 'shares-remediation', note: 'authenticationStrength references also satisfy the IAM-MFA admin-MFA finding.' }],
+  }));
+
+  // ── Finding 2: admin roles get the strong policy ──
+  findings.push(finding({
+    rule: 'aad.ca_authentication_strength_for_admins', passed: adminStrengthPolicies.length > 0, severity: 'high',
+    current: {
+      summary: adminStrengthPolicies.length > 0
+        ? `${adminStrengthPolicies.length} Conditional Access policy(ies) require an authenticationStrength on a privileged directory-role principal.`
+        : 'No Conditional Access policy enforces an authenticationStrength on privileged directory roles — admins can still sign in with weak factors.',
+      observations: { admin_strength: adminStrengthPolicies.length },
+    },
+    target: { summary: 'Privileged-role principals are required to satisfy a phishing-resistant authenticationStrength.', rationale: 'NIST IA-2(11), AC-6, AC-6(5).' },
+    gap: { description: 'Admins can satisfy CA grants without a phishing-resistant method.', affected_resources: [{ type: 'azure_aad_ca_policy', identifier: 'no-admin-strength', attributes: {} }] },
+    remediation: { summary: 'Target privileged directory-role templates in `conditions.users.includeRoles` and set `grantControls.authenticationStrength`.', options: [{ approach: 'Terraform.', mechanism: 'terraform', steps: ['conditions.users.included_roles = [<admin templates>]', 'grant_controls.authentication_strength_policy_id = <phishing-resistant id>', 'state = "enabled"'] }] },
+    nist_controls: ['ia-2.11', 'ac-6', 'ac-6.5'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-IAM-SNU — Securing Non-User Authentication
+// =====================================================================
+/**
+ * Maps to service-principal credential hygiene in Entra ID. Apps and SPs carry
+ * `passwordCredentials` (client secrets) and `keyCredentials` (certs); each has
+ * an `endDateTime`. We flag any credential that's already expired but still
+ * present (cleanup hygiene) and any credential older than 365 days (rotation).
+ */
+const SP_CRED_ROTATION_DAYS = 365;
+
+interface PasswordCredential { keyId?: string; endDateTime?: string; startDateTime?: string; displayName?: string }
+interface KeyCredential { keyId?: string; endDateTime?: string; startDateTime?: string; usage?: string; type?: string }
+interface AppOrSp {
+  id?: string;
+  appId?: string;
+  displayName?: string;
+  accountEnabled?: boolean;
+  passwordCredentials?: PasswordCredential[];
+  keyCredentials?: KeyCredential[];
+}
+
+export async function collectIamSnu(_ctx: CollectorContext): Promise<ProviderBlock> {
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // Both /applications and /servicePrincipals — apps own the secrets/certs;
+  // SPs are tenant-scoped instances. Either yields valid credential data.
+  const apps = await graphFetchAll<AppOrSp>(
+    '/applications?$select=id,appId,displayName,passwordCredentials,keyCredentials',
+    { maxPages: 50 },
+  );
+  warnings.push(...apps.warnings);
+
+  const now = Date.now();
+  const expired: Array<{ owner: string; ownerId?: string; kind: 'secret' | 'cert'; endDateTime: string | undefined }> = [];
+  const stale: Array<{ owner: string; ownerId?: string; kind: 'secret' | 'cert'; ageDays: number }> = [];
+
+  for (const a of apps.items) {
+    const ownerLabel = a.displayName ?? a.appId ?? a.id ?? 'unknown';
+    for (const pc of a.passwordCredentials ?? []) {
+      const end = pc.endDateTime ? Date.parse(pc.endDateTime) : NaN;
+      if (Number.isFinite(end) && end < now) expired.push({ owner: ownerLabel, ownerId: a.id, kind: 'secret', endDateTime: pc.endDateTime });
+      const start = pc.startDateTime ? Date.parse(pc.startDateTime) : NaN;
+      if (Number.isFinite(start)) {
+        const ageDays = Math.floor((now - start) / 86_400_000);
+        if (ageDays > SP_CRED_ROTATION_DAYS) stale.push({ owner: ownerLabel, ownerId: a.id, kind: 'secret', ageDays });
+      }
+    }
+    for (const kc of a.keyCredentials ?? []) {
+      const end = kc.endDateTime ? Date.parse(kc.endDateTime) : NaN;
+      if (Number.isFinite(end) && end < now) expired.push({ owner: ownerLabel, ownerId: a.id, kind: 'cert', endDateTime: kc.endDateTime });
+      const start = kc.startDateTime ? Date.parse(kc.startDateTime) : NaN;
+      if (Number.isFinite(start)) {
+        const ageDays = Math.floor((now - start) / 86_400_000);
+        if (ageDays > SP_CRED_ROTATION_DAYS) stale.push({ owner: ownerLabel, ownerId: a.id, kind: 'cert', ageDays });
+      }
+    }
+  }
+  evidence.push(ev('graph.applications.credentials', {
+    apps_count: apps.items.length,
+    expired_credentials: expired.length,
+    stale_credentials: stale.length,
+    sample_expired: expired.slice(0, 20),
+    sample_stale: stale.slice(0, 20),
+  }));
+
+  // ── Finding 1: no expired credentials lying around on apps ──
+  findings.push(finding({
+    rule: 'aad.sp_no_expired_credentials', passed: expired.length === 0, severity: 'medium',
+    current: {
+      summary: expired.length === 0
+        ? `All app/SP credentials are within their endDateTime across ${apps.items.length} app(s).`
+        : `${expired.length} expired credential(s) are still attached to apps/SPs.`,
+      observations: { expired_count: expired.length, sample: expired.slice(0, 50) },
+    },
+    target: { summary: 'No app or service-principal carries a credential past its `endDateTime`. Expired credentials are removed promptly.', rationale: 'NIST IA-5, IA-5(2). Hygiene + reduces audit-log noise.' },
+    gap: { description: 'Apps/SPs have credentials past their expiry date.', affected_resources: expired.slice(0, 50).map((e) => ({ type: 'azure_aad_app_credential', identifier: `${e.owner}::${e.kind}`, attributes: { endDateTime: e.endDateTime } })) },
+    remediation: { summary: 'Audit the listed apps; remove any credential whose endDateTime is in the past.', options: [{ approach: 'PowerShell removal.', mechanism: 'cli', steps: ['$app = Get-MgApplication -ApplicationId <id>', 'Remove-MgApplicationPassword -ApplicationId <id> -KeyId <keyId>'] }] },
+    nist_controls: ['ia-5', 'ia-5.2'],
+  }));
+
+  // ── Finding 2: credentials rotated within the SP_CRED_ROTATION_DAYS window ──
+  findings.push(finding({
+    rule: 'aad.sp_credentials_rotated_within_year', passed: stale.length === 0, severity: 'medium',
+    current: {
+      summary: stale.length === 0
+        ? `No active app/SP credential exceeds the ${SP_CRED_ROTATION_DAYS}-day rotation window.`
+        : `${stale.length} app/SP credential(s) exceed the ${SP_CRED_ROTATION_DAYS}-day rotation window.`,
+      observations: { stale_count: stale.length, sample: stale.slice(0, 50) },
+    },
+    target: { summary: `App / service-principal credentials are rotated at least every ${SP_CRED_ROTATION_DAYS} days. Workload-identity federation (no secret) is preferred where possible.`, rationale: 'NIST IA-5(1), IA-5(13).' },
+    gap: { description: 'App/SP credentials are older than the rotation threshold.', affected_resources: stale.slice(0, 50).map((s) => ({ type: 'azure_aad_app_credential', identifier: `${s.owner}::${s.kind}`, attributes: { ageDays: s.ageDays } })) },
+    remediation: { summary: 'Rotate the listed credentials; migrate high-traffic SPs to federated workload identity to eliminate secrets entirely.', options: [{ approach: 'Workload identity federation (no secret).', mechanism: 'console', steps: ['Entra ID → App registrations → <app> → Certificates & secrets → Federated credentials', 'Bind to GitHub OIDC / AKS / GitHub OIDC / etc.'] }] },
+    nist_controls: ['ia-5.1', 'ia-5.13'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-IAM-JIT — Authorizing Just-in-Time
+// =====================================================================
+/**
+ * The PIM-eligibility *configuration* finding lives on KSI-IAM-ELP. JIT proves
+ * the model is also *in use* — recent PIM activation requests on an admin role
+ * are the strongest live signal that JIT is real, not just configured.
+ */
+const JIT_ACTIVATION_WINDOW_DAYS = 30;
+
+interface RoleAssignmentScheduleRequest {
+  id?: string;
+  action?: string;
+  status?: string;
+  roleDefinitionId?: string;
+  principalId?: string;
+  createdDateTime?: string;
+  scheduleInfo?: { startDateTime?: string };
+}
+
+export async function collectIamJit(_ctx: CollectorContext): Promise<ProviderBlock> {
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  const reqs = await graphFetchAll<RoleAssignmentScheduleRequest>(
+    '/roleManagement/directory/roleAssignmentScheduleRequests',
+    { maxPages: 10 },
+  );
+  warnings.push(...reqs.warnings);
+
+  const cutoff = Date.now() - JIT_ACTIVATION_WINDOW_DAYS * 86_400_000;
+  const adminRoleDefs = new Set([
+    GLOBAL_ADMIN_ROLE_TEMPLATE,
+    'e8611ab8-c189-46e8-94e1-60213ab1f814',
+    '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3',
+    '194ae4cb-b126-40b2-bd5b-6091b380977d',
+    'fe930be7-5e62-47db-91af-98c3a49a38b1',
+  ]);
+  const recentAdminActivations = reqs.items.filter((r) => {
+    if (r.action !== 'selfActivate' && r.action !== 'adminAssign') return false;
+    if (r.status && !/granted|provisioned/i.test(r.status)) return false;
+    if (!r.roleDefinitionId || !adminRoleDefs.has(r.roleDefinitionId)) return false;
+    const t = Date.parse(r.createdDateTime ?? r.scheduleInfo?.startDateTime ?? '');
+    return Number.isFinite(t) && t >= cutoff;
+  });
+  evidence.push(ev('graph.pimActivations', {
+    total_requests: reqs.items.length,
+    recent_admin_activations_30d: recentAdminActivations.length,
+    sample: recentAdminActivations.slice(0, 10).map((r) => ({ id: r.id, action: r.action, role: r.roleDefinitionId, when: r.createdDateTime })),
+  }));
+
+  findings.push(finding({
+    rule: 'aad.pim_admin_activation_within_30d', passed: recentAdminActivations.length > 0, severity: 'medium',
+    current: {
+      summary: recentAdminActivations.length > 0
+        ? `${recentAdminActivations.length} PIM activation(s) on privileged directory roles in the last ${JIT_ACTIVATION_WINDOW_DAYS} day(s).`
+        : `No PIM activations on privileged directory roles in the last ${JIT_ACTIVATION_WINDOW_DAYS} day(s) — JIT may be configured but unused (admins still rely on standing assignments).`,
+      observations: { recent_admin_activations_30d: recentAdminActivations.length },
+    },
+    target: {
+      summary: 'Privileged operations are performed via PIM activations (just-in-time), not via standing role assignments — at least one activation is observable in the recent window.',
+      rationale: 'NIST AC-2(7), AC-6(2). JIT activation evidence proves the JIT model is operationally live, not just configured.',
+    },
+    gap: { description: `No PIM activations on admin roles in the last ${JIT_ACTIVATION_WINDOW_DAYS} days.`, affected_resources: [{ type: 'azure_aad_pim_activation', identifier: 'admin-roles', attributes: {} }] },
+    remediation: {
+      summary: 'Confirm PIM is configured for admin roles (IAM-ELP), then deprecate any remaining standing admin assignments and require activation for every privileged action.',
+      options: [{ approach: 'Configure activation policies (P2).', mechanism: 'console', steps: ['Entra ID → PIM → Azure AD roles → Roles → Global Administrator → Role settings → Edit', 'Require MFA on activation = Yes', 'Require justification on activation = Yes', 'Maximum activation duration ≤ 4h'] }],
+    },
+    nist_controls: ['ac-2.7', 'ac-6.2'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-IAM-ELP', relationship: 'depends-on', note: 'PIM eligibility (ELP) is the configuration; JIT activations are the runtime evidence.' }],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
+
+// =====================================================================
+// KSI-IAM-SUS — Responding to Suspicious Activity
+// =====================================================================
+/**
+ * Entra ID Identity Protection lets Conditional Access policies condition on
+ * `signInRiskLevels` and `userRiskLevels` (low / medium / high). A risk-based
+ * CA policy is the FedRAMP-meaningful "auto-respond to suspicious activity"
+ * signal — it can require password reset, MFA challenge, or block sign-in based
+ * on the risk score.
+ */
+export async function collectIamSus(_ctx: CollectorContext): Promise<ProviderBlock> {
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  const ca = await graphFetchAll<CaPolicy & { conditions?: { signInRiskLevels?: string[]; userRiskLevels?: string[] } }>(
+    '/identity/conditionalAccess/policies',
+    { maxPages: 20 },
+  );
+  warnings.push(...ca.warnings);
+
+  const enabledRiskPolicies = ca.items.filter((p) => {
+    if (p.state !== 'enabled') return false;
+    const sig = ((p.conditions as any)?.signInRiskLevels ?? []) as string[];
+    const usr = ((p.conditions as any)?.userRiskLevels ?? []) as string[];
+    return sig.length > 0 || usr.length > 0;
+  });
+  evidence.push(ev('graph.conditionalAccess.riskBased', {
+    enabled_risk_policies: enabledRiskPolicies.length,
+    sample: enabledRiskPolicies.slice(0, 10).map((p) => ({
+      id: p.id,
+      displayName: p.displayName,
+      signInRiskLevels: (p.conditions as any)?.signInRiskLevels ?? [],
+      userRiskLevels: (p.conditions as any)?.userRiskLevels ?? [],
+    })),
+  }));
+
+  findings.push(finding({
+    rule: 'aad.risk_based_conditional_access', passed: enabledRiskPolicies.length > 0, severity: 'high',
+    current: {
+      summary: enabledRiskPolicies.length > 0
+        ? `${enabledRiskPolicies.length} enabled Conditional Access policy(ies) react to sign-in or user risk signals (Identity Protection).`
+        : 'No enabled Conditional Access policy reacts to Identity Protection risk signals — suspicious sign-ins do not trigger automated action.',
+      observations: { risk_based_policies: enabledRiskPolicies.length },
+    },
+    target: {
+      summary: 'At least one enabled Conditional Access policy uses `signInRiskLevels` or `userRiskLevels` to automatically require step-up MFA, password reset, or block sign-in on suspicious activity.',
+      rationale: 'NIST AU-6, IR-4, SI-4(4), SI-4(7). FedRAMP requires automated response to suspicious activity on privileged accounts.',
+    },
+    gap: { description: 'Identity Protection risk signals exist but no Conditional Access policy reacts to them.', affected_resources: [{ type: 'azure_aad_identity_protection', identifier: 'risk-based-ca', attributes: {} }] },
+    remediation: {
+      summary: 'Create two Conditional Access policies in Identity Protection: (a) high sign-in risk → block, and (b) medium+ user risk → require password change (Entra ID P2 required).',
+      options: [
+        { approach: 'Terraform azuread_conditional_access_policy with risk levels.', mechanism: 'terraform', steps: ['conditions.sign_in_risk_levels = ["high"]', 'grant_controls.built_in_controls = ["block"]', 'state = "enabled"', 'Repeat for conditions.user_risk_levels = ["high"] → grant_controls.built_in_controls = ["passwordChange"]'] },
+      ],
+    },
+    nist_controls: ['au-6', 'ir-4', 'si-4', 'si-4.4', 'si-4.7'],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}

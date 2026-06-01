@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure IAM family completion (IAM-APM / IAM-SNU / IAM-JIT / IAM-SUS)
+Last four KSIs in the Entra ID / Microsoft Graph track land — **every IAM KSI is
+now AWS + GCP + Azure** (7 of 7). No new auth infrastructure; reuses the Graph
+helper + per-KSI Azure dispatch shipped earlier.
+- **`collectIamApm`** (Adopting Passwordless Methods) — 2 findings on the same
+  CA-policies endpoint already used by IAM-MFA:
+  1. `aad.ca_uses_authentication_strength` — pass when ≥1 enabled CA policy
+     references `grantControls.authenticationStrength` (FIDO2 / Windows Hello /
+     cert-based) instead of the legacy `mfa` built-in.
+  2. `aad.ca_authentication_strength_for_admins` (severity `high`) — same but
+     specifically targeting privileged directory roles.
+- **`collectIamSnu`** (Securing Non-User Authentication) — service-principal
+  credential hygiene via `/applications`:
+  1. `aad.sp_no_expired_credentials` — no SP carries a credential past its
+     `endDateTime`. Hygiene + reduces audit-log noise.
+  2. `aad.sp_credentials_rotated_within_year` — no SP credential is > 365 days
+     old. Workload-identity federation surfaced as the preferred remediation.
+- **`collectIamJit`** (Authorizing Just-in-Time) — 1 finding on
+  `/roleManagement/directory/roleAssignmentScheduleRequests`:
+  - `aad.pim_admin_activation_within_30d` — proves JIT is **operationally live**
+    by requiring ≥1 granted PIM self-activation on a privileged role in the last
+    30 days, not just configured. Cross-KSI link to IAM-ELP (config) / IAM-MFA.
+- **`collectIamSus`** (Responding to Suspicious Activity) — 1 finding on the
+  CA-policies endpoint:
+  - `aad.risk_based_conditional_access` (severity `high`) — pass when ≥1
+    enabled CA policy reacts to Entra ID **Identity Protection** signals
+    (`signInRiskLevels` / `userRiskLevels`) to automatically block, step-up, or
+    force password reset on suspicious sign-ins.
+- **IAM-PERMISSIONS-CATALOG**: added the new `Application.Read.All` row;
+  Policy.Read.All / RoleManagement.Read.Directory already in place from earlier
+  slices.
+- 18 new dedicated tests (each KSI: passing, failing, ignore-disabled,
+  ignore-non-matching). **AZ-2 IAM family is complete; 550 tests pass.**
+
 ### Added — Azure IAM-ELP + IAM-AAM collectors (next AZ-2 slice)
 Two more Azure KSI collectors land on the Microsoft Graph + per-KSI Azure
 dispatch foundation shipped with AZ-IAM-MFA. KSI-IAM-ELP and KSI-IAM-AAM are

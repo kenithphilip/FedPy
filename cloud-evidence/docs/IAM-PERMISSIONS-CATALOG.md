@@ -150,6 +150,10 @@ per-subscription if MG access isn't available):
 | `iam.ts` (`collectIamMfa`) | KSI-IAM-MFA | Microsoft Graph (`/policies/identitySecurityDefaultsEnforcementPolicy`, `/identity/conditionalAccess/policies`) | App-role `Policy.Read.All` (and `Directory.Read.All` for richer role-template hydration in later collectors). Graph requests are plain REST; the runner principal needs the Graph app role assigned in Entra ID. |
 | `iam.ts` (`collectIamElp`) | KSI-IAM-ELP | Microsoft Graph (`/directoryRoles`, `/directoryRoles/{id}/members`, `/roleManagement/directory/roleEligibilitySchedules`) | App-role `RoleManagement.Read.Directory` (PIM eligibility + role assignments) + `Directory.Read.All` (directory-role membership). |
 | `iam.ts` (`collectIamAam`) | KSI-IAM-AAM | Microsoft Graph (`/users?$select=…,signInActivity,accountEnabled`) | App-roles `User.Read.All` (user list + `accountEnabled`) AND `AuditLog.Read.All` (populates the `signInActivity` field). Without `AuditLog.Read.All` the collector degrades to a "data-missing" warning rather than reporting false positives. |
+| `iam.ts` (`collectIamApm`) | KSI-IAM-APM | Microsoft Graph (`/identity/conditionalAccess/policies`) | App-role `Policy.Read.All` (same endpoint as IAM-MFA — no new permission needed). |
+| `iam.ts` (`collectIamSnu`) | KSI-IAM-SNU | Microsoft Graph (`/applications?$select=…,passwordCredentials,keyCredentials`) | App-role `Application.Read.All`. |
+| `iam.ts` (`collectIamJit`) | KSI-IAM-JIT | Microsoft Graph (`/roleManagement/directory/roleAssignmentScheduleRequests`) | App-role `RoleManagement.Read.Directory` (same as IAM-ELP — no new permission needed). |
+| `iam.ts` (`collectIamSus`) | KSI-IAM-SUS | Microsoft Graph (`/identity/conditionalAccess/policies`) | App-role `Policy.Read.All`. Risk-level conditions also require Entra ID P2 to be present in the tenant for the data to be non-empty. |
 
 ### Azure auth notes
 
