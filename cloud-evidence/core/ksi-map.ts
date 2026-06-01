@@ -427,6 +427,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cp-9','cp-9.1','cp-9.8'],
     aws: awsBackup.collectRplAbo,
     gcp: gcpBackup.collectRplAbo,
+    azure: azBackup.collectRplAbo,
     process_artifacts_required: ['RPO/RTO document per system', 'Backup-vs-RPO alignment review minutes'],
   },
   'KSI-RPL-TRC': {
@@ -437,6 +438,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cp-4','cp-4.1','cp-10.2'],
     aws: awsBackup.collectRplTrc,
     gcp: gcpBackup.collectRplTrc,
+    azure: azBackup.collectRplTrc,
     process_artifacts_required: ['DR test plan', 'Last test AAR', 'Restore-time-vs-RTO comparison'],
   },
   'KSI-PIY-GIV': {

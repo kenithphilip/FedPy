@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure RPL family: RPL-ABO + RPL-TRC (backup + restore recovery)
+Two Azure recovery KSIs land in `providers/azure/backup.ts`. KSI-RPL-ABO and
+KSI-RPL-TRC are now AWS + GCP + Azure. All via Resource Graph's `Resources`
++ `RecoveryServicesResources` tables; no new permissions beyond AZ-1's
+`Reader` role.
+
+- **`collectRplAbo`** (Aligning Backups with Objectives — HYBRID) — 3 findings:
+  1. `azure.rpl.abo.recovery_vault_present` (high) — at least one
+     `microsoft.recoveryservices/vaults` or `microsoft.dataprotection/backupvaults`
+     exists across the configured subscriptions.
+  2. `azure.rpl.abo.protected_items_present` (high) — backup-protected items
+     are registered under a vault (so backups are actually happening), unless
+     the vault finding has already failed (vacuous pass to avoid double-counting).
+  3. `azure.rpl.abo.recent_backup_jobs_clean` (high) — Backup jobs in the
+     last 30 days show ≥ 1 Completed and zero Failed. JS-authoritative time
+     + operation filter so the mock doesn't need to honour the KQL `where`.
+- **`collectRplTrc`** (Testing Recovery Capabilities — HYBRID) — 1 finding +
+  KSI-level alternative satisfier:
+  1. `azure.rpl.trc.recent_successful_restore` (medium) — at least one
+     successful Restore job in the last 90 days.
+  - KSI-level `alternative_satisfier`: documented gameday / tabletop DR
+     exercise with AAR, captured via `process_artifacts_required` in
+     `ksi-map.ts` so the operator can satisfy via either path.
+- `ksi-map.ts`: `azure` slot wired for both KSI-RPL-ABO and KSI-RPL-TRC.
+- IAM-PERMISSIONS-CATALOG: row added for the `RecoveryServicesResources`
+  Resource Graph table used by the new collectors.
+- 11 new dedicated tests (vaults present / absent, items absent under vault,
+  failed-job in window, no jobs in window, newer Backup Vault recognised,
+  successful restore, no restores, only-failed restores, alternative
+  satisfier exposed, stale >90d restores ignored). **115 dedicated Azure
+  tests, 625 total. 24 Azure KSIs covered.**
+
 ### Added — Azure CNA closeouts: CNA-DFP + CNA-OFA + MLA-EVC
 Three more Azure KSI collectors land in tight, single-finding slices. KSI-CNA-DFP,
 KSI-CNA-OFA, and KSI-MLA-EVC are now AWS + GCP + Azure. All via Resource Graph;
