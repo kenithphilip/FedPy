@@ -26,7 +26,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectMlaLet, collectMlaOsm, collectMlaAla, collectMlaRvl, collectCmtLmc } from '../../../providers/azure/logging.ts';
+import { collectMlaLet, collectMlaOsm, collectMlaAla, collectMlaRvl, collectCmtLmc, collectMlaEvc } from '../../../providers/azure/logging.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -319,5 +319,43 @@ describe('collectCmtLmc (KSI-CMT-LMC Azure)', () => {
     const block = await collectCmtLmc(ctx(['sub-1']));
     // Resource-scope diag settings don't count as sub-scope; activity-log export is not configured for this sub.
     expect(block.findings.find((f) => f.rule === 'azure.cmt.lmc.activity_log_exported')!.passed).toBe(false);
+  });
+});
+
+// =====================================================================
+// KSI-MLA-EVC
+// =====================================================================
+describe('collectMlaEvc (KSI-MLA-EVC Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES when Defender assessments exist (any subscription)', async () => {
+    _state.routes = [{ match: 'security/assessments', rows: [
+      { subscriptionId: 'sub-1', total: 200, unhealthy: 25, healthy: 175 },
+    ] }];
+    const block = await collectMlaEvc(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+    const obs = block.findings[0]!.current_state.observations as any;
+    expect(obs.total).toBe(200);
+    expect(obs.unhealthy).toBe(25);
+    expect(obs.healthy).toBe(175);
+    assertSchemaValid(block, 'KSI-MLA-EVC');
+  });
+
+  it('SUMS across multiple subscriptions', async () => {
+    _state.routes = [{ match: 'security/assessments', rows: [
+      { subscriptionId: 'sub-1', total: 100, unhealthy: 10, healthy: 90 },
+      { subscriptionId: 'sub-2', total: 50, unhealthy: 5, healthy: 45 },
+    ] }];
+    const block = await collectMlaEvc(ctx(['sub-1', 'sub-2']));
+    const obs = block.findings[0]!.current_state.observations as any;
+    expect(obs.total).toBe(150);
+    expect(obs.unhealthy).toBe(15);
+    expect(obs.healthy).toBe(135);
+  });
+
+  it('FAILS when no Defender assessments exist', async () => {
+    _state.routes = [{ match: 'security/assessments', rows: [] }];
+    const block = await collectMlaEvc(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
   });
 });

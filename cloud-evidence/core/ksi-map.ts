@@ -62,6 +62,7 @@ import * as azIam from '../providers/azure/iam.ts';
 import * as azLogging from '../providers/azure/logging.ts';
 import * as azNetwork from '../providers/azure/network.ts';
 import * as azConfig from '../providers/azure/config.ts';
+import * as azBackup from '../providers/azure/backup.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -214,6 +215,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-3','ac-6','ac-6.1','cm-7'],
     aws: awsIam.collectCnaDfp,
     gcp: gcpIam.collectCnaDfp,
+    azure: azConfig.collectCnaDfp,
   },
   'KSI-CNA-EIS': {
     id: 'KSI-CNA-EIS',
@@ -243,6 +245,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cp-2','cp-7','cp-10'],
     aws: awsBackup.collectCnaOfa,
     gcp: gcpBackup.collectCnaOfa,
+    azure: azBackup.collectCnaOfa,
   },
 
   // ---- MLA: Monitoring, Logging, and Auditing ----
@@ -264,6 +267,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ca-7','cm-6','cm-7','ra-5'],
     aws: awsLogging.collectMlaEvc,
     gcp: gcpLogging.collectMlaEvc,
+    azure: azLogging.collectMlaEvc,
   },
   'KSI-MLA-LET': {
     id: 'KSI-MLA-LET',

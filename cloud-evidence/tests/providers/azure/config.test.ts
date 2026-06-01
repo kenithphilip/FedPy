@@ -23,7 +23,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectCnaEis, collectCnaIbp } from '../../../providers/azure/config.ts';
+import { collectCnaEis, collectCnaIbp, collectCnaDfp } from '../../../providers/azure/config.ts';
 
 // Substring used to route mock queries to the MCSB-specific route. The
 // collector embeds the (mixed-case) MCSB initiative id literally in the KQL,
@@ -164,5 +164,28 @@ describe('collectCnaIbp (KSI-CNA-IBP Azure)', () => {
     ];
     const block = await collectCnaIbp(ctx());
     expect(block.findings.find((f) => f.rule === 'azure.cna.ibp.regulatory_initiative_assigned')!.passed).toBe(false);
+  });
+});
+
+// =====================================================================
+// KSI-CNA-DFP
+// =====================================================================
+describe('collectCnaDfp (KSI-CNA-DFP Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES when at least one custom RBAC role definition exists', async () => {
+    _state.routes = [{ match: 'roledefinitions', rows: [
+      { id: '/rd/1', name: 'custom-1', roleName: 'Workload Reader', subscriptionId: 'sub-1' },
+    ] }];
+    const block = await collectCnaDfp(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+    expect((block.findings[0]!.current_state.observations as any).sample).toContain('Workload Reader');
+    assertSchemaValid(block, 'KSI-CNA-DFP');
+  });
+
+  it('FAILS when no custom role definitions exist', async () => {
+    _state.routes = [{ match: 'roledefinitions', rows: [] }];
+    const block = await collectCnaDfp(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
   });
 });

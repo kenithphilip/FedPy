@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure CNA closeouts: CNA-DFP + CNA-OFA + MLA-EVC
+Three more Azure KSI collectors land in tight, single-finding slices. KSI-CNA-DFP,
+KSI-CNA-OFA, and KSI-MLA-EVC are now AWS + GCP + Azure. All via Resource Graph;
+no new permissions beyond what each table already needs.
+
+- **`collectCnaDfp`** (Defining Functionality and Privileges) in `config.ts` —
+  1 finding:
+  - `azure.cna.dfp.custom_role_definitions_present` (medium) — at least one
+    custom RBAC role definition exists (`properties.type == "CustomRole"`).
+    Proxy for "operators have authored narrow least-privilege roles instead
+    of relying on Azure built-ins". Cross-KSI link to KSI-IAM-ELP.
+- **`collectCnaOfa`** (Optimizing for Availability) in new `backup.ts` —
+  2 findings:
+  1. `azure.cna.ofa.vms_use_availability_zones` (medium) — every VM is
+     zone-pinned **and** the fleet spans ≥ 2 distinct zones.
+  2. `azure.cna.ofa.storage_redundant_replication` (medium) — no storage
+     account uses Standard_LRS / Premium_LRS (single-datacenter).
+- **`collectMlaEvc`** (Evaluating Configurations) in `logging.ts` — 1 finding:
+  - `azure.mla.evc.defender_assessments_running` (high) — Microsoft Defender
+    for Cloud is producing `microsoft.security/assessments` entries
+    (richer than the Azure Policy engine alone: per-resource Healthy /
+    Unhealthy / NotApplicable status). Surfaces `unhealthy` count.
+- IAM-PERMISSIONS-CATALOG: rows added for the new `backup.ts` file and the
+  `securityresources` table for MLA-EVC (`Security Reader` required).
+- 11 new dedicated tests. **104 dedicated Azure tests, 614 total. 22 Azure
+  KSIs covered.**
+
 ### Added — Azure CNA-EIS + CNA-IBP (Azure Policy + Microsoft Cloud Security Benchmark)
 Two more Azure KSIs land. KSI-CNA-EIS and KSI-CNA-IBP are now AWS + GCP + Azure.
 All via Resource Graph's `policyresources` table; no new permissions beyond

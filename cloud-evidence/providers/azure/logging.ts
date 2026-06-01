@@ -442,3 +442,62 @@ export async function collectCmtLmc(ctx: CollectorContext): Promise<ProviderBloc
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings };
 }
+
+// =====================================================================
+// KSI-MLA-EVC — Evaluating Configurations
+// =====================================================================
+/**
+ * Microsoft Defender for Cloud generates continuous security assessments on
+ * every in-scope resource (`microsoft.security/assessments`). Their presence is
+ * the strongest automatable signal for "actively evaluating + testing the
+ * configuration of machine-based information resources" — a richer evaluator
+ * than the Azure Policy engine (CNA-EIS) because each assessment carries a
+ * per-resource Healthy / Unhealthy status that maps directly to FedRAMP CM-6 /
+ * RA-5 evidence.
+ */
+export async function collectMlaEvc(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  const assess = await runKql(subs,
+    'securityresources | where type =~ "microsoft.security/assessments" ' +
+    '| extend status = tostring(properties.status.code) ' +
+    '| summarize total = count(), unhealthy = countif(status == "Unhealthy"), healthy = countif(status == "Healthy") by subscriptionId');
+  if (assess.error) warnings.push(assess.error);
+  const totals = assess.rows.reduce(
+    (acc, r) => ({
+      total: acc.total + Number(r.total ?? 0),
+      unhealthy: acc.unhealthy + Number(r.unhealthy ?? 0),
+      healthy: acc.healthy + Number(r.healthy ?? 0),
+    }),
+    { total: 0, unhealthy: 0, healthy: 0 },
+  );
+  evidence.push(ev('resourcegraph.defender_assessments', { ...totals, by_subscription: assess.rows.slice(0, 20) }));
+
+  findings.push(finding({
+    rule: 'azure.mla.evc.defender_assessments_running', passed: totals.total > 0, severity: 'high',
+    current: {
+      summary: totals.total > 0
+        ? `${totals.total} Defender for Cloud security assessment(s) — ${totals.unhealthy} unhealthy, ${totals.healthy} healthy. Configuration evaluation is actively running.`
+        : 'No Microsoft Defender for Cloud assessments — configuration evaluation is not generating any evidence.',
+      observations: { ...totals },
+    },
+    target: {
+      summary: 'Microsoft Defender for Cloud is enabled and producing assessment evidence (`microsoft.security/assessments` is non-empty).',
+      rationale: 'NIST CA-7, CM-6, CM-7, RA-5. FedRAMP requires continuous configuration evaluation.',
+    },
+    gap: { description: 'Defender for Cloud assessments are absent — configuration drift / mis-configurations are not being detected automatically.', affected_resources: [{ type: 'azure_defender_assessment', identifier: 'none', attributes: {} }] },
+    remediation: {
+      summary: 'Enable Defender for Cloud (Standard tier where appropriate) on every in-scope subscription; the built-in Microsoft Cloud Security Benchmark assessments will start producing evidence within minutes.',
+      options: [
+        { approach: 'az CLI per subscription.', mechanism: 'cli', steps: ['az security pricing create -n VirtualMachines --tier Standard', 'az security pricing create -n StorageAccounts --tier Standard', 'Wait ~10 minutes for the first assessment scan'] },
+      ],
+    },
+    nist_controls: ['ca-7', 'cm-6', 'ra-5'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-CNA-EIS', relationship: 'shares-remediation', note: 'Both rely on Defender / Azure Policy being enabled.' }],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}

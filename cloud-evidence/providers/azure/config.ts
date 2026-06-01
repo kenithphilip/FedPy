@@ -214,3 +214,53 @@ export async function collectCnaIbp(ctx: CollectorContext): Promise<ProviderBloc
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings };
 }
+
+// =====================================================================
+// KSI-CNA-DFP — Defining Functionality and Privileges
+// =====================================================================
+/**
+ * The strongest automatable signal we have for "narrow functionality and
+ * privileges" in Entra ID / ARM is the presence of CUSTOM role definitions —
+ * operators that need least-privilege beyond the built-in roles have authored
+ * their own. We DON'T count built-in roles here (they exist by default and
+ * say nothing about operator intent).
+ */
+export async function collectCnaDfp(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  const roles = await runKql(subs,
+    'authorizationresources | where type =~ "microsoft.authorization/roledefinitions" ' +
+    '| extend roleType = tostring(properties.type), roleName = tostring(properties.roleName) ' +
+    '| where roleType == "CustomRole" ' +
+    '| project id, name, roleName, subscriptionId');
+  if (roles.error) warnings.push(roles.error);
+  evidence.push(ev('resourcegraph.custom_role_definitions', { count: roles.rows.length, sample: roles.rows.slice(0, 20) }));
+
+  findings.push(finding({
+    rule: 'azure.cna.dfp.custom_role_definitions_present', passed: roles.rows.length > 0, severity: 'medium',
+    current: {
+      summary: roles.rows.length > 0
+        ? `${roles.rows.length} custom RBAC role definition(s) — operators define narrow least-privilege roles instead of relying on built-ins alone.`
+        : 'No custom RBAC role definitions found — every grant relies on Azure built-in roles, which are typically broader than necessary.',
+      observations: { count: roles.rows.length, sample: roles.rows.slice(0, 10).map((r) => r.roleName) },
+    },
+    target: {
+      summary: 'At least one custom RBAC role definition exists — narrow, function-specific permissions instead of blanket Owner / Contributor / Reader.',
+      rationale: 'NIST AC-3, AC-6, AC-6(1), CM-7. Built-in roles are necessarily broad; custom roles are the canonical Azure mechanism for least privilege at the resource level.',
+    },
+    gap: { description: 'No custom roles defined — least-privilege is constrained by the granularity of Azure built-ins.', affected_resources: [{ type: 'azure_role_definition', identifier: 'custom-roles', attributes: {} }] },
+    remediation: {
+      summary: 'Author one or more custom roles scoped to the specific actions your workloads need; use Azure Resource Manager templates / Terraform for reproducibility.',
+      options: [
+        { approach: 'Terraform azurerm_role_definition.', mechanism: 'terraform', steps: ['Identify the exact actions a workload needs (e.g. Microsoft.Storage/storageAccounts/listKeys/action)', 'Author a custom role scoped to those actions only', 'Assign the custom role; remove the broader built-in grant'] },
+      ],
+    },
+    nist_controls: ['ac-3', 'ac-6', 'ac-6.1', 'cm-7'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-IAM-ELP', relationship: 'shares-remediation', note: 'Custom roles reduce reliance on Global Admin / built-in Owner.' }],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
+}
