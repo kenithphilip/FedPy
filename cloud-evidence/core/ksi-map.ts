@@ -65,6 +65,7 @@ import * as azConfig from '../providers/azure/config.ts';
 import * as azBackup from '../providers/azure/backup.ts';
 import * as azSecrets from '../providers/azure/secrets.ts';
 import * as azSupplychain from '../providers/azure/supplychain.ts';
+import * as azData from '../providers/azure/data.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -391,6 +392,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['mp-6','si-12'],
     aws: awsData.collectSvcRud,
     gcp: gcpData.collectSvcRud,
+    azure: azData.collectSvcRud,
   },
   'KSI-SVC-SNT': {
     id: 'KSI-SVC-SNT',
@@ -410,6 +412,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['sc-23','si-7.1'],
     aws: awsData.collectSvcVcm,
     gcp: gcpData.collectSvcVcm,
+    azure: azData.collectSvcVcm,
     process_artifacts_required: [
       'Service mesh / mTLS deployment manifests (if used)',
       'Sample mTLS-validated traffic capture or service-mesh audit log',
@@ -423,6 +426,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['si-7','si-7.1','si-7.6'],
     aws: awsData.collectSvcVri,
     gcp: gcpData.collectSvcVri,
+    azure: azData.collectSvcVri,
   },
 
   // ---- Phase 5 ----

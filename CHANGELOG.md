@@ -6,6 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure SVC-RUD + SVC-VCM + SVC-VRI (data plane KSIs)
+Three Azure data-plane KSI collectors land in new `providers/azure/data.ts`.
+KSI-SVC-RUD and KSI-SVC-VRI are now AWS + GCP + Azure; KSI-SVC-VCM (HYBRID)
+is too. All via Resource Graph management-plane reads — no Storage Blob
+Data role needed (we read metadata, not blob contents).
+
+- **`collectSvcRud`** (Removing Unwanted Data) — 2 findings + KSI-level
+  alt satisfier:
+  1. `azure.svc.rud.blob_soft_delete_finite_window` (medium) — every
+     storage account has blob soft-delete enabled with retention between
+     1 and 90 days (audit window without blocking actual deletion under
+     customer-SLA).
+  2. `azure.svc.rud.lifecycle_management_present` (medium) — at least
+     one `microsoft.storage/storageaccounts/managementpolicies` exists
+     (retention/deletion is automated, not manual).
+  - Alt satisfier: application-layer deletion + DB TTL with audit log.
+- **`collectSvcVcm`** (Validating Communications — HYBRID) — 1 finding
+  + KSI-level alt satisfiers:
+  - `azure.svc.vcm.mtls_or_service_mesh_present` (medium) — at least one
+    of: Application Gateway with SSL profile (mTLS), API Management with
+    `negotiateClientCertificate=true`, OR an AKS cluster with
+    `serviceMeshProfile.mode = "Istio"`.
+  - Alt satisfiers: external service mesh (Linkerd / Consul / Cilium /
+    OSM) on AKS; code-level mTLS via shared CA.
+- **`collectSvcVri`** (Validating Resource Integrity) — 1 finding +
+  KSI-level alt satisfier:
+  - `azure.svc.vri.storage_integrity_present` (medium) — every storage
+    account has blob versioning enabled OR is covered by at least one
+    immutability policy. ID-substring matcher reconciles the
+    storage-account container ↔ child immutability-policy id.
+  - Alt satisfier: Azure Confidential Compute TEE attestation for
+    VM/container workloads.
+- `ksi-map.ts`: `azure` slot wired for KSI-SVC-RUD, KSI-SVC-VCM, KSI-SVC-VRI.
+- IAM-PERMISSIONS-CATALOG: one row added covering all three collectors —
+  `Reader` is sufficient.
+- 15 new dedicated tests (5 SVC-RUD: full pass / soft-delete off / overly
+  long retention / no lifecycle / vacuous; 5 SVC-VCM: AGW mTLS / APIM
+  client-cert / AKS Istio / all-off / alt satisfiers; 5 SVC-VRI:
+  versioning on / immutability covers unversioned account / unprotected
+  failure / vacuous / alt satisfier). **164 dedicated Azure tests, 674
+  total. 33 Azure KSIs covered.**
+
 ### Added — Azure CMT-RMV + CMT-VTD (ACR + Defender for DevOps)
 Two more Azure KSI collectors land in new `providers/azure/supplychain.ts`.
 KSI-CMT-RMV is now AWS + GCP + Azure; KSI-CMT-VTD (HYBRID) is too.
