@@ -64,6 +64,7 @@ import * as azNetwork from '../providers/azure/network.ts';
 import * as azConfig from '../providers/azure/config.ts';
 import * as azBackup from '../providers/azure/backup.ts';
 import * as azSecrets from '../providers/azure/secrets.ts';
+import * as azSupplychain from '../providers/azure/supplychain.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -329,6 +330,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cm-2','cm-2.2','cm-3','sa-10'],
     aws: awsSupplychain.collectCmtRmv,
     gcp: gcpSupplychain.collectCmtRmv,
+    azure: azSupplychain.collectCmtRmv,
   },
   'KSI-CMT-VTD': {
     id: 'KSI-CMT-VTD',
@@ -338,6 +340,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cm-3.2','cm-4','sa-11','sa-11.1','si-7'],
     aws: awsSupplychain.collectCmtVtd,
     gcp: gcpSupplychain.collectCmtVtd,
+    azure: azSupplychain.collectCmtVtd,
     process_artifacts_required: [
       'SAST/SCA tool inventory + versions',
       'Test coverage report',

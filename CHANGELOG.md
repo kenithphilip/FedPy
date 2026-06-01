@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure CMT-RMV + CMT-VTD (ACR + Defender for DevOps)
+Two more Azure KSI collectors land in new `providers/azure/supplychain.ts`.
+KSI-CMT-RMV is now AWS + GCP + Azure; KSI-CMT-VTD (HYBRID) is too.
+
+- **`collectCmtRmv`** (Redeploying vs Modifying) — 2 findings + KSI-level
+  alt satisfier:
+  1. `azure.cmt.rmv.acr_present` (medium) — ≥ 1 Azure Container Registry
+     inventoried.
+  2. `azure.cmt.rmv.acr_admin_user_disabled` (high) — every ACR has the
+     legacy admin user disabled. `null` treated as disabled (ACR default).
+     RBAC-only push/pull is the IAM-ELP story applied at the registry.
+  - Alt satisfier: off-Azure registry (ECR / GCR / GHCR / Docker Hub)
+    with signing + immutability enforced upstream.
+- **`collectCmtVtd`** (Validating Throughout Deployment — HYBRID) —
+  2 findings + KSI-level alt satisfiers:
+  1. `azure.cmt.vtd.defender_devops_connector_present` (medium) — at
+     least one `microsoft.security/securityconnectors` for ADO / GitHub /
+     GitLab exists. JS-side env allow-list so a non-DevOps connector
+     (e.g. AWS) is correctly rejected.
+  2. `azure.cmt.vtd.defender_for_containers_enabled` (high) — Defender
+     for Containers on Standard tier in at least one in-scope sub.
+  - Alt satisfiers: GitHub Advanced Security / GitLab Ultimate (without
+    Defender for DevOps), and 3rd-party CI gates (Snyk / Aqua / Trivy /
+    Checkov / Anchore).
+- `ksi-map.ts`: `azure` slot wired for KSI-CMT-RMV and KSI-CMT-VTD.
+- IAM-PERMISSIONS-CATALOG: two rows added — CMT-RMV on `Reader`; CMT-VTD
+  on `Security Reader` (same constraint as MLA-EVC / SVC-EIS).
+- 11 new dedicated tests (5 CMT-RMV: ACR+admin-off / no-ACR / admin-on /
+  null-admin-as-disabled / alt-satisfier; 6 CMT-VTD: full pass / ADO env
+  accepted / non-DevOps env rejected / Free tier / no pricing row /
+  alt-satisfier exposure). **149 dedicated Azure tests, 659 total.
+  30 Azure KSIs covered.**
+
 ### Added — Azure SVC-EIS + SVC-ACM (security improvement + config management)
 Two more Azure KSIs land in `providers/azure/config.ts`. KSI-SVC-ACM is now
 AWS + GCP + Azure; KSI-SVC-EIS (HYBRID) is too. SVC-ACM stays on AZ-1's
