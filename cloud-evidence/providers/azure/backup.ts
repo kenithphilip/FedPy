@@ -11,6 +11,13 @@
  *   - KSI-RPL-TRC — Testing Recovery Capabilities. Looks for at least one
  *     successful Restore job in the last 90 days; alternative satisfier is a
  *     documented gameday / DR exercise with AAR.
+ *   - KSI-RPL-ARP — Aligning Recovery Plan (HYBRID). Cloud signal: at least one
+ *     Recovery Services Vault is configured with geo-redundant storage — an
+ *     alternate-processing site for restores exists.
+ *   - KSI-RPL-RRO — Reviewing Recovery Objectives (HYBRID). Cloud signal: at
+ *     least one backup policy on a Recovery Services Vault has a schedule
+ *     defined — the backup cadence codifies an effective RPO that can be
+ *     reviewed against the documented target.
  *
  * All via Azure Resource Graph (Resources + RecoveryServicesResources tables);
  * no new permissions beyond AZ-1's Reader role.
@@ -369,4 +376,135 @@ export async function collectRplTrc(ctx: CollectorContext): Promise<ProviderBloc
   }));
 
   return { provider: 'azure', account_id: null, evidence, findings, warnings, ksi_level_alternatives: altSatisfiers };
+}
+
+// =====================================================================
+// KSI-RPL-ARP — Aligning Recovery Plan (HYBRID)
+// Cloud signal: at least one RSV is geo-redundant (alternate-processing
+// site exists for restores). Process artifact: the recovery plan +
+// alignment-review minutes (handled via process_artifacts_required in
+// ksi-map.ts).
+// =====================================================================
+export async function collectRplArp(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // RSV storage redundancy lives at properties.redundancySettings.standardTierStorageRedundancy.
+  // Valid values: LocallyRedundant, ZoneRedundant, GeoRedundant. We want any
+  // value containing "Geo" — that's the alternate-processing signal.
+  const vaults = await runKql(subs,
+    'Resources | where type =~ "microsoft.recoveryservices/vaults" ' +
+    '| extend storageRedundancy = tostring(properties.redundancySettings.standardTierStorageRedundancy) ' +
+    '| project id, name, subscriptionId, location, storageRedundancy');
+  if (vaults.error) warnings.push(vaults.error);
+
+  const total = vaults.rows.length;
+  const geoVaults = vaults.rows.filter((v: any) => String(v.storageRedundancy ?? '').toLowerCase().includes('geo'));
+  evidence.push(ev('resourcegraph.rsv_storage_redundancy', {
+    total, geo_redundant: geoVaults.length,
+    sample: vaults.rows.slice(0, 20),
+  }));
+
+  const altSatisfiers: AlternativeSatisfier[] = [
+    {
+      via: 'Azure SQL geo-replicas / Cosmos DB multi-region writes / Storage RA-GZRS',
+      description: 'Alternate-processing posture lives at the data tier (geo-replicated SQL / Cosmos / Storage) rather than at the Recovery Services Vault. The recovery plan documents the cross-region failover path.',
+      evidence_required: ['Cross-region replica / failover-group config', 'Documented recovery plan + last failover-drill AAR'],
+      detected: false, detection_signals: [],
+    },
+  ];
+
+  findings.push(finding({
+    rule: 'azure.rpl.arp.alternate_processing_posture',
+    passed: geoVaults.length >= 1,
+    severity: 'medium',
+    current: {
+      summary: total === 0
+        ? 'No Recovery Services Vaults — alternate processing must live at the data tier (alt satisfier).'
+        : geoVaults.length >= 1
+          ? `${geoVaults.length}/${total} Recovery Services Vault(s) use geo-redundant storage — alternate-processing site exists for restores.`
+          : `${total} Recovery Services Vault(s) but none use geo-redundant storage — restores are stuck in the primary region.`,
+      observations: { total, geo_redundant: geoVaults.length },
+    },
+    target: { summary: 'At least one Recovery Services Vault has `redundancySettings.standardTierStorageRedundancy` containing "Geo" (GeoRedundant / GeoZoneRedundant) — OR a documented data-tier failover path (alt satisfier).', rationale: 'NIST CP-2, CP-6, CP-7, CP-10, CP-10(2). Reviewing recovery-plan alignment requires that alternate processing actually exists somewhere — restore vaults that are stuck in one region don\'t qualify.' },
+    gap: { description: 'No alternate-processing posture visible at the vault layer — recovery plan assumes a site that may not exist.', affected_resources: vaults.rows.filter((v: any) => !String(v.storageRedundancy ?? '').toLowerCase().includes('geo')).slice(0, 50).map((v: any) => ({ type: 'azure_recovery_services_vault', identifier: v.id, attributes: { name: v.name, storage_redundancy: v.storageRedundancy } })) },
+    remediation: {
+      summary: 'Set the vault storage redundancy to GeoRedundant (or GeoZoneRedundant for cross-zone+cross-region), OR document the data-tier failover path as the alternative satisfier.',
+      options: [
+        { approach: 'az CLI — set vault backup-properties --backup-storage-redundancy GeoRedundant.', mechanism: 'cli', steps: ['az backup vault backup-properties set -n <vault> -g <rg> --backup-storage-redundancy GeoRedundant', 'Note: change only takes effect before first protection is configured'] },
+      ],
+    },
+    alternative_satisfiers: altSatisfiers,
+    nist_controls: ['cp-2', 'cp-6', 'cp-7', 'cp-10', 'cp-10.2'],
+    cross_ksi_dependencies: [{ ksi_id: 'KSI-CNA-OFA', relationship: 'shares-remediation', note: 'Both depend on cross-zone/cross-region redundancy primitives.' }],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings, ksi_level_alternatives: altSatisfiers };
+}
+
+// =====================================================================
+// KSI-RPL-RRO — Reviewing Recovery Objectives (HYBRID)
+// Cloud signal: at least one backup policy has a schedule defined — the
+// backup cadence codifies an effective RPO. Process artifact: the
+// RTO/RPO register + the backup-cadence-vs-RPO comparison.
+// =====================================================================
+export async function collectRplRro(ctx: CollectorContext): Promise<ProviderBlock> {
+  const subs = subscriptionsOf(ctx);
+  const evidence: RawEvidence[] = [];
+  const findings: Finding[] = [];
+  const warnings: string[] = [];
+
+  // Backup policies under Recovery Services Vaults. A policy's
+  // properties.schedulePolicy.scheduleRunFrequency is "Daily" / "Weekly" /
+  // "Hourly" — any non-empty schedule means the policy codifies an RPO.
+  const policies = await runKql(subs,
+    'RecoveryServicesResources | where type =~ "microsoft.recoveryservices/vaults/backuppolicies" ' +
+    '| extend schedFreq = tostring(properties.schedulePolicy.scheduleRunFrequency) ' +
+    '| project id, name, subscriptionId, schedFreq');
+  if (policies.error) warnings.push(policies.error);
+
+  const totalPolicies = policies.rows.length;
+  const scheduled = policies.rows.filter((p: any) => String(p.schedFreq ?? '').trim().length > 0);
+  const byFrequency = scheduled.reduce<Record<string, number>>((acc, p: any) => {
+    const k = String(p.schedFreq ?? 'unknown');
+    acc[k] = (acc[k] ?? 0) + 1; return acc;
+  }, {});
+
+  evidence.push(ev('resourcegraph.backup_policy_schedules', {
+    total_policies: totalPolicies, scheduled: scheduled.length, by_frequency: byFrequency,
+    sample: policies.rows.slice(0, 20),
+  }));
+
+  findings.push(finding({
+    rule: 'azure.rpl.rro.backup_policy_codifies_rpo',
+    passed: scheduled.length >= 1,
+    severity: 'medium',
+    current: {
+      summary: totalPolicies === 0
+        ? 'No backup policies observed — RPO has no machine-readable codification (KSI-RPL-ABO covers the upstream "no vault" case).'
+        : scheduled.length >= 1
+          ? `${scheduled.length}/${totalPolicies} backup policy(ies) have a schedule defined; cadence breakdown: ${Object.entries(byFrequency).map(([k, v]) => `${v} ${k}`).join(', ')}.`
+          : `${totalPolicies} backup policy(ies) but none have a schedule frequency — RPO is not codified.`,
+      observations: { total_policies: totalPolicies, scheduled: scheduled.length, by_frequency: byFrequency },
+    },
+    target: { summary: 'At least one Recovery Services Vault backup policy has a non-empty `schedulePolicy.scheduleRunFrequency` — the achieved RPO is machine-readable.', rationale: 'NIST CP-2(3), CP-9, CP-10. Reviewing RPO requires a machine-readable backup cadence to compare against the documented target.' },
+    gap: { description: 'No scheduled backup policy — review of "actual vs documented RPO" can\'t be automated.', affected_resources: [{ type: 'azure_backup_policy', identifier: 'aggregate', attributes: { total_policies: totalPolicies, scheduled: scheduled.length } }] },
+    remediation: {
+      summary: 'Define at least one backup policy with a daily or hourly schedule (whichever matches the documented RPO).',
+      options: [
+        { approach: 'Terraform azurerm_backup_policy_vm with frequency + time + retention.', mechanism: 'terraform', steps: [
+          'Declare azurerm_backup_policy_vm.backup { frequency = "Daily"; time = "23:00" } and retention_daily { count = 30 }',
+          'Attach to the in-scope VMs via azurerm_backup_protected_vm',
+        ] },
+      ],
+    },
+    nist_controls: ['cp-2.3', 'cp-9', 'cp-10'],
+    cross_ksi_dependencies: [
+      { ksi_id: 'KSI-RPL-ABO', relationship: 'shares-remediation', note: 'RPL-ABO covers vault/items presence; RPL-RRO covers the schedule that codifies the RPO.' },
+    ],
+  }));
+
+  return { provider: 'azure', account_id: null, evidence, findings, warnings };
 }

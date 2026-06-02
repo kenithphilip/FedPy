@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — Azure RPL-ARP + RPL-RRO (closes out the AZ-2 family; 37 KSIs Azure-covered)
+Two HYBRID recovery closeouts land in `providers/azure/backup.ts`. With this
+slice, **every cloud-enforceable KSI in the FRMR catalog has an Azure
+collector** — Azure now sits at parity with AWS and GCP on the per-KSI
+evidence surface.
+
+- **`collectRplArp`** (Aligning Recovery Plan — HYBRID) — 1 finding +
+  KSI-level alt satisfier:
+  - `azure.rpl.arp.alternate_processing_posture` (medium) — at least one
+    Recovery Services Vault has `redundancySettings.standardTierStorageRedundancy`
+    containing "Geo" (GeoRedundant / GeoZoneRedundant). The vault layer
+    is where an alternate-processing site actually lives for restores.
+  - Alt satisfier: Azure SQL geo-replicas / Cosmos multi-region writes /
+    Storage RA-GZRS — the data-tier failover path.
+- **`collectRplRro`** (Reviewing Recovery Objectives — HYBRID) — 1 finding:
+  - `azure.rpl.rro.backup_policy_codifies_rpo` (medium) — at least one
+    backup policy under a Recovery Services Vault has a non-empty
+    `schedulePolicy.scheduleRunFrequency`. The backup cadence is the
+    machine-readable codification of the achieved RPO; the documented
+    target RPO + the cadence-vs-target review are tracked as process
+    artifacts in ksi-map.ts.
+- `ksi-map.ts`: `azure` slot wired for KSI-RPL-ARP and KSI-RPL-RRO.
+- IAM-PERMISSIONS-CATALOG: backup.ts row updated to cover all four RPL
+  collectors; `Reader` remains sufficient.
+- 8 new dedicated tests (4 RPL-ARP: geo pass / GeoZoneRedundant pass /
+  LRS+ZRS fail / no-vault fail with alt satisfier; 4 RPL-RRO: Daily
+  passes / empty schedFreq fails / no policies fails vacuously / multi-
+  frequency aggregation).
+
+**AZ-2 family complete: 37 KSIs Azure-covered, 182 dedicated Azure tests
++ smoke, 692 tests total. Azure is now at full parity with AWS + GCP for
+the cloud-side per-KSI evidence surface.**
+
 ### Added — Azure SCR-MON + PIY-GIV (supply-chain monitoring + inventory)
 Two more Azure KSI collectors. KSI-PIY-GIV is now AWS + GCP + Azure;
 KSI-SCR-MON (HYBRID) is too.

@@ -22,7 +22,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectCnaOfa, collectRplAbo, collectRplTrc } from '../../../providers/azure/backup.ts';
+import { collectCnaOfa, collectRplAbo, collectRplTrc, collectRplArp, collectRplRro } from '../../../providers/azure/backup.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -259,5 +259,91 @@ describe('collectRplTrc (KSI-RPL-TRC Azure)', () => {
     ] }];
     const block = await collectRplTrc(ctx());
     expect(block.findings[0]!.passed).toBe(false);
+  });
+});
+
+// =====================================================================
+// KSI-RPL-ARP (HYBRID closeout)
+// =====================================================================
+describe('collectRplArp (KSI-RPL-ARP Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES when at least one RSV uses geo-redundant storage', async () => {
+    _state.routes = [{ match: 'microsoft.recoveryservices/vaults"', rows: [
+      { id: '/rsv/geo', name: 'rsv-geo', subscriptionId: 'sub-1', storageRedundancy: 'GeoRedundant' },
+    ] }];
+    const block = await collectRplArp(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+    assertSchemaValid(block, 'KSI-RPL-ARP');
+  });
+
+  it('ACCEPTS GeoZoneRedundant as a Geo variant', async () => {
+    _state.routes = [{ match: 'microsoft.recoveryservices/vaults"', rows: [
+      { id: '/rsv/gzr', storageRedundancy: 'GeoZoneRedundant' },
+    ] }];
+    const block = await collectRplArp(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+  });
+
+  it('FAILS when every RSV uses LocallyRedundant or ZoneRedundant only', async () => {
+    _state.routes = [{ match: 'microsoft.recoveryservices/vaults"', rows: [
+      { id: '/rsv/lrs', storageRedundancy: 'LocallyRedundant' },
+      { id: '/rsv/zrs', storageRedundancy: 'ZoneRedundant' },
+    ] }];
+    const block = await collectRplArp(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
+    expect(block.findings[0]!.gap?.affected_resources).toHaveLength(2);
+  });
+
+  it('FAILS when no Recovery Services Vaults exist (alt satisfier covers data-tier path)', async () => {
+    _state.routes = [{ match: 'microsoft.recoveryservices/vaults"', rows: [] }];
+    const block = await collectRplArp(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
+    expect(block.ksi_level_alternatives?.[0]?.via).toContain('Azure SQL geo-replicas');
+  });
+});
+
+// =====================================================================
+// KSI-RPL-RRO (HYBRID closeout)
+// =====================================================================
+describe('collectRplRro (KSI-RPL-RRO Azure)', () => {
+  beforeEach(() => { _state.routes = []; _state.queries = []; });
+
+  it('PASSES when at least one backup policy has a schedule frequency', async () => {
+    _state.routes = [{ match: 'backuppolicies', rows: [
+      { id: '/policy/daily', name: 'daily', subscriptionId: 'sub-1', schedFreq: 'Daily' },
+    ] }];
+    const block = await collectRplRro(ctx());
+    expect(block.findings[0]!.passed).toBe(true);
+    const obs = block.findings[0]!.current_state.observations as any;
+    expect(obs.scheduled).toBe(1);
+    expect(obs.by_frequency.Daily).toBe(1);
+    assertSchemaValid(block, 'KSI-RPL-RRO');
+  });
+
+  it('FAILS when policies exist but none have a schedule frequency', async () => {
+    _state.routes = [{ match: 'backuppolicies', rows: [
+      { id: '/policy/noop', name: 'noop', schedFreq: '' },
+    ] }];
+    const block = await collectRplRro(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
+  });
+
+  it('FAILS vacuously when no backup policies exist (KSI-RPL-ABO covers the vault-presence gap)', async () => {
+    _state.routes = [{ match: 'backuppolicies', rows: [] }];
+    const block = await collectRplRro(ctx());
+    expect(block.findings[0]!.passed).toBe(false);
+  });
+
+  it('groups schedule frequencies in the observations breakdown', async () => {
+    _state.routes = [{ match: 'backuppolicies', rows: [
+      { id: '/p/h', schedFreq: 'Hourly' },
+      { id: '/p/d1', schedFreq: 'Daily' },
+      { id: '/p/d2', schedFreq: 'Daily' },
+      { id: '/p/w', schedFreq: 'Weekly' },
+    ] }];
+    const block = await collectRplRro(ctx());
+    const obs = block.findings[0]!.current_state.observations as any;
+    expect(obs.by_frequency).toEqual({ Hourly: 1, Daily: 2, Weekly: 1 });
   });
 });

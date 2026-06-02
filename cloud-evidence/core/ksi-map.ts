@@ -544,6 +544,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cp-2', 'cp-6', 'cp-7', 'cp-10', 'cp-10.2'],
     aws: awsHybrids.collectRplArp,
     gcp: gcpHybrids.collectRplArp,
+    azure: azBackup.collectRplArp,
     process_artifacts_required: ['Recovery plan document', 'Recovery-plan-vs-objectives alignment review minutes'],
   },
   'KSI-RPL-RRO': {
@@ -554,6 +555,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cp-2.3', 'cp-9', 'cp-10'],
     aws: awsHybrids.collectRplRro,
     gcp: gcpHybrids.collectRplRro,
+    azure: azBackup.collectRplRro,
     process_artifacts_required: ['RTO/RPO register per system', 'Backup-cadence-vs-RPO comparison'],
   },
   'KSI-SCR-MIT': {
