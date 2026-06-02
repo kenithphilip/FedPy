@@ -1,7 +1,7 @@
 /**
- * AWS backup-domain CNA collector.
- * Covers KSI-CNA-OFA — Optimizing for Availability.
- * (RPL-ABO and RPL-TRC will live here too in a later phase.)
+ * AWS backup-domain collectors.
+ * Covers KSI-CNA-OFA (Optimizing for Availability), KSI-RPL-ABO (Aligning
+ * Backups with Objectives), and KSI-RPL-TRC (Testing Recovery Capabilities).
  */
 import { DescribeAutoScalingGroupsCommand } from '@aws-sdk/client-auto-scaling';
 import { DescribeLoadBalancersCommand as DescribeLBsCommand } from '@aws-sdk/client-elastic-load-balancing-v2';
@@ -229,7 +229,7 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'Inventory complete; prod tables have PITR enabled.', rationale: 'NIST CP-9.' },
       alternative_satisfiers: [],
       nist_controls: ['cp-9'],
-      note: 'PITR per-table check pending Phase 5 (RPL-ABO).',
+      note: 'Per-table PITR is covered by KSI-RPL-ABO (`aws.dynamodb.pitr_enabled_for_prod`); this finding intentionally stays at inventory-only to avoid double-counting.',
     }),
   ];
 

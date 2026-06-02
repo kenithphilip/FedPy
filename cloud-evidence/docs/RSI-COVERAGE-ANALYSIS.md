@@ -1,6 +1,10 @@
 # FedRAMP 20x Full-Requirement Coverage Analysis
 
-**Status:** Analysis complete (Phase 1). Implementation pending approval.
+**Status:** Implementation complete. All phases of the per-requirement coverage
+analysis have shipped — AFR/CED/CSX collectors and the process-artifact family
+trackers are live; see CHANGELOG for the slice history. This document remains
+as the design-of-record for *why* the per-requirement model is shaped the way
+it is.
 **Source data:** `github.com/FedRAMP/docs` @ `FRMR.documentation.json` v0.9.43-beta (2026-04-08, `main` — verified latest).
 **Generated ground truth:** `cloud-evidence/docs/frmr-requirements.generated.json` (run `node scripts/extract-frmr-requirements.mjs`).
 

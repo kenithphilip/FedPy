@@ -108,17 +108,40 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
     warnings.push(diagnoseGcpError(e, 'recommender.iam.policy.Recommender.list', 'recommender.*.list (roles/recommender.viewer)'));
   }
 
-  // ---- Workforce Identity Federation pools (need iam v1.locations.workforcePools) ----
+  // ---- Workforce Identity Federation pools + per-pool providers ----
+  // Pools live at locations/global; require org-level scope to enumerate.
+  // Per-pool providers (e.g. okta-saml, azure-ad-oidc) carry the IdP attribution
+  // we feed into 3rd-party tool detection so the FedRAMP package shows which
+  // external IdP is in play.
   let workforcePoolCount = 0;
+  const workforcePoolProviders: string[] = [];
   try {
     const iam = await gcpAuth.googleClient<any>('iam', 'v1');
-    // workforcePools live at organizations/{id}/locations/global; require org-level scope.
-    // If we don't have org-level access, this throws.
     const orgId = process.env.GCP_ORGANIZATION_ID;
     if (orgId) {
       const r = await iam.locations.workforcePools.list({ parent: `locations/global`, pageSize: 50 });
-      workforcePoolCount = r.data.workforcePools?.length ?? 0;
-      evidence.push(ev('iam.locations.workforcePools.list', { count: workforcePoolCount }));
+      const pools = (r.data.workforcePools ?? []) as Array<{ name?: string }>;
+      workforcePoolCount = pools.length;
+      // Enumerate providers attached to each pool. The provider id (`displayName`
+      // or trailing path component) is the IdP attribution signal we expose.
+      for (const pool of pools) {
+        if (!pool.name) continue;
+        try {
+          const pr = await iam.locations.workforcePools.providers.list({ parent: pool.name, pageSize: 50 });
+          for (const provider of (pr.data.workforcePoolProviders ?? []) as Array<{ name?: string; displayName?: string }>) {
+            const trailing = (provider.name ?? '').split('/').pop() ?? '';
+            const label = (provider.displayName ?? trailing).trim();
+            if (label) workforcePoolProviders.push(label);
+          }
+        } catch (e) {
+          warnings.push(diagnoseGcpError(e, `iam.locations.workforcePools.providers.list ${pool.name}`, 'iam.workforcePoolProviders.list (roles/iam.workforcePoolViewer)'));
+        }
+      }
+      evidence.push(ev('iam.locations.workforcePools.list', {
+        count: workforcePoolCount,
+        provider_count: workforcePoolProviders.length,
+        providers: workforcePoolProviders,
+      }));
     } else {
       warnings.push('Workforce Identity Federation: skipped (GCP_ORGANIZATION_ID not set)');
     }
@@ -906,13 +929,34 @@ export async function collectIamMfa(c: CollectorContext): Promise<ProviderBlock>
     warnings.push(diagnoseGcpError(e, 'identitytoolkit.projects.tenants.list', 'identitytoolkit.tenants.list (roles/identitytoolkit.viewer or roles/firebaseauth.viewer)'));
   }
 
-  // ---- Workforce Identity Federation pools (alternative-satisfier detection) ----
+  // ---- Workforce Identity Federation pools + per-pool providers ----
+  // Provider ids (e.g. okta-saml, azure-ad-oidc) feed the 3rd-party tool
+  // detector so the FedRAMP package shows the IdP attribution.
   let workforcePoolCount = 0;
+  const workforcePoolProviders: string[] = [];
   try {
     const iam = await gcpAuth.googleClient<any>('iam', 'v1');
     const r = await iam.projects.locations.workforcePools?.list({ parent: 'locations/global', pageSize: 50 });
-    workforcePoolCount = r?.data?.workforcePools?.length ?? 0;
-    evidence.push(ev('iam.locations.workforcePools.list', { count: workforcePoolCount }));
+    const pools = (r?.data?.workforcePools ?? []) as Array<{ name?: string }>;
+    workforcePoolCount = pools.length;
+    for (const pool of pools) {
+      if (!pool.name) continue;
+      try {
+        const pr = await iam.projects.locations.workforcePools.providers?.list({ parent: pool.name, pageSize: 50 });
+        for (const provider of (pr?.data?.workforcePoolProviders ?? []) as Array<{ name?: string; displayName?: string }>) {
+          const trailing = (provider.name ?? '').split('/').pop() ?? '';
+          const label = (provider.displayName ?? trailing).trim();
+          if (label) workforcePoolProviders.push(label);
+        }
+      } catch (e) {
+        warnings.push(diagnoseGcpError(e, `iam.projects.locations.workforcePools.providers.list ${pool.name}`, 'iam.workforcePoolProviders.list (roles/iam.workforcePoolViewer)'));
+      }
+    }
+    evidence.push(ev('iam.locations.workforcePools.list', {
+      count: workforcePoolCount,
+      provider_count: workforcePoolProviders.length,
+      providers: workforcePoolProviders,
+    }));
   } catch (e) {
     warnings.push(diagnoseGcpError(e, 'iam.projects.locations.workforcePools.list', 'iam.workforcePools.list (roles/iam.workforcePoolViewer)'));
   }
@@ -1255,7 +1299,7 @@ resource "google_access_context_manager_access_level" "strong" {
   // ---- 3rd-party tool detection ----
   const thirdParty: ThirdPartyToolMatch[] = detectThirdParty({
     workforce_pool_count: workforcePoolCount,
-    workforce_pool_providers: [], // expand when we enumerate WIF providers in later phase
+    workforce_pool_providers: workforcePoolProviders,
     iam_members: directUserBindings.map((b) => b.member),
     service_account_emails: [], // populated by IAM-AAM/SNU collectors
   });

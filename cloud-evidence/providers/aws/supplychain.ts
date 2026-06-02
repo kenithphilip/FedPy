@@ -1,7 +1,7 @@
 /**
  * AWS supply-chain / change-validation collectors.
- * Covers KSI-CMT-RMV (Redeploying vs Modifying) and KSI-CMT-VTD (Validating Throughout Deployment).
- * (SCR-MON will land here in a later phase.)
+ * Covers KSI-CMT-RMV (Redeploying vs Modifying), KSI-CMT-VTD (Validating
+ * Throughout Deployment), and KSI-SCR-MON (Monitoring Supply Chain Risk).
  */
 import { DescribeRepositoriesCommand, ListImagesCommand } from '@aws-sdk/client-ecr';
 import { DescribeLaunchTemplatesCommand } from '@aws-sdk/client-ec2';
