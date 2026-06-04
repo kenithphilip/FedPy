@@ -78,6 +78,14 @@ export interface CloudAsset {
   ips?: string[];
   /** MACs aligned by index with `ips` where known. */
   macs?: string[];
+  /**
+   * Windows guest hostname (used as the NetBIOS Name in column F of the
+   * FedRAMP Appendix M workbook). Populated by the OS-level enrichers
+   * (SSM Inventory on AWS, OS Config on GCP, osProfile/Update Mgmt on
+   * Azure) for Windows hosts only — Linux + container assets leave it
+   * blank (no NetBIOS concept).
+   */
+  netbiosName?: string | null;
   /** Default true for cloud-managed assets. */
   virtual?: boolean;
   /** True = internet-facing / outside the boundary. undefined = unknown (blank). */
@@ -189,7 +197,7 @@ export function assetToRows(a: CloudAsset): Array<Record<string, string>> {
     'Virtual': yn(a.virtual ?? true),
     'Public': yn(a.publicFacing),
     'DNS Name or URL': a.dns ?? '',
-    'NetBIOS Name': '',
+    'NetBIOS Name': a.netbiosName ?? '',
     'MAC Address': a.macs?.[i] ?? '',
     'Authenticated Scan': yn(a.authenticatedScan),
     'Baseline Configuration Name': a.baselineConfig ?? '',

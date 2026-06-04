@@ -117,10 +117,10 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     },
   },
   {
-    column: 'NetBIOS Name', assetField: '(synthetic)', blankReason: null,
+    column: 'NetBIOS Name', assetField: 'netbiosName', blankReason: null,
     sources: {
       aws:   notYet('SSM Inventory `AWS:InstanceInformation.ComputerName` (Windows hosts)', 'ssm:GetInventory', 'INV-S3-aws-supplement'),
-      gcp:   notYet('OS Config inventory `osInfo.hostname` (Windows hosts)', 'osconfig.inventories.list', 'INV-S3'),
+      gcp:   filled('OS Config inventory `osInfo.hostname` (Windows hosts)', 'osconfig.inventories.list', 'INV-S3'),
       azure: notYet('Resource Graph `properties.osProfile.computerName` (Windows VMs)', 'Azure Resource Graph KQL', 'INV-S4'),
     },
   },
@@ -128,7 +128,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     column: 'MAC Address', assetField: 'macs', blankReason: null,
     sources: {
       aws:   filled('EC2 NetworkInterfaces.MacAddress', 'ec2:DescribeInstances', 'INV-1..4'),
-      gcp:   notYet('Instance.networkInterfaces.macAddress (via Compute API)', 'compute.instances.list', 'INV-S3'),
+      gcp:   filled('Instance.networkInterfaces[].macAddress passed through by Cloud Asset Inventory', 'cloudasset.assets.list', 'INV-S3'),
       azure: filled('Resource Graph `microsoft.network/networkinterfaces.macAddress`', 'Azure Resource Graph KQL', 'INV-S2'),
     },
   },
@@ -152,7 +152,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     column: 'OS Name and Version', assetField: 'osNameVersion', blankReason: null,
     sources: {
       aws:   filled('SSM Inventory `AWS:InstanceInformation.PlatformName + PlatformVersion`', 'ssm:GetInventory', 'INV-1..4'),
-      gcp:   notYet('OS Config inventory `osInfo.shortName + osInfo.version`', 'osconfig.inventories.list', 'INV-S3'),
+      gcp:   filled('OS Config inventory `osInfo.shortName + osInfo.version`', 'osconfig.inventories.list', 'INV-S3'),
       azure: partial('Resource Graph `osProfile` + `imageReference.{publisher,offer,sku,version}` (VMs only — patchassessmentresources upgrades this)', 'Azure Resource Graph KQL', 'INV-S4'),
     },
   },
@@ -208,7 +208,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     column: 'Patch Level', assetField: 'patchLevel', blankReason: null,
     sources: {
       aws:   filled('SSM Patch Manager patch-baseline + missing-patch count', 'ssm:GetInventory', 'INV-1..4'),
-      gcp:   notYet('OS Config patch jobs / patch deployments', 'osconfig.patchJobs.list', 'INV-S3'),
+      gcp:   filled('OS Config inventory installed/available package counts → "Current" or "<N> updates available"', 'osconfig.inventories.list', 'INV-S3'),
       azure: notYet('Resource Graph `patchassessmentresources.lastAssessmentResult` + Update Management', 'Azure Resource Graph KQL', 'INV-S4'),
     },
   },
