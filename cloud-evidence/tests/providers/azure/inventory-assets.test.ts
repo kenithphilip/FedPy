@@ -186,4 +186,64 @@ describe('collectAzureAssets (INV-S2 depth enrichers)', () => {
     expect(r.assets).toEqual([]);
     expect(r.warnings.some((w) => w.includes('no subscriptions configured'))).toBe(true);
   });
+
+  // INV-S4
+  it('VM enricher fills netbiosName (column F) from osProfile.computerName', async () => {
+    _state.routes = [
+      { match: 'microsoft.compute/virtualmachines', rows: [
+        { id: '/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/win-1',
+          name: 'win-1', location: 'eastus', subscriptionId: 'sub-1',
+          vmSize: 'Standard_D2s_v3', osType: 'Windows',
+          computerName: 'WIN-PROD-01',
+          imagePublisher: 'MicrosoftWindowsServer', imageOffer: 'WindowsServer', imageSku: '2022-Datacenter', imageVersion: 'latest',
+        },
+      ] },
+    ];
+    const r = await collectAzureAssets(['sub-1']);
+    const vm = r.assets.find((a) => a.resourceType === 'microsoft.compute/virtualmachines') as any;
+    expect(vm.netbiosName).toBe('WIN-PROD-01');
+  });
+
+  // INV-S4
+  it('patchassessmentresults enrichment upgrades osNameVersion + patchLevel on VMs', async () => {
+    _state.routes = [
+      { match: 'patchassessmentresources', rows: [
+        { vmId: '/subscriptions/sub-1/resourcegroups/rg/providers/microsoft.compute/virtualmachines/srv-1/patchassessmentresults/latest',
+          osName: 'Red Hat Enterprise Linux', osVersion: '9.4',
+          assessmentResult: 'Succeeded', patchCount: 3 },
+      ] },
+      { match: 'microsoft.compute/virtualmachines', rows: [
+        { id: '/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/srv-1',
+          name: 'srv-1', subscriptionId: 'sub-1',
+          vmSize: 'Standard_D4s_v3', osType: 'Linux',
+          // Image-only OS would have said "RedHat RHEL 9_4 latest" — patch assessment supersedes.
+          imagePublisher: 'RedHat', imageOffer: 'RHEL', imageSku: '9_4', imageVersion: 'latest',
+        },
+      ] },
+    ];
+    const r = await collectAzureAssets(['sub-1']);
+    const vm = r.assets.find((a) => a.resourceType === 'microsoft.compute/virtualmachines')!;
+    expect(vm.osNameVersion).toBe('Red Hat Enterprise Linux 9.4');
+    expect(vm.patchLevel).toContain('Succeeded');
+    expect(vm.patchLevel).toContain('3 missing patch');
+  });
+
+  it('falls back to image-reference OS when no patchassessmentresult exists', async () => {
+    _state.routes = [
+      { match: 'patchassessmentresources', rows: [] }, // empty
+      { match: 'microsoft.compute/virtualmachines', rows: [
+        { id: '/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/no-assessment',
+          name: 'no-assessment', subscriptionId: 'sub-1',
+          vmSize: 'Standard_D2s_v3', osType: 'Linux',
+          imagePublisher: 'Canonical', imageOffer: 'UbuntuServer', imageSku: '22_04-lts', imageVersion: 'latest',
+        },
+      ] },
+    ];
+    const r = await collectAzureAssets(['sub-1']);
+    const vm = r.assets.find((a) => a.resourceType === 'microsoft.compute/virtualmachines')!;
+    // Falls back to image string.
+    expect(vm.osNameVersion).toContain('Canonical');
+    // patchLevel stays undefined when no assessment exists.
+    expect(vm.patchLevel).toBeUndefined();
+  });
 });

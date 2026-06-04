@@ -82,13 +82,19 @@ async function storageAccounts(subs: string[], warnings: string[]): Promise<Clou
   }));
 }
 
-/** Virtual machines → CloudAsset with OS + size depth. */
+/** Virtual machines → CloudAsset with OS + size + NetBIOS depth. */
 async function virtualMachines(subs: string[], warnings: string[]): Promise<CloudAsset[]> {
   const rows = await runQuery(subs,
     'Resources | where type =~ "microsoft.compute/virtualmachines" | project ' +
     'id, name, location, resourceGroup, subscriptionId, tags, ' +
     'vmSize=properties.hardwareProfile.vmSize, ' +
     'osType=properties.storageProfile.osDisk.osType, ' +
+    // INV-S4: osProfile.computerName is the Windows NetBIOS / Linux hostname
+    // as configured at provisioning time. Surface it as `netbiosName` for the
+    // workbook's column F (only meaningful for Windows; Linux hosts get
+    // populated too — operators sometimes want the Linux hostname there as a
+    // best-effort hostname column).
+    'computerName=properties.osProfile.computerName, ' +
     'imagePublisher=properties.storageProfile.imageReference.publisher, ' +
     'imageOffer=properties.storageProfile.imageReference.offer, ' +
     'imageSku=properties.storageProfile.imageReference.sku, ' +
@@ -104,8 +110,57 @@ async function virtualMachines(subs: string[], warnings: string[]): Promise<Clou
     osNameVersion: [r.imagePublisher, r.imageOffer, r.imageSku, r.imageVersion].filter(Boolean).join(' ') || null,
     hardwareMakeModel: r.vmSize ?? null,
     state: r.provisioning ?? null,
+    // Per FedRAMP Appendix M, column F is "NetBIOS Name". Strictly that's a
+    // Windows-only concept, but cloud-native VMs often run Linux where the
+    // analog is the hostname. We populate from osProfile.computerName
+    // regardless and let the operator override via a tag if needed.
+    netbiosName: r.computerName ?? null,
     raw: { resourceGroup: r.resourceGroup, osType: r.osType, imageReference: { publisher: r.imagePublisher, offer: r.imageOffer, sku: r.imageSku, version: r.imageVersion } },
   }));
+}
+
+/**
+ * INV-S4: patchassessmentresources enricher — closes columns K + R for Azure VMs.
+ *
+ * The `patchassessmentresources` table in Azure Resource Graph carries the
+ * results of Update Management / Azure Monitor Agent guest-OS patch
+ * assessments per VM, with rich osType + osName + missing-patch counts.
+ * It supersedes the imageReference-only OS string we get from the bare VM
+ * resource and gives us a real patch level signal.
+ *
+ * Required IAM: `Reader` (the table is included under standard subscription
+ * Reader; no `Security Reader` needed because patchassessment is a Compute,
+ * not Defender, surface).
+ */
+async function patchAssessments(subs: string[], warnings: string[]): Promise<Map<string, { osName: string | null; osVersion: string | null; assessmentResult: string | null; missingPatches: number | null }>> {
+  const m = new Map<string, { osName: string | null; osVersion: string | null; assessmentResult: string | null; missingPatches: number | null }>();
+  const rows = await runQuery(subs,
+    // Query the patchassessmentresources table. Each row is a per-VM
+    // assessment snapshot; we project the fields we need to flip osName +
+    // patchLevel onto the VM CloudAsset.
+    'patchassessmentresources | where type =~ "microsoft.compute/virtualmachines/patchassessmentresults" | project ' +
+    'vmId=tolower(tostring(properties.assessmentActivityId)), ' +
+    'osName=tostring(properties.osName), ' +
+    'osVersion=tostring(properties.osVersion), ' +
+    'assessmentResult=tostring(properties.lastAssessmentResult), ' +
+    'patchCount=toint(properties.availablePatchCountByClassification.total)',
+    warnings,
+  );
+  // The patchassessmentresults id encodes the VM resource id; extract it.
+  // Pattern: `/subscriptions/<s>/resourceGroups/<rg>/providers/Microsoft.Compute/virtualMachines/<vm>/patchAssessmentResults/<n>`
+  // We also project tolower() to handle Azure's case-insensitive id quirks.
+  for (const r of rows) {
+    const idMatch = String(r.vmId ?? '').match(/(\/subscriptions\/[^/]+\/resourcegroups\/[^/]+\/providers\/microsoft\.compute\/virtualmachines\/[^/]+)/i);
+    const vmId = idMatch?.[1];
+    if (!vmId) continue;
+    m.set(vmId.toLowerCase(), {
+      osName: r.osName ?? null,
+      osVersion: r.osVersion ?? null,
+      assessmentResult: r.assessmentResult ?? null,
+      missingPatches: typeof r.patchCount === 'number' ? r.patchCount : null,
+    });
+  }
+  return m;
 }
 
 /**
@@ -432,11 +487,13 @@ export async function collectAzureAssets(subscriptionIds: string[]): Promise<Azu
     warnings.push('Azure inventory: no subscriptions configured.');
     return { assets, warnings };
   }
-  // Run NIC + public-IP + VM-subnet lookups first; the VM enricher uses them.
-  const [nicByVm, pubIpById, subnetByVm] = await Promise.all([
+  // Run NIC + public-IP + VM-subnet + patch-assessment lookups first; the
+  // VM enricher uses them.
+  const [nicByVm, pubIpById, subnetByVm, patchByVm] = await Promise.all([
     networkInterfaces(subscriptionIds, warnings),
     publicIpMap(subscriptionIds, warnings),
     vmSubnetMap(subscriptionIds, warnings),
+    patchAssessments(subscriptionIds, warnings),
   ]);
   for (const fn of [
     storageAccounts, virtualMachines, azureSql, cosmosDb, aksClusters,
@@ -467,6 +524,22 @@ export async function collectAzureAssets(subscriptionIds: string[]): Promise<Azu
           }
           const subnet = subnetByVm.get(idLc) ?? Array.from(subnetByVm.entries()).find(([k]) => k.toLowerCase() === idLc)?.[1];
           if (subnet) a.vlanNetworkId = subnet;
+          // INV-S4: upgrade osNameVersion + patchLevel from patchassessmentresults.
+          // The bare VM resource only carries imageReference (publisher/offer/
+          // sku/version); patch assessment carries the OS as actually running
+          // + a missing-patch count. Prefer the live assessment over image
+          // metadata where available.
+          const patch = patchByVm.get(idLc) ?? Array.from(patchByVm.entries()).find(([k]) => k.toLowerCase() === idLc)?.[1];
+          if (patch) {
+            const osLive = [patch.osName, patch.osVersion].filter(Boolean).join(' ').trim();
+            if (osLive) a.osNameVersion = osLive;
+            if (patch.assessmentResult || patch.missingPatches != null) {
+              const result = patch.assessmentResult || 'Assessed';
+              a.patchLevel = patch.missingPatches != null
+                ? `${result} · ${patch.missingPatches} missing patch(es)`
+                : result;
+            }
+          }
         }
       }
       assets.push(...r);

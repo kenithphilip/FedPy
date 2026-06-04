@@ -121,7 +121,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   notYet('SSM Inventory `AWS:InstanceInformation.ComputerName` (Windows hosts)', 'ssm:GetInventory', 'INV-S3-aws-supplement'),
       gcp:   filled('OS Config inventory `osInfo.hostname` (Windows hosts)', 'osconfig.inventories.list', 'INV-S3'),
-      azure: notYet('Resource Graph `properties.osProfile.computerName` (Windows VMs)', 'Azure Resource Graph KQL', 'INV-S4'),
+      azure: filled('Resource Graph `properties.osProfile.computerName` (Windows VMs; Linux hostname best-effort)', 'Azure Resource Graph KQL', 'INV-S4'),
     },
   },
   {
@@ -153,7 +153,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('SSM Inventory `AWS:InstanceInformation.PlatformName + PlatformVersion`', 'ssm:GetInventory', 'INV-1..4'),
       gcp:   filled('OS Config inventory `osInfo.shortName + osInfo.version`', 'osconfig.inventories.list', 'INV-S3'),
-      azure: partial('Resource Graph `osProfile` + `imageReference.{publisher,offer,sku,version}` (VMs only — patchassessmentresources upgrades this)', 'Azure Resource Graph KQL', 'INV-S4'),
+      azure: filled('Resource Graph `patchassessmentresources.osName + osVersion` (live assessed OS) with fallback to `imageReference.{publisher,offer,sku,version}` for VMs without active assessment', 'Azure Resource Graph KQL', 'INV-S4'),
     },
   },
   {
@@ -209,7 +209,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('SSM Patch Manager patch-baseline + missing-patch count', 'ssm:GetInventory', 'INV-1..4'),
       gcp:   filled('OS Config inventory installed/available package counts → "Current" or "<N> updates available"', 'osconfig.inventories.list', 'INV-S3'),
-      azure: notYet('Resource Graph `patchassessmentresources.lastAssessmentResult` + Update Management', 'Azure Resource Graph KQL', 'INV-S4'),
+      azure: filled('Resource Graph `patchassessmentresources.lastAssessmentResult` + missing-patch count', 'Azure Resource Graph KQL', 'INV-S4'),
     },
   },
   {
