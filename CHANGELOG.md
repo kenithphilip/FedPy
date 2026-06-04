@@ -6,6 +6,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — AZ-PARITY: 7 Azure HYBRID collectors close the cross-provider gap (44 KSIs all 3-cloud)
+Closes the 7-KSI Azure parity gap surfaced by the FedRAMP 20x coverage audit.
+With this slice, every collector-tracked KSI in ksi-map.ts has AWS + GCP +
+Azure provider coverage (44/44 across all three clouds).
+
+- **`providers/azure/ksi-hybrids.ts`** (new) — 5 HYBRID collectors mirroring
+  `providers/{aws,gcp}/ksi-hybrids.ts`:
+  - `collectCmtRvp` (Reviewing Change Procedures) — policy assignments +
+    policystates table non-empty (change-management baseline actively running).
+  - `collectInrAar` (Generating After Action Reports) — Sentinel automation
+    rules OR Monitor/Defender alert rules present.
+  - `collectInrRpi` (Reviewing Past Incidents) — Log Analytics workspace
+    retention ≥ 90 days (past-incident review window).
+  - `collectScrMit` (Mitigating Supply Chain Risk) — ACR trust/quarantine
+    policy enabled OR Defender for Containers on Standard tier.
+  - `collectSvcPrr` (Preventing Residual Risk) — storage accounts deny
+    public network + anonymous blob access.
+- **`providers/azure/crypto.ts`** (new) — 1 collector for KSI-AFR-UCM:
+  - `collectUcm` — at least one of: Key Vault keys (enabled), Application
+    Gateway with modern TLS-1.2-min SSL policy, or storage account with
+    `requireInfrastructureEncryption = true`. Alternative satisfier covers
+    external HSM (Thales Luna / nCipher).
+- **`providers/azure/vdr-scan.ts`** (new) — 1 collector for KSI-AFR-VDR:
+  - `collectVdrScan` — Defender for Cloud `microsoft.security/assessments`
+    joined with the committed CISA KEV catalog
+    (`docs/cisa-kev.generated.json`). Passes only when there are zero
+    Unhealthy assessments referencing a KEV CVE. Matches the AWS/GCP
+    `vdr-scan.ts` join semantics exactly.
+- **`ksi-map.ts`** — azure slot wired for KSI-CMT-RVP, KSI-INR-AAR,
+  KSI-INR-RPI, KSI-SCR-MIT, KSI-SVC-PRR, KSI-AFR-UCM, KSI-AFR-VDR.
+- **IAM-PERMISSIONS-CATALOG** — 3 new rows. `Reader` covers ksi-hybrids
+  (except SCR-MIT's pricings read) + crypto entirely; `Security Reader`
+  covers SCR-MIT + VDR-scan (`securityresources` table).
+- **27 new dedicated tests** (16 ksi-hybrids + 6 crypto + 5 vdr-scan)
+  exercising pass/fail/vacuous/escape paths and the KEV-join logic.
+
+**Cross-provider parity now: AWS 44 / GCP 44 / Azure 44 (all 44 collector-
+tracked KSIs). 209 dedicated Azure tests; 733 total. tsc clean; CI green
+once the push lands.**
+
 ### Added — OSC-3: OSCAL XML output (zero open backlog)
 Closes the last open backlog row. Both OSCAL emitters now write an XML
 representation alongside the JSON by default, so downstream FedRAMP tooling

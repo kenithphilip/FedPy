@@ -67,6 +67,9 @@ import * as azSecrets from '../providers/azure/secrets.ts';
 import * as azSupplychain from '../providers/azure/supplychain.ts';
 import * as azData from '../providers/azure/data.ts';
 import * as azInventory from '../providers/azure/inventory.ts';
+import * as azHybrids from '../providers/azure/ksi-hybrids.ts';
+import * as azCrypto from '../providers/azure/crypto.ts';
+import * as azVdrScan from '../providers/azure/vdr-scan.ts';
 import * as awsNetwork from '../providers/aws/network.ts';
 import * as gcpNetwork from '../providers/gcp/network.ts';
 import * as awsConfig from '../providers/aws/config.ts';
@@ -497,6 +500,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['sc-13', 'sc-12', 'sc-8', 'ia-7'],
     aws: awsCrypto.collectUcm,
     gcp: gcpCrypto.collectUcm,
+    azure: azCrypto.collectUcm,
     process_artifacts_required: [
       'CMVP certificate references for each cryptographic module used to protect federal data',
       'Mapping of services (or service groups) → cryptographic modules',
@@ -514,6 +518,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['cm-3', 'cm-3.2', 'cm-3.4', 'cm-5', 'cm-7.1', 'cm-9'],
     aws: awsHybrids.collectCmtRvp,
     gcp: gcpHybrids.collectCmtRvp,
+    azure: azHybrids.collectCmtRvp,
     process_artifacts_required: ['Change-procedure effectiveness review minutes', 'Sample of changes verified against the documented procedure'],
   },
   'KSI-INR-AAR': {
@@ -524,6 +529,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ir-3', 'ir-4', 'ir-4.1', 'ir-8'],
     aws: awsHybrids.collectInrAar,
     gcp: gcpHybrids.collectInrAar,
+    azure: azHybrids.collectInrAar,
     process_artifacts_required: ['Sample after-action report', 'Lessons-learned tracking record'],
   },
   'KSI-INR-RPI': {
@@ -534,6 +540,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ir-3', 'ir-4', 'ir-4.1', 'ir-5', 'ir-8'],
     aws: awsHybrids.collectInrRpi,
     gcp: gcpHybrids.collectInrRpi,
+    azure: azHybrids.collectInrRpi,
     process_artifacts_required: ['Past-incident trend/pattern review minutes', 'Incident log retention policy'],
   },
   'KSI-RPL-ARP': {
@@ -566,6 +573,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ac-20', 'sa-9', 'sa-10', 'sa-11', 'sr-5', 'sr-6', 'si-7.1'],
     aws: awsHybrids.collectScrMit,
     gcp: gcpHybrids.collectScrMit,
+    azure: azHybrids.collectScrMit,
     process_artifacts_required: ['Supply-chain risk register + mitigations', 'Image scanning/signing policy'],
   },
   'KSI-SVC-PRR': {
@@ -576,6 +584,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['sc-4'],
     aws: awsHybrids.collectSvcPrr,
     gcp: gcpHybrids.collectSvcPrr,
+    azure: azHybrids.collectSvcPrr,
     process_artifacts_required: ['Data-isolation/tenancy design doc', 'Public-exposure review record'],
   },
 
@@ -592,6 +601,7 @@ export const KSI_MAP: Record<string, KsiEntry> = {
     nist_controls: ['ra-5', 'ra-5.2', 'si-2', 'si-3', 'si-5', 'ir-4', 'ca-7'],
     aws: awsVdrScan.collectVdrScan,
     gcp: gcpVdrScan.collectVdrScan,
+    azure: azVdrScan.collectVdrScan,
     process_artifacts_required: [
       'Documented VDR methodology (detection sources + response timeframes)',
       'CISA KEV catalog source/path used for the run (CLOUD_EVIDENCE_KEV_PATH)',
