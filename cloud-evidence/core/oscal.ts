@@ -42,6 +42,7 @@ import { resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import type { EvidenceFile, Finding, ProviderBlock, RawEvidence, AffectedResource } from './envelope.ts';
 import { log } from './log.ts';
+import { oscalJsonToXml } from './oscal-xml.ts';
 
 const OSCAL_VERSION = '1.1.2';
 const TOOL_NAME = 'fedramp-20x-cloud-evidence';
@@ -159,6 +160,13 @@ export interface OscalEmitOptions {
 
 export interface OscalEmitResult {
   path: string;
+  /**
+   * Path to the XML representation, if emitted (OSC-3). Always emitted alongside
+   * the JSON unless `CLOUD_EVIDENCE_DISABLE_OSCAL_XML=1` is set in the env.
+   * Older 3PAO reviewers and the FedRAMP `oscalkit` / `GoComply/fedramp`
+   * pipelines accept only the XML form.
+   */
+  xml_path?: string;
   result_count: number;
   finding_count: number;
   observation_count: number;
@@ -391,12 +399,25 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
   // NIST OSCAL documents wrap the model in a top-level key — the schema's root
   // requires `assessment-results`. (Previously we wrote the inner object directly,
   // which isn't a schema-valid OSCAL document; OSC-1 validation surfaced this.)
+  const doc = { 'assessment-results': ar };
   const outPath = opts.outPath ?? resolve(opts.outDir, 'assessment-results.json');
-  writeFileSync(outPath, JSON.stringify({ 'assessment-results': ar }, null, 2));
+  writeFileSync(outPath, JSON.stringify(doc, null, 2));
+
+  // OSC-3: emit the XML representation alongside the JSON unless explicitly
+  // disabled. Tools downstream of FedRAMP (oscalkit / GoComply/fedramp) accept
+  // only the XML form; emitting it by default removes the format-mismatch
+  // failure mode at the cost of a few extra KB of output.
+  let xmlPath: string | undefined;
+  if (process.env.CLOUD_EVIDENCE_DISABLE_OSCAL_XML !== '1') {
+    xmlPath = outPath.replace(/\.json$/, '') + '.xml';
+    if (xmlPath === outPath) xmlPath = `${outPath}.xml`;
+    writeFileSync(xmlPath, oscalJsonToXml(doc));
+  }
 
   log.info({
     event: 'oscal.emitted',
     path: outPath,
+    xml_path: xmlPath,
     result_count: results.length,
     finding_count: totalFindings,
     observation_count: totalObservations,
@@ -404,6 +425,7 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
 
   return {
     path: outPath,
+    xml_path: xmlPath,
     result_count: results.length,
     finding_count: totalFindings,
     observation_count: totalObservations,

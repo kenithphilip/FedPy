@@ -68,9 +68,24 @@ function sha256Hex(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
 }
 
-function listJsonFiles(dir: string): string[] {
+/**
+ * Files covered by the run manifest. Originally JSON-only, but companion
+ * artifacts (OSCAL XML, signing keys, run-summary) need integrity protection
+ * too — otherwise a tampered XML payload could ship past 3PAO review even
+ * though the manifest verified clean. Extensions we cover:
+ *
+ *   - `.json`   — every per-KSI evidence file + OSCAL JSON + reports
+ *   - `.xml`    — OSCAL XML representations (OSC-3)
+ *   - `.pem`    — embedded signing key + public key (so a future verifier
+ *                 can detect substitution of the key material itself)
+ *
+ * Manifest itself + signature blob are excluded (they can't sign themselves).
+ */
+const SIGNED_EXTENSIONS = ['.json', '.xml', '.pem'];
+
+function listSignedFiles(dir: string): string[] {
   return readdirSync(dir)
-    .filter((f) => f.endsWith('.json') && f !== MANIFEST_NAME)
+    .filter((f) => SIGNED_EXTENSIONS.some((ext) => f.endsWith(ext)) && f !== MANIFEST_NAME)
     .filter((f) => {
       try { return statSync(resolve(dir, f)).isFile(); } catch { return false; }
     })
@@ -149,18 +164,23 @@ export interface SignRunResult {
 }
 
 /**
- * Hash every JSON file in `outDir`, write `manifest.json` listing them,
- * and write `manifest.sig` (base64) over the canonical JSON.
+ * Hash every signed-eligible file in `outDir` (.json + .xml + .pem; see
+ * SIGNED_EXTENSIONS), write `manifest.json` listing them, and write
+ * `manifest.sig` (base64) over the canonical JSON.
  */
 export function signRun(opts: SignRunOptions): SignRunResult {
-  const files = listJsonFiles(opts.outDir);
+  // Materialize the keypair FIRST so the ephemeral .pem files it writes are
+  // present when we enumerate signed files below. Without this, the ephemeral
+  // keys would be created after the file list snapshot and a later verifyRun
+  // would flag them as "unsigned extras".
+  const { privateKey, publicKey, ephemeral } = loadOrGenerateKeyPair(opts.outDir);
+  const publicPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
+
+  const files = listSignedFiles(opts.outDir);
   const entries: ManifestFileEntry[] = files.map((name) => {
     const buf = readFileSync(resolve(opts.outDir, name));
     return { name, sha256: sha256Hex(buf), bytes: buf.length };
   });
-
-  const { privateKey, publicKey, ephemeral } = loadOrGenerateKeyPair(opts.outDir);
-  const publicPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
 
   const manifest: SignedManifest = {
     schema_version: 1,
@@ -298,7 +318,7 @@ export function verifyRun(outDir: string, expectedPublicKeyPath?: string): Verif
   });
 
   // Extra files (present but unsigned)
-  const extraFiles = listJsonFiles(outDir).filter((n) => !manifestNames.has(n));
+  const extraFiles = listSignedFiles(outDir).filter((n) => !manifestNames.has(n));
   if (extraFiles.length > 0) {
     errors.push(`Unsigned files present in ${outDir}: ${extraFiles.join(', ')}`);
   }

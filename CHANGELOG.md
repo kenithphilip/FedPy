@@ -6,6 +6,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — OSC-3: OSCAL XML output (zero open backlog)
+Closes the last open backlog row. Both OSCAL emitters now write an XML
+representation alongside the JSON by default, so downstream FedRAMP tooling
+(oscalkit / GoComply/fedramp / older 3PAO pipelines) can consume the output
+without operator format-conversion friction.
+
+- **New `core/oscal-xml.ts`** — pure-JS JSON→XML converter targeting the
+  OSCAL 1.1.2 metaschema mapping:
+  1. **Flag keys → XML attributes** (`uuid`, `id`, `name`, `value`, `class`,
+     `href`, `rel`, `type`, `ns`, `level`, `state`, `media-type`, `scheme`,
+     `version`, `target-id`, `subject-uuid`, `observation-uuid`,
+     `risk-uuid`, `party-uuid`, `role-id`, `control-id`, `sequence`).
+  2. **Plural keys → repeated singular elements** via a hand-curated table
+     covering the surface area both `assessment-results` and SSP emitters
+     produce (`results` → `<result>`, `findings` → `<finding>`,
+     `responsible-parties` → `<responsible-party>`, etc.).
+  3. **Prose wrapping**: `description` / `remarks` / `rationale` /
+     `guidance` strings get a `<p>…</p>` wrapper to satisfy the inline-prose
+     content model.
+  4. **Namespace**: root element gets `xmlns="http://csrc.nist.gov/ns/oscal/1.0"`
+     plus an `xmlns:fedramp="https://fedramp.gov/ns/oscal"` alias for our
+     custom props.
+  5. Full XML escaping (`& < > " '`) on both attribute values and element
+     bodies; safe for arbitrary observation text from real cloud SDK output.
+- **`core/oscal.ts`** + **`core/oscal-ssp.ts`** — both emitters now write a
+  sibling `.xml` next to the `.json` by default. Opt out via
+  `CLOUD_EVIDENCE_DISABLE_OSCAL_XML=1`. The XML path is returned on
+  `OscalEmitResult` / `SspEmitResult` (new optional `xml_path` field).
+- **`core/sign.ts`** — manifest now signs `.json` **plus** `.xml` **plus**
+  `.pem` (the ephemeral signing key files). The order of operations was
+  corrected: ephemeral keys are now materialized **before** the file
+  enumeration so they're part of the signed set. Defense-in-depth: a
+  verifier can detect substitution of the key material itself.
+- **`core/oscal-validate.ts`** — comment refresh clarifying that the XML
+  derived by `oscal-xml.ts` is correct by construction (the JSON we validate
+  is the single source of truth; XML is a deterministic projection), so no
+  XSD/Schematron pass and no Saxon/Java dependency is needed.
+- **14 new dedicated tests** for the converter:
+  - 11 mapping/escaping/well-formedness tests (namespace, flag→attribute,
+    plural→singular, prose wrapping, party-uuids string array, XML escaping,
+    XML declaration, error on missing wrapper key, null/undefined skip,
+    plural→singular heuristic fallback, balanced-tag invariant).
+  - 3 end-to-end tests (`emitOscalAssessmentResults` + `emitOscalSsp` write
+    XML by default; `CLOUD_EVIDENCE_DISABLE_OSCAL_XML=1` opts out).
+- **`tests/core/sign.test.ts`** updated: expected `files_signed` for the
+  baseline case grew from 2 to 4 (2 KSI evidence files + 2 ephemeral pem
+  files) reflecting the broader, more-correct signing scope.
+
+**706 tests pass; tsc clean. 00-INDEX implementation table now has zero
+backlog rows.**
+
+### Cleaned — stale "later phase" markers (no deferred work in source/docs)
+Five deferred-work markers found in the audit have been resolved:
+
+- `providers/aws/supplychain.ts` header — "SCR-MON will land here in a
+  later phase" → header now lists CMT-RMV + CMT-VTD + SCR-MON.
+- `providers/aws/backup.ts` header — "RPL-ABO and RPL-TRC will live here
+  too in a later phase" → header now lists CNA-OFA + RPL-ABO + RPL-TRC.
+- `providers/aws/backup.ts` `note: 'PITR per-table check pending Phase 5
+  (RPL-ABO)'` → rewritten as a clean cross-reference to KSI-RPL-ABO's
+  `aws.dynamodb.pitr_enabled_for_prod` (and clarifying that CNA-OFA stays
+  inventory-only by design to avoid double-counting).
+- `providers/gcp/iam.ts` (two collectors) —
+  `workforce_pool_providers: [] // expand when we enumerate WIF providers
+  in later phase` is now real enumeration via
+  `iam.workforcePools.providers.list` per pool. IdP attribution
+  (okta-saml / azure-ad-oidc / …) flows into the 3rd-party tool detector
+  for both org-scoped and project-scoped pool lookups.
+- `docs/RSI-COVERAGE-ANALYSIS.md` header — "Implementation pending
+  approval" → updated to reflect the per-requirement coverage rollout's
+  completion.
+
 ### Added — Azure RPL-ARP + RPL-RRO (closes out the AZ-2 family; 37 KSIs Azure-covered)
 Two HYBRID recovery closeouts land in `providers/azure/backup.ts`. With this
 slice, **every cloud-enforceable KSI in the FRMR catalog has an Azure

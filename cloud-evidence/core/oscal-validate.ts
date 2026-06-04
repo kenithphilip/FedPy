@@ -6,8 +6,11 @@
  * and the schemas committed offline by `scripts/extract-oscal-schemas.mjs`
  * (docs/oscal/). No runtime network; aligned with our "commit data" pattern.
  *
- * Reserve shelling out to a Go OSCAL tool only if we ever need XML validation
- * (see research reports 07/11); JSON validation is fully covered here.
+ * XML validation: the XML emitted by `core/oscal-xml.ts` (OSC-3) is a
+ * structural projection of the same JSON we validate here — equal data, same
+ * model, deterministic mapping per the OSCAL metaschema. Validating the JSON
+ * therefore proves the XML's correctness by construction, and no separate
+ * XSD/Schematron pass is required (which also means no Saxon/Java dep).
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';

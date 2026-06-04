@@ -41,6 +41,7 @@ import {
   type ControlStatus,
 } from './control-benchmark.ts';
 import { deterministicUuid } from './oscal.ts';
+import { oscalJsonToXml } from './oscal-xml.ts';
 import { log } from './log.ts';
 
 const OSCAL_VERSION = '1.1.2';
@@ -178,6 +179,11 @@ export interface SspEmitOptions extends SspSystemOptions, SspBuildContext {
 
 export interface SspEmitResult {
   path: string;
+  /**
+   * Path to the XML representation, if emitted (OSC-3). Always emitted
+   * alongside the JSON unless `CLOUD_EVIDENCE_DISABLE_OSCAL_XML=1` is set.
+   */
+  xml_path?: string;
   control_count: number;
   implemented: number;
   partial: number;
@@ -382,13 +388,23 @@ export function emitOscalSsp(opts: SspEmitOptions): SspEmitResult {
   const { doc, result } = buildOscalSsp(benchmark, opts);
   const outPath = opts.outPath ?? resolve(opts.outDir, 'ssp.json');
   writeFileSync(outPath, JSON.stringify(doc, null, 2));
+
+  // OSC-3: XML representation alongside the JSON (downstream FedRAMP tooling).
+  let xmlPath: string | undefined;
+  if (process.env.CLOUD_EVIDENCE_DISABLE_OSCAL_XML !== '1') {
+    xmlPath = outPath.replace(/\.json$/, '') + '.xml';
+    if (xmlPath === outPath) xmlPath = `${outPath}.xml`;
+    writeFileSync(xmlPath, oscalJsonToXml(doc));
+  }
+
   log.info({
     event: 'oscal_ssp.emitted',
     path: outPath,
+    xml_path: xmlPath,
     control_count: result.control_count,
     implemented: result.implemented,
     partial: result.partial,
     planned: result.planned,
   });
-  return { path: outPath, ...result };
+  return { path: outPath, xml_path: xmlPath, ...result };
 }

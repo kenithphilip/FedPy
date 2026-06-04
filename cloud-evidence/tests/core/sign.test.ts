@@ -40,12 +40,16 @@ describe('canonicalize', () => {
 });
 
 describe('signRun + verifyRun', () => {
-  it('signs all *.json files in the directory and verifies clean', () => {
+  it('signs all .json/.xml/.pem files in the directory and verifies clean', () => {
     writeEvidence('KSI-IAM-MFA.json', { ksi_id: 'KSI-IAM-MFA', passed: true });
     writeEvidence('KSI-IAM-AAM.json', { ksi_id: 'KSI-IAM-AAM', passed: false });
 
     const r = signRun({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
-    expect(r.files_signed).toBe(2);
+    // 2 evidence files + 2 ephemeral key files (signing-key.pem + signing-pub.pem)
+    // = 4 total. The ephemeral pem files are part of the signed set so a
+    // future verifier can detect substitution of the key material itself
+    // (defense-in-depth — paired with OSC-3's broader signing scope).
+    expect(r.files_signed).toBe(4);
     expect(r.ephemeral_key).toBe(true);
     expect(existsSync(resolve(tmp, SIGNED_MANIFEST_FILE))).toBe(true);
     expect(existsSync(resolve(tmp, SIGNATURE_FILE))).toBe(true);
@@ -53,7 +57,7 @@ describe('signRun + verifyRun', () => {
     const v = verifyRun(tmp);
     expect(v.valid, v.errors.join('; ')).toBe(true);
     expect(v.signature_valid).toBe(true);
-    expect(v.file_results).toHaveLength(2);
+    expect(v.file_results).toHaveLength(4);
     expect(v.file_results.every((f) => f.matched)).toBe(true);
     expect(v.extra_files).toHaveLength(0);
   });
