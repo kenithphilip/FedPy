@@ -29,6 +29,7 @@ import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
 import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, applyDataClassification, type CloudAsset } from './inventory-workbook.ts';
+import { emitInventoryCoverage, coverageSummary } from './inventory-coverage-report.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { collectAzureAssets } from '../providers/azure/inventory-assets.ts';
@@ -1487,6 +1488,10 @@ export async function main(): Promise<void> {
       writeInventoryJson(snapshot, resolve(args.outDir, 'inventory.json'));
       const oscalN = writeInventoryOscal(snapshot, resolve(args.outDir, 'inventory-oscal.json'));
       writeInventoryCmdb(snapshot, resolve(args.outDir, 'inventory-cmdb.json'));
+      // INV-S1: per-run coverage report. Projects the asset list against the
+      // 25-column Appendix M coverage contract (`inventory-coverage.ts`) so
+      // the operator + CI see exactly which cells filled, per cloud.
+      const coverage = emitInventoryCoverage(assets, resolve(args.outDir, 'inventory-coverage.json'));
       let invDelta = '';
       if (prevAssets) {
         const d = diffInventory(prevAssets, assets);
@@ -1506,6 +1511,7 @@ export async function main(): Promise<void> {
         `(${scanned} in-scan, ${linked} linked to KSI findings, ${edges.length} edges)${invDelta} ` +
         `(inventory.json + workbook.{csv,xlsx} + oscal + cmdb)` +
         (invWarnings.length ? ` · ${invWarnings.length} warning(s)` : ''));
+      console.log(`  Coverage: ${coverageSummary(coverage)}`);
       for (const w of invWarnings) console.error(`  ! inventory: ${w}`);
       ledger.record('inventory_workbook.complete', { status: 'info', assets: res.asset_count, rows: res.row_count, scanned, finding_linked: linked, edges: edges.length, warnings: invWarnings.length });
     } catch (e: any) {
