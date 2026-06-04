@@ -100,6 +100,25 @@ function extractCves(text: string): string[] {
   return m ? Array.from(new Set(m.map((s) => s.toUpperCase()))) : [];
 }
 
+/**
+ * From a Defender assessment id of the shape
+ *   /subscriptions/<s>/resourceGroups/<rg>/providers/Microsoft.Compute/virtualMachines/<vm>/providers/Microsoft.Security/assessments/<aid>
+ * extract the underlying assessed-resource id
+ *   /subscriptions/<s>/resourceGroups/<rg>/providers/Microsoft.Compute/virtualMachines/<vm>
+ *
+ * Falls back to the resourceDetails.Id (already extracted in KQL) when the
+ * assessment id doesn't follow the nested-provider pattern (e.g. subscription-
+ * level assessments). Used for inventory-scan reconcile column I + O.
+ */
+export function assessedResourceId(assessmentId: string | null | undefined, resId: string | null | undefined): string | null {
+  const explicit = typeof resId === 'string' ? resId.trim() : '';
+  if (explicit) return explicit;
+  if (typeof assessmentId !== 'string' || !assessmentId) return null;
+  // Strip everything from "/providers/Microsoft.Security/..." onwards.
+  const m = assessmentId.match(/^(.*?)\/providers\/Microsoft\.Security\//i);
+  return m?.[1] ?? assessmentId;
+}
+
 // =====================================================================
 // KSI-AFR-VDR — Vulnerability Detection and Response (HYBRID)
 // =====================================================================
@@ -117,29 +136,47 @@ export async function collectVdrScan(ctx: CollectorContext): Promise<ProviderBlo
   // Pull Defender for Cloud assessments. The displayName + metadata fields
   // commonly carry CVE references for vulnerability-management findings
   // (e.g. "CVE-2024-31497 must be remediated on virtual machine X").
+  // We also project the assessed resource id (`resourceDetails.Id`) so the
+  // inventory-scan reconcile can match these against asset ids in the
+  // workbook (column I + O).
   const assessments = await runKql(subs,
     'securityresources | where type =~ "microsoft.security/assessments" ' +
     '| extend displayName = tostring(properties.displayName), ' +
     'description = tostring(properties.metadata.description), ' +
-    'status = tostring(properties.status.code) ' +
-    '| project id, name, subscriptionId, displayName, description, status');
+    'status = tostring(properties.status.code), ' +
+    'resId = tostring(properties.resourceDetails.Id) ' +
+    '| project id, name, subscriptionId, displayName, description, status, resId');
   if (assessments.error) warnings.push(assessments.error);
 
   const total = assessments.rows.length;
   const unhealthy = assessments.rows.filter((a: any) => String(a.status ?? '').toLowerCase() === 'unhealthy');
 
   // Extract CVEs from each row + classify against KEV.
+  // Also collect EVERY unhealthy assessment's assessed-resource id so the
+  // inventory-scan reconcile can fan `inLatestScan + authenticatedScan` onto
+  // those assets (columns I + O of the FedRAMP workbook).
   let unhealthyKevCount = 0;
   const kevSample: Array<{ id: string; cves: string[]; displayName: string }> = [];
+  const assessedIds: string[] = [];
   for (const row of unhealthy) {
+    const targetId = assessedResourceId(row.id, row.resId);
+    if (targetId) assessedIds.push(targetId);
     const text = `${row.displayName ?? ''} ${row.description ?? ''}`;
     const cves = extractCves(text);
     if (!cves.length) continue;
     const kevHits = cves.filter((c) => kev.has(c));
     if (kevHits.length > 0) {
       unhealthyKevCount++;
-      if (kevSample.length < 20) kevSample.push({ id: String(row.id ?? ''), cves: kevHits, displayName: String(row.displayName ?? '') });
+      if (kevSample.length < 20) kevSample.push({ id: targetId ?? String(row.id ?? ''), cves: kevHits, displayName: String(row.displayName ?? '') });
     }
+  }
+  // Also surface healthy/assessed resource ids so reconcileScans picks them up
+  // (FedRAMP column O = "In Latest Scan" is satisfied by ANY assessment, not
+  // just unhealthy ones).
+  for (const row of assessments.rows) {
+    if (String(row.status ?? '').toLowerCase() === 'unhealthy') continue;
+    const targetId = assessedResourceId(row.id, row.resId);
+    if (targetId) assessedIds.push(targetId);
   }
 
   evidence.push(ev('resourcegraph.defender_assessments_vdr', {
@@ -148,6 +185,10 @@ export async function collectVdrScan(ctx: CollectorContext): Promise<ProviderBlo
     kev_affected: unhealthyKevCount,
     kev_catalog_size: kev.size,
     sample: kevSample,
+    // INV-S5: surface every assessed-resource id so the inventory pipeline's
+    // `reconcileScans` can flip `inLatestScan + authenticatedScan` for those
+    // assets in the FedRAMP workbook (columns O + I).
+    assessed_resource_ids: Array.from(new Set(assessedIds)),
   }));
 
   // Pass criteria:

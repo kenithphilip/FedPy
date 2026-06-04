@@ -591,6 +591,22 @@ export function readInventoryContext(outDir: string): InventoryContext {
           if (isScanKsi) scannedIdentifiers.add(r.identifier);
         }
       }
+      // INV-S5: ALSO pick up "assessed_resource_ids" arrays from VDR-style
+      // evidence entries (e.g. Defender for Cloud assessments on Azure).
+      // The gap.affected_resources path only captures FAILING assets — but the
+      // FedRAMP workbook columns I ("Authenticated Scan") + O ("In Latest
+      // Scan") ask whether the asset was scanned AT ALL, regardless of result.
+      // Providers can publish their scanned-id set on any evidence entry as
+      // `data.assessed_resource_ids: string[]` and we surface them into the
+      // scannedIdentifiers set when the KSI is a VDR/SCR/SVC-VRI class.
+      if (!isScanKsi) continue;
+      for (const e of p.evidence ?? []) {
+        const ids = (e?.data as { assessed_resource_ids?: unknown })?.assessed_resource_ids;
+        if (!Array.isArray(ids)) continue;
+        for (const id of ids) {
+          if (typeof id === 'string' && id.trim() && id !== 'none') scannedIdentifiers.add(id);
+        }
+      }
     }
   }
   return { findings, scannedIdentifiers };

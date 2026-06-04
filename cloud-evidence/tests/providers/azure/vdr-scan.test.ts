@@ -29,7 +29,7 @@ vi.mock('../../../core/auth/azure.ts', () => ({
   resources: (_id: string) => ({}),
 }));
 
-import { collectVdrScan } from '../../../providers/azure/vdr-scan.ts';
+import { collectVdrScan, assessedResourceId } from '../../../providers/azure/vdr-scan.ts';
 
 function assertSchemaValid(block: any, ksiId: string): void {
   const envelope: any = {
@@ -120,5 +120,40 @@ describe('collectVdrScan (KSI-AFR-VDR Azure)', () => {
     expect(block.findings[0]!.passed).toBe(false);
     const obs = block.findings[0]!.current_state.observations as any;
     expect(obs.kev_affected).toBe(1); // one ROW that contains KEV CVEs (regardless of how many)
+  });
+
+  // INV-S5
+  it('surfaces every assessed resource id (healthy + unhealthy) as evidence.assessed_resource_ids', async () => {
+    process.env.CLOUD_EVIDENCE_KEV_PATH = writeKev([{ cveID: 'CVE-2024-1' }]);
+    _state.routes = [{ match: 'microsoft.security/assessments', rows: [
+      { id: '/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-1/providers/Microsoft.Security/assessments/a1',
+        resId: '/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-1',
+        displayName: 'unrelated', status: 'Healthy' },
+      { id: '/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-2/providers/Microsoft.Security/assessments/a2',
+        resId: '',  // forces fallback to id-stripping
+        displayName: 'unrelated', status: 'Unhealthy' },
+    ] }];
+    const block = await collectVdrScan(ctx());
+    const ev = (block.evidence ?? []).find((e) => e.source === 'resourcegraph.defender_assessments_vdr');
+    expect(ev).toBeDefined();
+    const ids = (ev!.data as any).assessed_resource_ids as string[];
+    // Both VMs surface — vm-1 via resId, vm-2 via id-stripping fallback.
+    expect(ids).toContain('/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-1');
+    expect(ids).toContain('/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-2');
+  });
+});
+
+describe('assessedResourceId helper', () => {
+  it('prefers an explicit resourceDetails.Id when present', () => {
+    const r = assessedResourceId('/x/providers/Microsoft.Security/assessments/a', '/explicit');
+    expect(r).toBe('/explicit');
+  });
+  it('strips /providers/Microsoft.Security/... from the assessment id when no explicit id', () => {
+    const id = '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-1/providers/Microsoft.Security/assessments/a';
+    expect(assessedResourceId(id, null)).toBe('/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm-1');
+  });
+  it('returns null for null + empty inputs', () => {
+    expect(assessedResourceId(null, null)).toBeNull();
+    expect(assessedResourceId('', '')).toBeNull();
   });
 });

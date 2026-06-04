@@ -137,7 +137,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('Inspector v2 findings (always authenticated/agent-based)', 'inspector2:ListFindings', 'P5a'),
       gcp:   filled('Container Analysis occurrences + GCE OS scanning', 'containeranalysis.occurrences.list', 'P5a'),
-      azure: notYet('Defender for Cloud assessments (agent-based via Azure Monitor Agent)', 'Azure Resource Graph `securityresources`', 'INV-S5'),
+      azure: filled('Defender for Cloud assessments (agent-based via Azure Monitor Agent), surfaced via `assessed_resource_ids` evidence and reconciled by `core/inventory-workbook.ts:reconcileScans`', 'Azure Resource Graph `securityresources`', 'INV-S5'),
     },
   },
   {
@@ -185,7 +185,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('VDR scan reconcile via `reconcileScans()`', 'inspector2:ListFindings', 'P5a'),
       gcp:   filled('VDR scan reconcile via `reconcileScans()`', 'containeranalysis.occurrences.list', 'P5a'),
-      azure: notYet('Defender assessment id → asset id reconcile', 'Azure Resource Graph `securityresources`', 'INV-S5'),
+      azure: filled('Defender assessment id → assessed resource id reconcile via `assessed_resource_ids` evidence + `reconcileScans`', 'Azure Resource Graph `securityresources`', 'INV-S5'),
     },
   },
   {
