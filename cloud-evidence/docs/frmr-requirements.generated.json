@@ -4267,7 +4267,7 @@
   },
   {
     "id": "KSI-CSX-MAS",
-    "category": "ksi-indicator",
+    "category": "frr-requirement",
     "family": "KSI",
     "family_name": "Key Security Indicators",
     "name": "Application within MAS",
@@ -4309,7 +4309,7 @@
   },
   {
     "id": "KSI-CSX-ORD",
-    "category": "ksi-indicator",
+    "category": "frr-requirement",
     "family": "KSI",
     "family_name": "Key Security Indicators",
     "name": "AFR Order of Criticality",
@@ -4360,7 +4360,7 @@
   },
   {
     "id": "KSI-CSX-SUM",
-    "category": "ksi-indicator",
+    "category": "frr-requirement",
     "family": "KSI",
     "family_name": "Key Security Indicators",
     "name": "Implementation Summaries",

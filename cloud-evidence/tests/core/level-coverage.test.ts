@@ -17,9 +17,15 @@ import { KSI_MAP } from '../../core/ksi-map.ts';
 describe('full-coverage completeness (no requirement left behind)', () => {
   const SPECIAL = new Set(['KSI-CSX-SUM', 'KSI-AFR-PVA']); // aggregator + meta-collector
 
-  it('has exactly 63 KSIs', () => {
+  // Authoritative FRMR.documentation.json v0.9.43-beta has exactly 60
+  // ksi-indicator entries across 11 KSI families (AFR=10, CED=4, CMT=4,
+  // CNA=8, IAM=7, INR=3, MLA=5, PIY=5, RPL=4, SCR=2, SVC=8). The 3 entries
+  // with `KSI-CSX-*` ids live under FRR.KSI (not the top-level KSI section)
+  // and are classified here as `frr-requirement` to match the upstream
+  // catalog — they're meta-rules about KSI assessment, not KSIs.
+  it('has exactly 60 KSIs (authoritative count from FRMR v0.9.43-beta)', () => {
     const ksis = loadRequirements().filter((r) => r.category === 'ksi-indicator');
-    expect(ksis.length).toBe(63);
+    expect(ksis.length).toBe(60);
   });
 
   it('every provider requirement has a collector, special handler, or a specific playbook (no generic stubs)', () => {
@@ -29,9 +35,9 @@ describe('full-coverage completeness (no requirement left behind)', () => {
     expect(gaps.map((r) => r.id)).toEqual([]);
   });
 
-  it('the 3 CSX KSIs are classified as ksi-indicator', () => {
+  it('the 3 KSI-CSX-* meta-rules are classified as frr-requirement (they live under FRR.KSI, not in the top-level KSI section)', () => {
     for (const id of ['KSI-CSX-SUM', 'KSI-CSX-MAS', 'KSI-CSX-ORD']) {
-      expect(getRequirement(id)?.category, id).toBe('ksi-indicator');
+      expect(getRequirement(id)?.category, id).toBe('frr-requirement');
     }
   });
 });

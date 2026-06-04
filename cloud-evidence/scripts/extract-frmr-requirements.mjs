@@ -136,12 +136,21 @@ function walkFrr(node, ctx) {
     (typeof node.statement === 'string' || node.varies_by_level) &&
     (node.fka || node.fkas || node.name || node.primary_key_word);
   if (isLeaf) {
-    // KSI-prefixed leaves under the FRR.KSI family (KSI-CSX-SUM/MAS/ORD) are KSIs,
-    // not generic FRRs — classify them as ksi-indicator so all 63 KSIs are counted.
-    const isKsi = typeof ctx.id === 'string' && ctx.id.startsWith('KSI-');
+    // All leaves inside FRR.* are FRR requirements. Earlier versions of this
+    // script reclassified KSI-prefixed leaves under FRR.KSI (KSI-CSX-MAS,
+    // KSI-CSX-ORD, KSI-CSX-SUM) as `ksi-indicator` to inflate the "63 KSIs"
+    // count, but inspection of the upstream FRMR.documentation.json
+    // (v0.9.43-beta) confirms the authoritative KSI section has exactly 60
+    // entries across 11 families — CSX is NOT a KSI domain. These three
+    // entries are FRR-class meta-requirements about the KSI assessment
+    // process (Minimum Assessment Scope, AFR Order, Implementation Summaries)
+    // and stay classified as `frr-requirement` here. The orchestrator still
+    // emits a synthetic `KSI-CSX-SUM.json` aggregator output because it's
+    // a useful artifact in its own right; that's an orchestration choice,
+    // not a catalog claim.
     requirements.push({
       id: ctx.id,
-      category: isKsi ? 'ksi-indicator' : 'frr-requirement',
+      category: 'frr-requirement',
       family: ctx.family,
       family_name: ctx.familyName,
       name: node.name ?? ctx.id,

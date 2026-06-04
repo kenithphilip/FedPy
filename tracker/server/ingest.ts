@@ -180,10 +180,14 @@ function ingest() {
         }
       }
     }
-    // FedRAMP 20x KSI count is 63: 60 outcome-level KSIs (above) + 3 meta-rule
-    // KSIs that live in FRR.KSI under the CSX label ("20x-Specific Provider
-    // Responsibilities"). Surface them as a 12th KSI domain so the dashboard
-    // total matches FedRAMP's published 63 count.
+    // The authoritative FedRAMP 20x KSI catalog has exactly 60 outcome-level
+    // KSIs across 11 domains. Three additional `KSI-CSX-*` entries live in
+    // the FRR.KSI section (under the CSX label, "20x-Specific Provider
+    // Responsibilities") — they're FRR-class meta-rules about KSI assessment,
+    // NOT KSIs themselves. We still surface them in the tracker UI as a
+    // 12th informational domain because they're useful operator-visible
+    // requirements; the dashboard's total-KSIs counter pulls from the
+    // ksi-indicator-category set (= 60), not from the domain count.
     const frrKsi = frmr?.FRR?.KSI;
     const csxEntries = frrKsi?.data?.['20x']?.CSX as Record<string, Json> | undefined;
     if (csxEntries && Object.keys(csxEntries).length > 0) {

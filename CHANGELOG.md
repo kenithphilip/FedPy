@@ -6,6 +6,57 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed — Authoritative KSI count (60, not 63) + Phase 4 / High-impact clarification
+Reconciles three FedRAMP-20x state-of-the-program issues surfaced by a
+deep-research audit against the authoritative FRMR sources (github.com/FedRAMP/docs
+v0.9.43-beta, fedramp.gov/20x/phases, RFC-0014). Net: the codebase now matches
+the upstream catalog exactly, no fabricated counts, no implied High-tier scope.
+
+- **CSX-PURGE — extractor no longer reclassifies 3 FRR entries as KSIs.**
+  `scripts/extract-frmr-requirements.mjs` previously flagged `KSI-CSX-MAS`,
+  `KSI-CSX-ORD`, `KSI-CSX-SUM` (which live in `FRR.KSI`, not the top-level
+  KSI section) as `category: 'ksi-indicator'` to inflate the count to "63
+  KSIs". Direct inspection of FRMR.documentation.json v0.9.43-beta confirms
+  the authoritative KSI section contains exactly 60 entries; the 3 CSX
+  entries are FRR-class meta-rules about the KSI assessment process
+  (Minimum Assessment Scope, AFR Order, Implementation Summaries). They
+  stay categorized as `frr-requirement` now. The orchestrator continues to
+  emit a synthetic `KSI-CSX-SUM.json` aggregator file — that's a
+  legitimate orchestration choice, not a catalog claim.
+  - `docs/frmr-requirements.generated.json` regenerated: now 60 ksi-indicator
+    + 163 frr-requirement (was 63 + 160).
+  - `tests/core/level-coverage.test.ts` updated: asserts 60 KSIs; the 3
+    `KSI-CSX-*` entries are now expected as `frr-requirement`.
+  - `tracker/server/ingest.ts` comment refreshed: explains why the tracker
+    still surfaces CSX as a 12th informational domain even though the
+    authoritative KSI count is 60.
+
+- **RFC-0014-VERIFY — confirms all 8 RFC-0014 KSIs are in the JSON.** The
+  deep-research had flagged as an open question whether RFC-0014's 5
+  Moderate-only KSIs (KSI-CNA-08, KSI-MLA-08, KSI-SVC-08/09/10) and 3
+  Low+Mod KSIs (KSI-CED-03, KSI-IAM-07, KSI-MLA-07) had been merged to
+  v0.9.43-beta. Direct `fka` lookup confirms: all 8 are present under
+  their renamed 3-letter ids (KSI-CNA-EIS, KSI-MLA-LET, KSI-MLA-ALA,
+  KSI-SVC-PRR, KSI-SVC-VCM, KSI-SVC-RUD, KSI-CED-DET, KSI-IAM-AAM). All 8
+  are already covered by our collectors / playbooks. No code change
+  required; documented here so future audits can skip the question.
+
+- **HIGH-CLARIFY — `--impact-level high` startup warning + design doc.**
+  FedRAMP 20x Phase 4 (Class D / High pilot) is scheduled FY27 Q1–Q2 and
+  has not been published. `core/orchestrator.ts` now emits an explicit
+  3-line NOTICE on `--impact-level high` runs explaining that High
+  applicability is sourced from the NIST 800-53 Rev5 High baseline
+  parameter overlay (via `core/control-benchmark.ts`), NOT from
+  20x-specific High obligations (which don't exist yet). The new
+  `cloud-evidence/docs/IMPACT-LEVEL-NOTES.md` documents the design of
+  record: how the tool is structured for High today, exactly what
+  audit-package consumers should cite, and what will change when Phase 4
+  lands. Audit packages produced at `--impact-level high` should cite
+  NIST SP 800-53 Rev5 High as the authoritative controlling baseline.
+
+**Empirical correctness: tsc clean; 733 tests pass (with the count
+assertion updated to 60).**
+
 ### Added — AZ-PARITY: 7 Azure HYBRID collectors close the cross-provider gap (44 KSIs all 3-cloud)
 Closes the 7-KSI Azure parity gap surfaced by the FedRAMP 20x coverage audit.
 With this slice, every collector-tracked KSI in ksi-map.ts has AWS + GCP +

@@ -956,6 +956,24 @@ export async function main(): Promise<void> {
 
   console.log(`cloud-evidence run ${runId}`);
   console.log(`  impact level: ${impactLevel}${impactLevel === 'high' ? ' (High applicability DERIVED from NIST 800-53 Rev5)' : ''}`);
+  if (impactLevel === 'high') {
+    // FedRAMP 20x does NOT yet cover High impact: per fedramp.gov/20x/phases,
+    // Phase 4 (Class D / High pilot) is scheduled FY27 Q1-Q2 and is still
+    // future as of June 2026. The current 20x catalog (FRMR.documentation.json
+    // v0.9.43-beta) authors only Low + Moderate KSI applicability. Running
+    // with --impact-level high here means: KSI assertions still use the 20x
+    // catalog as-is (Moderate semantics) and the impact-tier difference is
+    // applied via NIST 800-53 Rev5 High baseline parameter overlays through
+    // core/control-benchmark.ts — NOT via 20x-specific High obligations
+    // (which the program has not authored yet). Audit packages produced at
+    // this level should cite SP 800-53 Rev5 High as the authoritative
+    // controlling baseline, not "FedRAMP 20x High" (which is not yet a
+    // defined assessment scope).
+    console.log('  ⚠ NOTICE: FedRAMP 20x Phase 4 (Class D / High pilot) is scheduled FY27 Q1-Q2');
+    console.log('           and has not yet been published. High applicability here is sourced');
+    console.log('           from the NIST 800-53 Rev5 High baseline parameter overlay, NOT from');
+    console.log('           20x-specific High obligations. See docs/IMPACT-LEVEL-NOTES.md.');
+  }
   console.log(`  benchmark framework: ${args.framework}${args.framework === 'rev5' ? ' (full NIST SP 800-53B baseline)' : ' (controls referenced by 20x KSIs)'}`);
   console.log(`  providers: ${args.providers.join(', ')}`);
   console.log(`  ksis (${inScopeKsis.length}): ${inScopeKsis.map((k) => k.id).join(', ')}`);
