@@ -89,7 +89,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('EC2 NetworkInterfaces + ELB / RDS endpoint IPs', 'ec2:DescribeInstances + rds:DescribeDBInstances', 'INV-1..4'),
       gcp:   filled('Instance.networkInterfaces + SQL ipAddresses', 'cloudasset.assets.list', 'INV-1..4'),
-      azure: notYet('VM NIC IPs + AGW/LB frontend IPs from Resource Graph `networkprofile` + `microsoft.network/networkinterfaces`', 'Azure Resource Graph KQL', 'INV-S2'),
+      azure: filled('VM NIC private IPs + public-IP resource lookup + LB/AGW frontend IPs', 'Azure Resource Graph KQL (`microsoft.network/networkinterfaces`, `publicipaddresses`)', 'INV-S2'),
     },
   },
   {
@@ -113,7 +113,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('ELB DNSName, CloudFront DomainName, API Gateway invoke URL', 'elbv2:DescribeLoadBalancers + cloudfront:ListDistributions', 'INV-1..4'),
       gcp:   filled('Cloud Run uri, GKE endpoint, Cloud Functions uri', 'cloudasset.assets.list', 'INV-1..4'),
-      azure: notYet('Application Gateway frontend FQDN, App Service hostname, Function Apps defaultHostName, Load Balancer FQDN', 'Azure Resource Graph `properties.frontendIPConfigurations` / `defaultHostName`', 'INV-S2'),
+      azure: filled('Application Gateway frontend, App Service `defaultHostName`, Function Apps, AKS fqdn, Cosmos endpoint, ACR loginServer, Key Vault vaultUri, Azure SQL fqdn', 'Azure Resource Graph KQL per type', 'INV-S2'),
     },
   },
   {
@@ -129,7 +129,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('EC2 NetworkInterfaces.MacAddress', 'ec2:DescribeInstances', 'INV-1..4'),
       gcp:   notYet('Instance.networkInterfaces.macAddress (via Compute API)', 'compute.instances.list', 'INV-S3'),
-      azure: notYet('Resource Graph `microsoft.network/networkinterfaces.macAddress`', 'Azure Resource Graph KQL', 'INV-S2'),
+      azure: filled('Resource Graph `microsoft.network/networkinterfaces.macAddress`', 'Azure Resource Graph KQL', 'INV-S2'),
     },
   },
   {
@@ -177,7 +177,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('EC2 InstanceType (e.g. "t3.large")', 'ec2:DescribeInstances', 'INV-1..4'),
       gcp:   filled('Instance.machineType', 'cloudasset.assets.list', 'INV-1..4'),
-      azure: partial('VM vmSize (today); AKS node-pool size, SQL tier, Cosmos throughput in S2', 'Azure Resource Graph', 'INV-S2'),
+      azure: filled('VM vmSize, AKS node-pool sizes, SQL Database tier+capacity, Application Gateway tier, Load Balancer SKU, Managed Disk tier', 'Azure Resource Graph KQL per type', 'INV-S2'),
     },
   },
   {
@@ -193,7 +193,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('RDS engine vendor (e.g. "Amazon", "PostgreSQL")', 'rds:DescribeDBInstances', 'INV-1..4'),
       gcp:   filled('Cloud SQL databaseVersion → vendor', 'cloudasset.assets.list', 'INV-1..4'),
-      azure: notYet('SQL Server/DB, Cosmos DB, AKS Kubernetes, App Service runtime → vendor', 'Azure Resource Graph KQL', 'INV-S2'),
+      azure: filled('Azure SQL, Cosmos DB, AKS, App Service, ACR, Key Vault → vendor strings', 'Azure Resource Graph KQL per type', 'INV-S2'),
     },
   },
   {
@@ -201,7 +201,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('RDS engine + engineVersion', 'rds:DescribeDBInstances', 'INV-1..4'),
       gcp:   filled('Cloud SQL databaseVersion', 'cloudasset.assets.list', 'INV-1..4'),
-      azure: notYet('Azure SQL version, Cosmos kind, AKS k8s version, App Service runtime version', 'Azure Resource Graph KQL', 'INV-S2'),
+      azure: filled('Azure SQL version, Cosmos kind, AKS k8s version, App Service runtime, ACR sku, Key Vault sku, AGW SSL policy', 'Azure Resource Graph KQL per type', 'INV-S2'),
     },
   },
   {
@@ -242,7 +242,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     sources: {
       aws:   filled('VPC id + Subnet id', 'ec2:DescribeInstances + ec2:DescribeVpcs', 'INV-1..4'),
       gcp:   filled('network + subnetwork', 'cloudasset.assets.list', 'INV-1..4'),
-      azure: notYet('vnet/subnet path resolved via Resource Graph `microsoft.network/virtualnetworks/subnets` lookup', 'Azure Resource Graph KQL', 'INV-S2'),
+      azure: filled('vnet/subnet path resolved from each VM\'s NIC ipConfigurations[0].subnet.id', 'Azure Resource Graph KQL', 'INV-S2'),
     },
   },
   {

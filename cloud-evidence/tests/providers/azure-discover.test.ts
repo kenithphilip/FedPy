@@ -30,7 +30,6 @@ vi.mock('../../core/auth/azure.ts', () => ({
 }));
 
 import { discoverAzureAssets, rowToAsset } from '../../providers/azure/discover.ts';
-import { collectAzureAssets } from '../../providers/azure/inventory-assets.ts';
 
 describe('rowToAsset', () => {
   it('maps a Resource Graph row to a CloudAsset with the right provider + projection', () => {
@@ -98,41 +97,9 @@ describe('discoverAzureAssets', () => {
   });
 });
 
-describe('collectAzureAssets (depth enrichers)', () => {
-  beforeEach(() => { _state.pages = []; _state.calls = []; });
-
-  it('returns storage + VM rows mapped to enriched CloudAssets', async () => {
-    _state.pages = [
-      // storageAccounts query response
-      { data: [{
-        id: '/sub-1/sa1', name: 'sa1', location: 'eastus', subscriptionId: 'sub-1', resourceGroup: 'rg-1', tags: {},
-        publicNetworkAccess: 'Enabled', allowBlobPublicAccess: true, minTls: 'TLS1_2',
-        encKeySource: 'Microsoft.Keyvault', cmkKey: 'https://kv/keys/k',
-      }] },
-      // virtualMachines query response
-      { data: [{
-        id: '/sub-1/vm1', name: 'vm1', location: 'eastus', subscriptionId: 'sub-1', resourceGroup: 'rg-1', tags: {},
-        vmSize: 'Standard_D2s_v3', osType: 'Linux',
-        imagePublisher: 'Canonical', imageOffer: 'UbuntuServer', imageSku: '22_04-lts', imageVersion: 'latest',
-        provisioning: 'Succeeded',
-      }] },
-    ];
-    const r = await collectAzureAssets(['sub-1']);
-    expect(r.warnings).toEqual([]);
-    expect(r.assets).toHaveLength(2);
-    const sa = r.assets.find((a) => a.assetType === 'storage-account')!;
-    expect(sa.publicFacing).toBe(true);
-    expect(sa.encryptionAtRest).toBe(true);
-    expect(sa.kmsKeyId).toBe('https://kv/keys/k');
-    const vm = r.assets.find((a) => a.assetType === 'virtual-machine')!;
-    expect(vm.osNameVersion).toContain('Canonical');
-    expect(vm.hardwareMakeModel).toBe('Standard_D2s_v3');
-    expect(vm.state).toBe('Succeeded');
-  });
-
-  it('returns empty + warning when no subscriptions configured', async () => {
-    const r = await collectAzureAssets([]);
-    expect(r.assets).toEqual([]);
-    expect(r.warnings.length).toBeGreaterThan(0);
-  });
-});
+// `collectAzureAssets` depth-enricher tests live in
+// `tests/providers/azure/inventory-assets.test.ts` (INV-S2).
+// That file uses the modern substring-routed Resource Graph mock so the
+// 13 parallel + sequential KQL queries the depth enrichers issue can be
+// routed by table-name match rather than by call-order. The remaining
+// tests in this file exercise `discoverAzureAssets` + `rowToAsset` only.
