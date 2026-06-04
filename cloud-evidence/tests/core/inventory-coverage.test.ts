@@ -83,12 +83,14 @@ describe('isCellFilled', () => {
     expect(isCellFilled(asset({ virtual: true }), colByName('Virtual'))).toBe(true);
   });
 
-  it('treats synthetic-field columns as blank until the slice ships', () => {
-    // Diagram Label + NetBIOS Name use `(synthetic)`; they don't have a
-    // CloudAsset field yet, so isCellFilled returns false. S3/S4/S6 will
-    // either add the field or this test will be updated when they do.
+  it('NetBIOS Name + Diagram Label are real CloudAsset fields now (post INV-S3/S4/S6)', () => {
+    // Both started as `(synthetic)` in the registry; the OS-level + workbook
+    // slices materialized them as real CloudAsset fields. Blank asset → blank
+    // cell, populated asset → filled cell.
     expect(isCellFilled(asset(), colByName('Diagram Label'))).toBe(false);
     expect(isCellFilled(asset(), colByName('NetBIOS Name'))).toBe(false);
+    expect(isCellFilled(asset({ diagramLabel: 'web-1@us-east-1' }), colByName('Diagram Label'))).toBe(true);
+    expect(isCellFilled(asset({ netbiosName: 'WIN-PROD-01' }), colByName('NetBIOS Name'))).toBe(true);
   });
 });
 

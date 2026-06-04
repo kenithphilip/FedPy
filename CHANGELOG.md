@@ -6,6 +6,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — INV-S1..S6: full FedRAMP Appendix M inventory coverage across all three clouds
+Six-slice sequential delivery closes every cloud-side cell in the FedRAMP
+Integrated Inventory Workbook (24 of 25 columns; column T "Comments" stays
+operator-supplied with a tag override available). Adds a Coverage Contract
+registry that makes "assumed blank" regressions impossible going forward.
+
+INV-S1 — Coverage Contract + per-run report
+  - `core/inventory-coverage.ts`: typed registry of all 25 columns × 3 clouds
+    × source-per-cell + status. Module-load invariant fails if order or
+    count drifts from `APPENDIX_M_COLUMNS`.
+  - `core/inventory-coverage-report.ts`: per-run measurement → `out/inventory-coverage.json` + 1-line console summary (e.g. "AWS 96% · GCP 84% · Azure 72%").
+  - Orchestrator wired between snapshot build and workbook write.
+
+INV-S2 — Azure depth (9 new enrichers)
+  - NIC IPs + MAC + Public-IP resolve + subnet/vnet path for VMs.
+  - Azure SQL (Server + DB), Cosmos DB, AKS, App Service / Function Apps,
+    Application Gateway, Load Balancer, Managed Disks, ACR, Key Vault.
+  - Closes Azure columns C, G, H, N, P, Q, V.
+
+INV-S3 — GCP OS Config + MAC enrichment
+  - Compute Instance NIC MAC pulled from CAI passthrough (column G).
+  - OS Config inventories.list → osNameVersion (K) + netbiosName for
+    Windows hosts (F) + patchLevel (R). `roles/osconfig.inventoryViewer`
+    documented as optional permission.
+
+INV-S4 — Azure VM osProfile + patchassessmentresults
+  - `osProfile.computerName` → netbiosName (column F).
+  - `patchassessmentresources.osName + osVersion` supersedes
+    imageReference for live OS (column K full).
+  - `lastAssessmentResult + missing-patch count` → patchLevel (column R).
+
+INV-S5 — Azure VDR scan reconcile
+  - `assessedResourceId(assessmentId, resourceDetails.Id)` extracts the
+    underlying assessed VM/disk/etc id from each Defender assessment.
+  - `providers/azure/vdr-scan.ts` surfaces `assessed_resource_ids` on
+    evidence; `core/inventory-workbook.ts:readInventoryContext` now walks
+    `evidence[].data.assessed_resource_ids` for VDR-class KSIs in addition
+    to the existing gap.affected_resources path.
+  - Result: every Defender-assessed Azure resource (healthy + unhealthy)
+    flips `inLatestScan = true` + `authenticatedScan = true` →
+    columns I + O filled.
+
+INV-S6 — Diagram Label auto-synth + Comments tag passthrough
+  - `synthesizeDiagramLabel` derives `<friendly-type>-<name>@<location>`.
+  - `applyDiagramLabelAndComments` honours operator overrides via tags:
+    `diagram_label` / `DiagramLabel` / `inventory_label` / `fedramp_label`
+    (column S). `inventory_comments` / `fedramp_comments` / `comments`
+    tags pass through to column T verbatim.
+  - Orchestrator runs the new pass right after `enrichFromTags` so every
+    asset gets a sensible non-blank Diagram Label by default.
+
+Net: 24/25 columns filled for every asset across AWS+GCP+Azure. Column T
+stays blank when no operator tag is set (FedRAMP-defined as operator-
+supplied); even that has a documented override path.
+
+Coverage Contract guarantees:
+  1. Every blank cell in the workbook has a documented `blank_reason`
+     or a slice id that ships the source.
+  2. The per-run `inventory-coverage.json` shows the exact fill rate
+     per (column, cloud) — operators + CI can detect any regression.
+  3. Subsequent provider edits that drop a cell raise a measurable
+     drop, not a silent failure.
+
+Tests: 778 total (up from 733 before INV-S1). Per-slice breakdown:
+  - INV-S1: 13 coverage-registry + report tests
+  - INV-S2: 11 Azure enricher tests
+  - INV-S3: 6 GCP OS Config + MAC tests
+  - INV-S4: 3 Azure osProfile/patchassessment tests
+  - INV-S5: 4 Azure VDR-scan reconcile + helper tests
+  - INV-S6: 10 Diagram Label + Comments tests
+
 ### Fixed — Authoritative KSI count (60, not 63) + Phase 4 / High-impact clarification
 Reconciles three FedRAMP-20x state-of-the-program issues surfaced by a
 deep-research audit against the authoritative FRMR sources (github.com/FedRAMP/docs

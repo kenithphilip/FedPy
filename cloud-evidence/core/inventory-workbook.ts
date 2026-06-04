@@ -110,6 +110,12 @@ export interface CloudAsset {
   /** The function the component provides for the system. */
   function?: string | null;
   endOfLife?: string | null;
+  /**
+   * Diagram Label (column S). Auto-synthesized by `applyDiagramLabelAndComments`
+   * as `<friendlyType>-<name>@<location>` when blank; operator override via the
+   * `diagram_label` / `DiagramLabel` / `inventory_label` / `fedramp_label` tag.
+   */
+  diagramLabel?: string | null;
   comments?: string | null;
   /** Raw resource tags/labels — drive tag→column enrichment (owner/function/baseline). */
   tags?: Record<string, string>;
@@ -209,7 +215,7 @@ export function assetToRows(a: CloudAsset): Array<Record<string, string>> {
     'Software/Database Vendor': a.softwareDatabaseVendor ?? '',
     'Software/Database Name & Version': a.softwareDatabaseNameVersion ?? '',
     'Patch Level': a.patchLevel ?? '',
-    'Diagram Label': '',
+    'Diagram Label': a.diagramLabel ?? '',
     'Comments': a.comments ?? '',
     'Serial #/Asset Tag#': a.uniqueId,
     'VLAN/Network ID': a.vlanNetworkId ?? '',
@@ -310,6 +316,62 @@ export const DEFAULT_TAG_MAP: TagColumnMap = {
   function: ['Function', 'function', 'Role', 'role', 'Name', 'service'],
   baselineConfig: ['Baseline', 'BaselineConfig', 'STIG', 'CIS', 'HardeningBaseline', 'baseline'],
 };
+
+// INV-S6: Tags the operator can set to override the auto-synthesized Diagram
+// Label (column S) and to populate the Comments (column T) cell. Comments
+// stays blank by default per the FedRAMP template — the tag is the operator's
+// override hook for asset-specific notes that should travel into the workbook.
+const DIAGRAM_LABEL_TAGS = ['diagram_label', 'DiagramLabel', 'inventory_label', 'fedramp_label'];
+const COMMENTS_TAGS = ['inventory_comments', 'fedramp_comments', 'comments'];
+
+/**
+ * Derive the auto-synthesized Diagram Label for an asset. Used when no
+ * explicit `diagramLabel` (or override tag) is present. Format:
+ *   <friendlyType>-<name>             (when location is "global" / absent)
+ *   <friendlyType>-<name>@<location>  (otherwise)
+ * Spaces are converted to hyphens and the whole string is lower-cased so the
+ * output is diagram-friendly (no whitespace, predictable casing).
+ */
+export function synthesizeDiagramLabel(asset: CloudAsset): string {
+  const type = (asset.assetType ?? 'asset').toString().trim();
+  // Prefer the explicit `function` (usually the resource name) over the tail
+  // of the uniqueId — the workbook's reader will recognize names.
+  const nameSrc = (asset.function ?? asset.uniqueId.split(/[/:]/).filter(Boolean).pop() ?? 'unnamed').toString().trim();
+  const loc = (asset.location ?? '').toString().trim().toLowerCase();
+  const base = `${type}-${nameSrc}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9._@/-]/g, '');
+  if (!loc || loc === 'global') return base;
+  return `${base}@${loc.replace(/\s+/g, '-')}`;
+}
+
+/**
+ * Apply the diagram-label + comments tag overrides + synthesis (INV-S6).
+ *
+ * Rules:
+ *   1. If a `diagram_label` (or alias) tag is set, use that verbatim.
+ *   2. Otherwise auto-synthesize a default label (see `synthesizeDiagramLabel`).
+ *   3. Operators can override the result by passing `--diagram-label-blank`
+ *      via the orchestrator (not implemented here — this function just sets
+ *      a sensible default that downstream code can clear if requested).
+ *   4. For Comments: an `inventory_comments` tag is passed through verbatim;
+ *      no synthesis (FedRAMP defines column T as operator-supplied free text).
+ *
+ * Mutates and returns the asset.
+ */
+export function applyDiagramLabelAndComments(asset: CloudAsset): CloudAsset {
+  // Diagram Label.
+  const explicitLabel = firstTag(asset.tags, DIAGRAM_LABEL_TAGS);
+  if (explicitLabel) {
+    asset.diagramLabel = explicitLabel;
+  } else if (asset.diagramLabel == null) {
+    asset.diagramLabel = synthesizeDiagramLabel(asset);
+  }
+  // Comments — only populated when the operator has tagged the asset.
+  const explicitComments = firstTag(asset.tags, COMMENTS_TAGS);
+  if (explicitComments && (asset.comments == null || asset.comments === '')) {
+    asset.comments = explicitComments;
+  }
+  return asset;
+}
 
 function firstTag(tags: Record<string, string> | undefined, keys: string[]): string | undefined {
   if (!tags) return undefined;

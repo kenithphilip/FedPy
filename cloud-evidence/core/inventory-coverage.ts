@@ -213,11 +213,11 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
     },
   },
   {
-    column: 'Diagram Label', assetField: '(synthetic)', blankReason: null,
+    column: 'Diagram Label', assetField: 'diagramLabel', blankReason: null,
     sources: {
-      aws:   notYet('Auto-synth `<friendlyType>-<short-name>` + tag `diagram_label=...` override', '(none — derived)', 'INV-S6'),
-      gcp:   notYet('Auto-synth `<friendlyType>-<short-name>` + label `diagram_label=...` override', '(none — derived)', 'INV-S6'),
-      azure: notYet('Auto-synth `<friendlyType>-<short-name>` + tag `diagram_label=...` override', '(none — derived)', 'INV-S6'),
+      aws:   filled('Auto-synthesized as `<friendly-type>-<name>@<location>`; overridden by tag `diagram_label` / `DiagramLabel` / `inventory_label` / `fedramp_label`', 'core/inventory-workbook.ts:applyDiagramLabelAndComments', 'INV-S6'),
+      gcp:   filled('Auto-synthesized as `<friendly-type>-<name>@<location>`; overridden by label `diagram_label`', 'core/inventory-workbook.ts:applyDiagramLabelAndComments', 'INV-S6'),
+      azure: filled('Auto-synthesized as `<friendly-type>-<name>@<location>`; overridden by tag `diagram_label`', 'core/inventory-workbook.ts:applyDiagramLabelAndComments', 'INV-S6'),
     },
   },
   {

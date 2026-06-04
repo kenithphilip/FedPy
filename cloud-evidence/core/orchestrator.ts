@@ -28,7 +28,7 @@ import { buildProcessArtifactEvidence, type AttestationRecord } from './process-
 import { REQUIREMENT_PLAYBOOKS } from './requirement-playbooks.ts';
 import { buildFamilyRollup } from './family-rollup.ts';
 import { buildControlBenchmark, type BenchmarkFramework } from './control-benchmark.ts';
-import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, applyDataClassification, type CloudAsset } from './inventory-workbook.ts';
+import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, applyDataClassification, applyDiagramLabelAndComments, type CloudAsset } from './inventory-workbook.ts';
 import { emitInventoryCoverage, coverageSummary } from './inventory-coverage-report.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
@@ -1475,6 +1475,7 @@ export async function main(): Promise<void> {
         enrichFromTags(a);
         applyTagGovernance(a);             // env/criticality/cost-center + required-tag compliance
         a.endOfLife ??= deriveEol(a);      // lifecycle EOL from runtime/engine/OS
+        applyDiagramLabelAndComments(a);   // INV-S6: column S synthesis + column T tag passthrough
       }
       applyDataClassification(assets, sensitiveBuckets);   // Macie-flagged S3 → dataClassification
       const invCtx = readInventoryContext(args.outDir);

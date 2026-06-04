@@ -20,6 +20,8 @@ import {
   applyTagGovernance,
   deriveEdges,
   applyDataClassification,
+  synthesizeDiagramLabel,
+  applyDiagramLabelAndComments,
   type CloudAsset,
 } from '../../core/inventory-workbook.ts';
 
@@ -315,5 +317,83 @@ describe('buildInventorySnapshot', () => {
     expect(snap.by_provider).toEqual({ aws: 2, gcp: 1 });
     expect(snap.by_type['AWS::EC2::Instance']).toBe(1);
     expect(typeof snap.generated_at).toBe('string');
+  });
+});
+
+// INV-S6 — Diagram Label auto-synth + Comments tag passthrough
+describe('synthesizeDiagramLabel', () => {
+  it('combines friendly type + name + location into a lowercase slug', () => {
+    expect(synthesizeDiagramLabel({
+      provider: 'aws', uniqueId: 'arn:aws:ec2:us-east-1:1:instance/i-1',
+      assetType: 'EC2 Instance', function: 'web-prod-01', location: 'us-east-1',
+    } as CloudAsset)).toBe('ec2-instance-web-prod-01@us-east-1');
+  });
+
+  it('drops the @<location> suffix when location is global / absent', () => {
+    expect(synthesizeDiagramLabel({
+      provider: 'aws', uniqueId: 'arn:aws:cloudfront::1:distribution/EXX',
+      assetType: 'CloudFront Distribution', function: 'cdn-1', location: 'global',
+    } as CloudAsset)).toBe('cloudfront-distribution-cdn-1');
+    expect(synthesizeDiagramLabel({
+      provider: 'azure', uniqueId: '/sub/x', assetType: 'key-vault', function: 'kv-prod',
+    } as CloudAsset)).toBe('key-vault-kv-prod');
+  });
+
+  it('falls back to the uniqueId tail when function is missing', () => {
+    expect(synthesizeDiagramLabel({
+      provider: 'gcp', uniqueId: '//compute.googleapis.com/projects/p/zones/us-central1-a/instances/vm-42',
+      assetType: 'Instance', location: 'us-central1-a',
+    } as CloudAsset)).toBe('instance-vm-42@us-central1-a');
+  });
+});
+
+describe('applyDiagramLabelAndComments', () => {
+  it('auto-synthesizes Diagram Label when none is set + no tag override', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'arn:...:i-1', assetType: 'EC2 Instance', function: 'web', location: 'us-east-1' };
+    applyDiagramLabelAndComments(a);
+    expect(a.diagramLabel).toBe('ec2-instance-web@us-east-1');
+  });
+
+  it('honours an explicit diagram_label tag verbatim (no slug-ification)', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'arn:...:i-1', assetType: 'EC2', function: 'web', location: 'us-east-1',
+      tags: { diagram_label: 'WebTier-01 (Primary)' } };
+    applyDiagramLabelAndComments(a);
+    expect(a.diagramLabel).toBe('WebTier-01 (Primary)');
+  });
+
+  it('also accepts alternative tag aliases (DiagramLabel, inventory_label, fedramp_label)', () => {
+    for (const key of ['DiagramLabel', 'inventory_label', 'fedramp_label']) {
+      const a: CloudAsset = { provider: 'gcp', uniqueId: 'gcp-1', assetType: 'Instance', function: 'srv',
+        tags: { [key]: 'CUSTOM-LABEL' } };
+      applyDiagramLabelAndComments(a);
+      expect(a.diagramLabel, key).toBe('CUSTOM-LABEL');
+    }
+  });
+
+  it('passes inventory_comments tag through verbatim into the Comments column', () => {
+    const a: CloudAsset = { provider: 'azure', uniqueId: '/az/1', assetType: 'vm',
+      tags: { inventory_comments: 'Tied to high-priority workload; do not patch on Fridays.' } };
+    applyDiagramLabelAndComments(a);
+    expect(a.comments).toBe('Tied to high-priority workload; do not patch on Fridays.');
+  });
+
+  it('leaves Comments blank by default (FedRAMP operator-supplied)', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'arn:...:b-1', assetType: 'S3 Bucket', function: 'logs' };
+    applyDiagramLabelAndComments(a);
+    expect(a.comments == null || a.comments === '').toBe(true);
+  });
+
+  it('does not overwrite an explicit diagramLabel already set by a collector', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'arn:...:i-1', assetType: 'EC2', function: 'web', location: 'us-east-1',
+      diagramLabel: 'pre-set-label' };
+    applyDiagramLabelAndComments(a);
+    expect(a.diagramLabel).toBe('pre-set-label');
+  });
+
+  it('assetToRows includes the populated diagramLabel in the workbook row', () => {
+    const a: CloudAsset = { provider: 'aws', uniqueId: 'arn:...:i-1', assetType: 'EC2', function: 'web', location: 'us-east-1',
+      diagramLabel: 'web-tier-1@us-east-1' };
+    const rows = assetToRows(a);
+    expect(rows[0]!['Diagram Label']).toBe('web-tier-1@us-east-1');
   });
 });
