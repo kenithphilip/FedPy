@@ -2,7 +2,7 @@
  * KSI-CSX-SUM — Implementation Summaries aggregator.
  *
  * Reads every KSI-*.json evidence file in outDir and emits:
- *   - summaries/KSI-XXX.md  — one current-state markdown per KSI (per decision: markdown-in-git, no per-run snapshots)
+ *   - summaries/KSI-<id>.md  — one current-state markdown per KSI (per decision: markdown-in-git, no per-run snapshots)
  *   - out/KSI-CSX-SUM-input.json — structured input for Paramify / static-site renderer
  */
 import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';

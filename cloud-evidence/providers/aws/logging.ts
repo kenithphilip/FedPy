@@ -543,7 +543,7 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
         }],
       },
       alternative_satisfiers: [
-        { via: '3rd-party CNAPP/SIEM with finding workflow (Wiz, Lacework, Datadog Cloud SIEM)', description: 'External tool drives the triage.', evidence_required: ['Sample finding lifecycle in external tool', 'MTTR report'], detected: false },
+        { via: '3rd-party CNAPP/SIEM with finding workflow (Wiz, Lacework, Datadog Cloud SIEM)', description: 'External tool drives the triage.', evidence_required: ['Representative finding lifecycle in external tool', 'MTTR report'], detected: false },
       ],
       nist_controls: ['ca-7','si-4'],
       cross_ksi_dependencies: [

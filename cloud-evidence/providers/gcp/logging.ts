@@ -406,7 +406,7 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
         }],
       },
       alternative_satisfiers: [
-        { via: '3rd-party CNAPP (Wiz, Lacework, Prisma Cloud)', description: 'External tool drives triage.', evidence_required: ['Sample finding lifecycle export'], detected: false },
+        { via: '3rd-party CNAPP (Wiz, Lacework, Prisma Cloud)', description: 'External tool drives triage.', evidence_required: ['Representative finding lifecycle export'], detected: false },
       ],
       nist_controls: ['ca-7','si-4'],
       cross_ksi_dependencies: [

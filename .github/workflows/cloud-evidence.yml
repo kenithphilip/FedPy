@@ -94,6 +94,19 @@ jobs:
           echo "Running: npx tsx core/orchestrator.ts $FLAGS"
           npx tsx core/orchestrator.ts $FLAGS
 
+      # --- REO guardrails (run BEFORE upload so a failed collection is visible) ---
+      - name: REO G1 — lint:no-stubs
+        if: always()
+        run: npm run lint:no-stubs
+
+      - name: REO G3 — check:provenance (every emitted artifact has provenance)
+        if: always()
+        run: npm run check:provenance
+
+      - name: REO G2 — check:coverage-regression vs baseline
+        if: always()
+        run: npm run check:coverage-regression
+
       # --- Upload all artifacts ---
       - name: Upload evidence JSON
         uses: actions/upload-artifact@v4

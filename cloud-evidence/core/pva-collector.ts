@@ -160,7 +160,7 @@ export function buildPvaEvidence(input: PvaInput): { evidence: EvidenceFile; run
           customer_visible: { level: 'none', notes: 'Internal.' },
           effort_estimate: { magnitude: 'hours', notes: 'Per regressed KSI.' },
           steps: [
-            'For each regressed KSI, open out/KSI-XXX.json.',
+            'For each regressed KSI, open out/KSI-<id>.json (substitute the failing KSI id).',
             'Inspect findings where passed=false; apply each remediation.options[].',
             'Re-run collector to verify.',
           ],

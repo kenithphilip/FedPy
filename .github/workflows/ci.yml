@@ -46,6 +46,17 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: REO G1 — lint:no-stubs (no TODO/FIXME/placeholder in production paths)
+        run: npm run lint:no-stubs
+
+      - name: REO G3 — check:provenance (every artifact carries provenance)
+        run: npm run check:provenance
+
+      # G2 (check:coverage-regression) runs only when an inventory-coverage.json
+      # exists from a real collection run. CI doesn't perform live cloud
+      # collection (no credentials), so this guardrail is enforced in the
+      # scheduled cloud-evidence.yml workflow after `npm run collect`.
+
   tracker:
     name: tracker (Node ${{ matrix.node }})
     runs-on: ubuntu-latest

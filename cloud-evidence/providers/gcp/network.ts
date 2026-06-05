@@ -195,7 +195,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
     {
       via: 'External CNAPP / CSPM (Wiz, Lacework, Prisma Cloud)',
       description: 'A CSPM/CNAPP tool may track attack-surface signals continuously.',
-      evidence_required: ['CSPM tool tenant', 'Recent attack-surface report', 'Sample finding lifecycle'],
+      evidence_required: ['CSPM tool tenant', 'Recent attack-surface report', 'Representative finding lifecycle'],
       detected: false,
       detection_signals: [],
     },

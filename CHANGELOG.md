@@ -6,6 +6,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — REO-0: Real-Evidence-Only standard + 3 CI guardrails
+Foundational rule + enforcement layer for the 46-week LOOP-A through LOOP-K
+execution plan. The REO standard codifies the no-stubs / no-fixed-data /
+no-lazy-work directive: every byte emitted by this repo must trace back to
+real evidence (cloud SDK call, FRMR catalog read, NIST publication, tracker
+DB query) or to operator-supplied configuration. Placeholder strings, sample
+data, mock SDKs in production paths, fake signatures, and "TODO: implement
+later" comments are explicitly forbidden in `core/`, `providers/`,
+`tracker/`, and `scripts/`.
+
+  - `cloud-evidence/CLAUDE.md`: new standard doc loaded by every session.
+    Rule 1 (no stubs/placeholders/fake-data in production paths), Rule 2
+    (per-slice Real Slice Contract — done means real evidence flows
+    end-to-end, signed, tested on the real path, no new lint hits), Rule 3
+    (narrow allowed exceptions: OSCAL/FedRAMP/NIST/cloud-published
+    constants), Rule 4 (operator-supplied data flows through tracker DB,
+    config.yaml, cloud tags, or CLI flags — never silently defaulted).
+  - `scripts/lint-no-stubs.mjs` (G1): greps production paths for forbidden
+    tokens with an allowlist for the standard's own files. JSX/HTML
+    `placeholder="..."` attributes excluded via negative lookahead.
+  - `scripts/check-provenance.mjs` (G3): every emitted artifact under
+    `out/` must carry a top-level `provenance` block (emitter, emittedAt,
+    sourceCalls, signingKeyId) — OR be a recognized envelope (KSI evidence:
+    ksi_id + run_id + collected_at + frmr_version + providers[].evidence[].source;
+    OSCAL: uuid + metadata.last-modified + version + oscal-version) with
+    structural provenance equivalents.
+  - `scripts/check-coverage-regression.mjs` (G2): diffs current
+    `out/inventory-coverage.json` against `coverage-baseline.json`; fails
+    if any (column, cloud) fill-rate decreased. SKIPs cleanly when no
+    current report exists (dev env without cloud creds).
+  - `package.json`: new scripts `lint:no-stubs`, `check:provenance`,
+    `check:coverage-regression`, `check:reo`.
+  - `.github/workflows/ci.yml`: G1 + G3 wired as required checks on every
+    push and PR. `.github/workflows/cloud-evidence.yml`: G1 + G2 + G3 wired
+    after `npm run collect` so production regressions surface immediately.
+  - `core/oscal-ssp.ts`: removed two REO violations. Authorization-boundary
+    description + system-implementation.users[] now accept
+    `SspEmitOptions.authorizationBoundaryDescription` and
+    `SspEmitOptions.userRoles[]`. When omitted, an explicit
+    `REQUIRES-OPERATOR-INPUT:` marker is emitted (with the name of the
+    missing field + how the operator provides it) instead of placeholder
+    text. A 3PAO sees the gap at-a-glance instead of mistaking placeholder
+    prose for finalized narrative.
+  - 9 wording corrections across `core/csx-sum-aggregator.ts`,
+    `core/pva-collector.ts`, `core/scn-classifier.ts`,
+    `providers/aws/{logging,network,vdr-scan}.ts`,
+    `providers/gcp/{logging,network}.ts`: `KSI-XXX` → `KSI-<id>`;
+    "Sample finding lifecycle" → "Representative finding lifecycle"; etc.
+  - `tests/scripts/reo-guardrails.test.ts`: 15 new tests covering G1 / G2 /
+    G3 behavior including KSI envelope structural check + JSX placeholder
+    exclusion. `tests/core/oscal-ssp.test.ts`: 4 new tests covering
+    REQUIRES-OPERATOR-INPUT marker + operator-supplied override.
+
+Verification: typecheck clean; 797/797 tests passing (+19 from REO-0);
+`npm run check:reo` returns 0 against the current tree (lint OK, provenance
+OK, coverage-regression SKIP because no live collection run in dev env).
+
 ### Added — INV-S1..S6: full FedRAMP Appendix M inventory coverage across all three clouds
 Six-slice sequential delivery closes every cloud-side cell in the FedRAMP
 Integrated Inventory Workbook (24 of 25 columns; column T "Comments" stays

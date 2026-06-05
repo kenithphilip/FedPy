@@ -423,8 +423,8 @@ export function buildScnReport(opts: BuildScnReportOptions): ScnReport {
     total: classifications.length,
   };
   const generated_at = new Date().toISOString();
-  // Seed `draft_notice` with a placeholder so the in-memory report is fully populated
-  // before we call draftNotice() on the finalized record.
+  // Initialize `draft_notice` empty so the in-memory report object is fully shaped
+  // before draftNotice() computes the real notice text from the finalized record.
   const report: ScnReport = { run_id: opts.runId, generated_at, totals, classifications, draft_notice: '' };
   report.draft_notice = draftNotice(report, { systemName: opts.systemName, csp: opts.cspName });
   return report;

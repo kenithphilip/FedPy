@@ -151,8 +151,8 @@ export function buildVdrFindings(
   const scannerName = provider === 'gcp' ? 'GCP Container/Artifact Analysis' : 'Amazon Inspector v2';
   const scannerResourceType = provider === 'gcp' ? 'gcp_container_analysis' : 'aws_inspector2';
   const altSatisfiers = [
-    { via: 'Wiz / Prisma Cloud / Orca / Tenable / Snyk / Qualys', description: 'A dedicated vulnerability/CNAPP scanner provides equivalent (often deeper) detection across the estate.', evidence_required: ['Scanner coverage report', 'Sample finding with SLA tracking'], detected: false, detection_signals: [] },
-    { via: 'HackerOne / Bugcrowd (vulnerability disclosure / bug bounty)', description: 'A VDP/bug-bounty program is an additional detection channel required by VDR.', evidence_required: ['Program URL + scope', 'Sample triaged report'], detected: false, detection_signals: [] },
+    { via: 'Wiz / Prisma Cloud / Orca / Tenable / Snyk / Qualys', description: 'A dedicated vulnerability/CNAPP scanner provides equivalent (often deeper) detection across the estate.', evidence_required: ['Scanner coverage report', 'Representative finding with SLA tracking'], detected: false, detection_signals: [] },
+    { via: 'HackerOne / Bugcrowd (vulnerability disclosure / bug bounty)', description: 'A VDP/bug-bounty program is an additional detection channel required by VDR.', evidence_required: ['Program URL + scope', 'Representative triaged report'], detected: false, detection_signals: [] },
   ];
   const detection = finding({
     rule: `${provider}.vdr.detection_capability_enabled`,

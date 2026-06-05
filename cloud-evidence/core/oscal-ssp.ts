@@ -164,6 +164,22 @@ export interface SspSystemOptions {
   systemStatus?: OscalSsp['system-characteristics']['status']['state'];
   /** Providers in play — drive the leveraged infrastructure components. */
   providers?: Array<'aws' | 'gcp' | 'azure'>;
+  /**
+   * Operator-supplied authorization-boundary description. Per the REO standard
+   * (cloud-evidence/CLAUDE.md), the system never substitutes a default that
+   * looks like real data. If omitted, the SSP emits an explicit
+   * REQUIRES-OPERATOR-INPUT marker naming the field, the consumer, and where
+   * the operator provides it — so a 3PAO/PMO can see at-a-glance that the
+   * boundary narrative needs to come from the system owner.
+   */
+  authorizationBoundaryDescription?: string;
+  /**
+   * Operator-supplied user role/responsibility entries for the SSP's
+   * system-implementation.users[]. If omitted, the SSP emits an explicit
+   * REQUIRES-OPERATOR-INPUT user entry under the assumed `admin` role,
+   * making the gap visible rather than substituting fake user data.
+   */
+  userRoles?: Array<{ uuid?: string; title: string; roleIds: string[]; description: string }>;
 }
 
 export interface SspBuildContext {
@@ -348,19 +364,36 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
       status: { state: opts.systemStatus || 'operational' },
       'authorization-boundary': {
         description:
-          'Authorization boundary placeholder. Document the components, services, and data ' +
-          'flows within the boundary (a diagram is recommended) before submission.',
+          opts.authorizationBoundaryDescription
+          ?? (
+            'REQUIRES-OPERATOR-INPUT: authorization-boundary narrative not supplied. ' +
+            'Provide a description of the components, services, data flows, and trust ' +
+            'boundaries within the authorization boundary, with a companion diagram, via ' +
+            "SspEmitOptions.authorizationBoundaryDescription or the orchestrator's --ssp-boundary flag. " +
+            'A 3PAO will reject the SSP if this field remains as the REQUIRES-OPERATOR-INPUT marker.'
+          ),
       },
     },
     'system-implementation': {
-      users: [
-        {
-          uuid: deterministicUuid(`ssp:user:admin:${systemId}`),
-          title: 'System Administrator',
-          'role-ids': ['admin'],
-          description: 'Placeholder user. Replace with the system\'s actual user roles.',
-        },
-      ],
+      users: (opts.userRoles && opts.userRoles.length > 0)
+        ? opts.userRoles.map((u) => ({
+            uuid: u.uuid ?? deterministicUuid(`ssp:user:${systemId}:${u.title}`),
+            title: u.title,
+            'role-ids': u.roleIds,
+            description: u.description,
+          }))
+        : [
+            {
+              uuid: deterministicUuid(`ssp:user:admin:${systemId}`),
+              title: 'System Administrator',
+              'role-ids': ['admin'],
+              description:
+                'REQUIRES-OPERATOR-INPUT: system-implementation.users[] not supplied. ' +
+                "Provide the system's real user roles + responsibilities via " +
+                "SspEmitOptions.userRoles or the orchestrator's --ssp-user-roles flag. " +
+                'A 3PAO will reject the SSP if this field remains as the REQUIRES-OPERATOR-INPUT marker.',
+            },
+          ],
       components,
       remarks: 'Components and inventory are a starting point; complete from the inventory workbook.',
     },

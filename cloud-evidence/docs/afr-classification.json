@@ -1,0 +1,1371 @@
+{
+  "PVA": {
+    "family_name": "Persistent Validation and Assessment",
+    "total_entries": 18,
+    "moderate_applicable": 18,
+    "must_count": 12,
+    "should_count": 2,
+    "may_count": 2,
+    "other_count": 2,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "PVA-CSX-FAV",
+          "name": "Issues As Vulnerabilities",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-PVA-02"
+        },
+        {
+          "id": "PVA-CSX-IVV",
+          "name": "Independent Verification and Validation",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-PVA-05"
+        },
+        {
+          "id": "PVA-CSX-NMV",
+          "name": "Non-Machine Validation",
+          "actor": "CSX",
+          "controls": [],
+          "fka": [
+            "FRR-PVA-TF-LO-01",
+            "FRR-PVA-TF-MO-01"
+          ]
+        },
+        {
+          "id": "PVA-CSX-PMV",
+          "name": "Persistent Machine Validation",
+          "actor": "CSX",
+          "controls": [],
+          "fka": [
+            "FRR-PVA-TF-LO-02",
+            "FRR-PVA-TF-MO-02"
+          ]
+        },
+        {
+          "id": "PVA-CSX-RPV",
+          "name": "Report Persistent Validation",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-PVA-03"
+        },
+        {
+          "id": "PVA-CSX-VAL",
+          "name": "Persistent Validation",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-PVA-01"
+        },
+        {
+          "id": "PVA-TPX-MME",
+          "name": "Mixed Methods Evaluation",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-13"
+        },
+        {
+          "id": "PVA-TPX-OUC",
+          "name": "Outcome Consistency",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-12"
+        },
+        {
+          "id": "PVA-TPX-PAD",
+          "name": "Procedure Adherence",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-16"
+        },
+        {
+          "id": "PVA-TPX-PDK",
+          "name": "Processes Derived from Key Security Indicators",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-11"
+        },
+        {
+          "id": "PVA-TPX-SUM",
+          "name": "Assessment Summary",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-17"
+        },
+        {
+          "id": "PVA-TPX-UNP",
+          "name": "Underlying Processes",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-10"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "PVA-CSX-PTE",
+          "name": "Provide Technical Evidence",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-PVA-07"
+        },
+        {
+          "id": "PVA-TPX-PEX",
+          "name": "Provider Experts",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-14"
+        }
+      ],
+      "MAY": [
+        {
+          "id": "PVA-CSX-RAD",
+          "name": "Receiving Advice",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-PVA-08"
+        },
+        {
+          "id": "PVA-TPX-SHA",
+          "name": "Sharing Advice",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-09"
+        }
+      ],
+      "OTHER": [
+        {
+          "id": "PVA-TPX-NOR",
+          "name": "No Overall Recommendation",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-18"
+        },
+        {
+          "id": "PVA-TPX-STE",
+          "name": "Static Evidence",
+          "actor": "TPX",
+          "controls": [],
+          "fka": "FRR-PVA-15"
+        }
+      ]
+    }
+  },
+  "FSI": {
+    "family_name": "FedRAMP Security Inbox",
+    "total_entries": 16,
+    "moderate_applicable": 16,
+    "must_count": 13,
+    "should_count": 2,
+    "may_count": 1,
+    "other_count": 0,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "FSI-CSO-CRA",
+          "name": "Complete Required Actions",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-14"
+        },
+        {
+          "id": "FSI-CSO-EMR",
+          "name": "Emergency Message Routing",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-15"
+        },
+        {
+          "id": "FSI-CSO-INB",
+          "name": "Maintain a FedRAMP Security Inbox",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-09"
+        },
+        {
+          "id": "FSI-CSO-NOC",
+          "name": "Notification of Changes",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-12"
+        },
+        {
+          "id": "FSI-CSO-RCV",
+          "name": "Receive Email Without Disruption",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-11"
+        },
+        {
+          "id": "FSI-CSO-TFG",
+          "name": "Trust @fedramp.gov and @gsa.gov",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-10"
+        },
+        {
+          "id": "FSI-FRP-CDS",
+          "name": "Criticality Designators",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-02"
+        },
+        {
+          "id": "FSI-FRP-COR",
+          "name": "Explain Corrective Actions",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-07"
+        },
+        {
+          "id": "FSI-FRP-ERT",
+          "name": "Elevated Reaction Timeframes",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-06"
+        },
+        {
+          "id": "FSI-FRP-PNT",
+          "name": "Public Notice of Emergency Tests",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-04"
+        },
+        {
+          "id": "FSI-FRP-RQA",
+          "name": "Required Actions",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-05"
+        },
+        {
+          "id": "FSI-FRP-UFS",
+          "name": "Use FedRAMP_Security Email in Emergencies",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-03"
+        },
+        {
+          "id": "FSI-FRP-VRE",
+          "name": "Verified Emails",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-01"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "FSI-CSO-ACK",
+          "name": "Acknowledge Receipt",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-13"
+        },
+        {
+          "id": "FSI-CSO-IMA",
+          "name": "Important Message Actions",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-FSI-16"
+        }
+      ],
+      "MAY": [
+        {
+          "id": "FSI-FRP-RPM",
+          "name": "Reaction Metrics",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-FSI-08"
+        }
+      ],
+      "OTHER": []
+    }
+  },
+  "ICP": {
+    "family_name": "Incident Communications Procedures",
+    "total_entries": 9,
+    "moderate_applicable": 9,
+    "must_count": 6,
+    "should_count": 2,
+    "may_count": 0,
+    "other_count": 1,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "ICP-CSX-FIR",
+          "name": "Final Incident Report",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-07"
+        },
+        {
+          "id": "ICP-CSX-ICU",
+          "name": "Incident Updates",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-04"
+        },
+        {
+          "id": "ICP-CSX-IRA",
+          "name": "Incident Reporting to Agencies",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-02"
+        },
+        {
+          "id": "ICP-CSX-IRC",
+          "name": "Incident Reporting to CISA",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-03"
+        },
+        {
+          "id": "ICP-CSX-IRF",
+          "name": "Incident Reporting to FedRAMP",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-01"
+        },
+        {
+          "id": "ICP-CSX-RPT",
+          "name": "Incident Report Availability",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-05"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "ICP-CSX-AUR",
+          "name": "Automated Reporting",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-08"
+        },
+        {
+          "id": "ICP-CSX-HRM",
+          "name": "Human and Machine-Readable",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-09"
+        }
+      ],
+      "MAY": [],
+      "OTHER": [
+        {
+          "id": "ICP-CSX-RSD",
+          "name": "Responsible Disclosure",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ICP-06"
+        }
+      ]
+    }
+  },
+  "ADS": {
+    "family_name": "Authorization Data Sharing",
+    "total_entries": 20,
+    "moderate_applicable": 20,
+    "must_count": 14,
+    "should_count": 5,
+    "may_count": 1,
+    "other_count": 0,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "ADS-CSL-TCM",
+          "name": "Trust Center Migration",
+          "actor": "CSL",
+          "controls": [],
+          "fka": "FRR-ADS-08"
+        },
+        {
+          "id": "ADS-CSL-UCP",
+          "name": "USDA Connect",
+          "actor": "CSL",
+          "controls": [],
+          "fka": "FRR-ADS-06"
+        },
+        {
+          "id": "ADS-CSO-CBF",
+          "name": "Consistency Between Formats",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-ADS-02"
+        },
+        {
+          "id": "ADS-CSO-HAD",
+          "name": "Historical Authorization Data",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-ADS-09"
+        },
+        {
+          "id": "ADS-CSO-PUB",
+          "name": "Public Information",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-ADS-01"
+        },
+        {
+          "id": "ADS-CSO-RIS",
+          "name": "Responsible Information Sharing",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-ADS-05"
+        },
+        {
+          "id": "ADS-CSO-SVC",
+          "name": "Service List",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-ADS-03"
+        },
+        {
+          "id": "ADS-CSX-UTC",
+          "name": "Use Trust Centers",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-ADS-07"
+        },
+        {
+          "id": "ADS-TRC-AAI",
+          "name": "Agency Access Inventory",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-TC-05"
+        },
+        {
+          "id": "ADS-TRC-ACL",
+          "name": "Access Logging",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-TC-06"
+        },
+        {
+          "id": "ADS-TRC-PAC",
+          "name": "Programmatic Access",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-TC-03"
+        },
+        {
+          "id": "ADS-TRC-USH",
+          "name": "Uninterrupted Sharing",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-04"
+        },
+        {
+          "id": "ADS-UTC-AAD",
+          "name": "Agency Access Denial",
+          "actor": "UTC",
+          "controls": [],
+          "fka": "ADS-CSO-AAD"
+        },
+        {
+          "id": "ADS-UTC-PGD",
+          "name": "Public Guidance",
+          "actor": "UTC",
+          "controls": [],
+          "fka": [
+            "FRR-ADS-AC-01",
+            "ADS-CSO-PGD"
+          ]
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "ADS-CSL-UTC",
+          "name": "Use Trust Centers",
+          "actor": "CSL",
+          "controls": [],
+          "fka": "ADS-CSX-UTC"
+        },
+        {
+          "id": "ADS-TRC-HMR",
+          "name": "Human and Machine-Readable",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-TC-02"
+        },
+        {
+          "id": "ADS-TRC-RSP",
+          "name": "Responsive Performance",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-TC-07"
+        },
+        {
+          "id": "ADS-TRC-SSM",
+          "name": "Self-Service Access Management",
+          "actor": "TRC",
+          "controls": [],
+          "fka": "FRR-ADS-TC-04"
+        },
+        {
+          "id": "ADS-UTC-AGA",
+          "name": "Agency Access",
+          "actor": "UTC",
+          "controls": [],
+          "fka": [
+            "FRR-ADS-AC-02",
+            "ADS-CSO-AGA"
+          ]
+        }
+      ],
+      "MAY": [
+        {
+          "id": "ADS-CSL-LRE",
+          "name": "Legacy Repository Exception",
+          "actor": "CSL",
+          "controls": [],
+          "fka": "FRR-ADS-EX-01"
+        }
+      ],
+      "OTHER": []
+    }
+  },
+  "MAS": {
+    "family_name": "Minimum Assessment Scope",
+    "total_entries": 5,
+    "moderate_applicable": 5,
+    "must_count": 4,
+    "should_count": 0,
+    "may_count": 1,
+    "other_count": 0,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "MAS-CSO-FLO",
+          "name": "Information Flows and Security Objectives",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-MAS-05"
+        },
+        {
+          "id": "MAS-CSO-IIR",
+          "name": "Identify Information Resources",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-MAS-01"
+        },
+        {
+          "id": "MAS-CSO-MDI",
+          "name": "Metadata Inclusion",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-MAS-04"
+        },
+        {
+          "id": "MAS-CSO-TPR",
+          "name": "Third-Party Information Resources",
+          "actor": "CSO",
+          "controls": [],
+          "fka": [
+            "FRR-MAS-03",
+            "FRR-MAS-02"
+          ]
+        }
+      ],
+      "SHOULD": [],
+      "MAY": [
+        {
+          "id": "MAS-CSO-SUP",
+          "name": "Supplemental Information",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-MAS-EX-01"
+        }
+      ],
+      "OTHER": []
+    }
+  },
+  "CCM": {
+    "family_name": "Continuous Monitoring",
+    "total_entries": 24,
+    "moderate_applicable": 24,
+    "must_count": 10,
+    "should_count": 6,
+    "may_count": 4,
+    "other_count": 4,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "CCM-AGM-NFA",
+          "name": "Notify FedRAMP After Requests",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-07"
+        },
+        {
+          "id": "CCM-AGM-NFR",
+          "name": "Notify FedRAMP of Concerns",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-05"
+        },
+        {
+          "id": "CCM-AGM-ROR",
+          "name": "Review Ongoing Reports",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-01"
+        },
+        {
+          "id": "CCM-OAR-AFS",
+          "name": "Anonymized Feedback Summary",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-05"
+        },
+        {
+          "id": "CCM-OAR-AVL",
+          "name": "Report Availability",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-01"
+        },
+        {
+          "id": "CCM-OAR-FBM",
+          "name": "Feedback Mechanism",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-04"
+        },
+        {
+          "id": "CCM-OAR-NRD",
+          "name": "Next Report Date",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-03"
+        },
+        {
+          "id": "CCM-QTR-MTG",
+          "name": "Quarterly Review Meeting",
+          "actor": "QTR",
+          "controls": [],
+          "fka": [
+            "FRR-CCM-QR-01",
+            "FRR-CCM-QR-02"
+          ]
+        },
+        {
+          "id": "CCM-QTR-NRD",
+          "name": "Next Review Date",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-06"
+        },
+        {
+          "id": "CCM-QTR-REG",
+          "name": "Meeting Registration Info",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-05"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "CCM-AGM-CSC",
+          "name": "Consider Security Category",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-02"
+        },
+        {
+          "id": "CCM-AGM-NPC",
+          "name": "Notify Provider of Concerns",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-04"
+        },
+        {
+          "id": "CCM-OAR-SOR",
+          "name": "Spread Out Reports",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-02"
+        },
+        {
+          "id": "CCM-QTR-ACT",
+          "name": "Additional Content",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-07"
+        },
+        {
+          "id": "CCM-QTR-RTR",
+          "name": "Record/Transcribe Reviews",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-09"
+        },
+        {
+          "id": "CCM-QTR-SAR",
+          "name": "Schedule Around Reports",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-03"
+        }
+      ],
+      "MAY": [
+        {
+          "id": "CCM-AGM-SSR",
+          "name": "Senior Security Reviewer",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-03"
+        },
+        {
+          "id": "CCM-OAR-RPS",
+          "name": "Responsible Public Sharing",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-07"
+        },
+        {
+          "id": "CCM-QTR-SCR",
+          "name": "Share Content Responsibly",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-11"
+        },
+        {
+          "id": "CCM-QTR-SRR",
+          "name": "Share Recordings Responsibly",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-10"
+        }
+      ],
+      "OTHER": [
+        {
+          "id": "CCM-AGM-NAR",
+          "name": "No Additional Requirements",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-CCM-AG-06"
+        },
+        {
+          "id": "CCM-OAR-LSI",
+          "name": "Limit Sensitive Information",
+          "actor": "OAR",
+          "controls": [],
+          "fka": "FRR-CCM-06"
+        },
+        {
+          "id": "CCM-QTR-NID",
+          "name": "No Irresponsible Disclosure",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-04"
+        },
+        {
+          "id": "CCM-QTR-RTP",
+          "name": "Restrict Third Parties",
+          "actor": "QTR",
+          "controls": [],
+          "fka": "FRR-CCM-QR-08"
+        }
+      ]
+    }
+  },
+  "SCG": {
+    "family_name": "Secure Configuration Guide",
+    "total_entries": 9,
+    "moderate_applicable": 9,
+    "must_count": 2,
+    "should_count": 7,
+    "may_count": 0,
+    "other_count": 0,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "SCG-CSO-AUP",
+          "name": "Use Instructions",
+          "actor": "CSO",
+          "controls": [],
+          "fka": null
+        },
+        {
+          "id": "SCG-CSO-RSC",
+          "name": "Recommended Secure Configuration",
+          "actor": "CSO",
+          "controls": [],
+          "fka": [
+            "FRR-RSC-01",
+            "FRR-RSC-02",
+            "FRR-RSC-03"
+          ]
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "SCG-CSO-PUB",
+          "name": "Public Guidance",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-RSC-09"
+        },
+        {
+          "id": "SCG-CSO-SDF",
+          "name": "Secure Defaults",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-RSC-04"
+        },
+        {
+          "id": "SCG-ENH-API",
+          "name": "API Capability",
+          "actor": "ENH",
+          "controls": [],
+          "fka": "FRR-RSC-07"
+        },
+        {
+          "id": "SCG-ENH-CMP",
+          "name": "Comparison Capability",
+          "actor": "ENH",
+          "controls": [],
+          "fka": "FRR-RSC-05"
+        },
+        {
+          "id": "SCG-ENH-EXP",
+          "name": "Export Capability",
+          "actor": "ENH",
+          "controls": [],
+          "fka": "FRR-RSC-06"
+        },
+        {
+          "id": "SCG-ENH-MRG",
+          "name": "Machine-Readable Guidance",
+          "actor": "ENH",
+          "controls": [],
+          "fka": "FRR-RSC-08"
+        },
+        {
+          "id": "SCG-ENH-VRH",
+          "name": "Versioning and Release History",
+          "actor": "ENH",
+          "controls": [],
+          "fka": "FRR-RSC-10"
+        }
+      ],
+      "MAY": [],
+      "OTHER": []
+    }
+  },
+  "SCN": {
+    "family_name": "Significant Change Notification",
+    "total_entries": 17,
+    "moderate_applicable": 17,
+    "must_count": 11,
+    "should_count": 1,
+    "may_count": 4,
+    "other_count": 1,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "SCN-ADP-NTF",
+          "name": "Notification Requirements",
+          "actor": "ADP",
+          "controls": [],
+          "fka": "FRR-SCN-AD-01"
+        },
+        {
+          "id": "SCN-CSO-EVA",
+          "name": "Evaluate Changes",
+          "actor": "CSO",
+          "controls": [],
+          "fka": [
+            "FRR-SCN-01",
+            "FRR-SCN-02",
+            "FRR-SCN-03"
+          ]
+        },
+        {
+          "id": "SCN-CSO-HIS",
+          "name": "Historical Notifications",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-05"
+        },
+        {
+          "id": "SCN-CSO-HRM",
+          "name": "Human and Machine-Readable",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-08"
+        },
+        {
+          "id": "SCN-CSO-INF",
+          "name": "Required Information",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-09"
+        },
+        {
+          "id": "SCN-CSO-MAR",
+          "name": "Maintain Audit Records",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-04"
+        },
+        {
+          "id": "SCN-TRF-NAF",
+          "name": "Notification After Finishing",
+          "actor": "TRF",
+          "controls": [],
+          "fka": "FRR-SCN-TR-04"
+        },
+        {
+          "id": "SCN-TRF-NAV",
+          "name": "Notification After Verification",
+          "actor": "TRF",
+          "controls": [],
+          "fka": "FRR-SCN-TR-05"
+        },
+        {
+          "id": "SCN-TRF-NFP",
+          "name": "Notification of Final Plans",
+          "actor": "TRF",
+          "controls": [],
+          "fka": "FRR-SCN-TR-03"
+        },
+        {
+          "id": "SCN-TRF-NIP",
+          "name": "Notification of Initial Plans",
+          "actor": "TRF",
+          "controls": [],
+          "fka": "FRR-SCN-TR-02"
+        },
+        {
+          "id": "SCN-TRF-UPD",
+          "name": "Update Documentation",
+          "actor": "TRF",
+          "controls": [],
+          "fka": "FRR-SCN-TR-06"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "SCN-TRF-TPR",
+          "name": "Third-Party Review",
+          "actor": "TRF",
+          "controls": [],
+          "fka": "FRR-SCN-TR-01"
+        }
+      ],
+      "MAY": [
+        {
+          "id": "SCN-CSO-ARI",
+          "name": "Additional Relevant Information",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-10"
+        },
+        {
+          "id": "SCN-CSO-EMG",
+          "name": "Emergency Changes",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-EX-02"
+        },
+        {
+          "id": "SCN-CSO-NOM",
+          "name": "Notification Mechanisms",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-SCN-07"
+        },
+        {
+          "id": "SCN-FRP-CAP",
+          "name": "Corrective Action Plan Conditions",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-SCN-EX-01"
+        }
+      ],
+      "OTHER": [
+        {
+          "id": "SCN-RTR-NNR",
+          "name": "No Notification Requirements",
+          "actor": "RTR",
+          "controls": [],
+          "fka": "FRR-SCN-RR-01"
+        }
+      ]
+    }
+  },
+  "VDR": {
+    "family_name": "Vulnerability Detection and Response",
+    "total_entries": 39,
+    "moderate_applicable": 39,
+    "must_count": 12,
+    "should_count": 18,
+    "may_count": 5,
+    "other_count": 4,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "VDR-AGM-NFR",
+          "name": "Notify FedRAMP",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-VDR-AG-04"
+        },
+        {
+          "id": "VDR-CSO-DET",
+          "name": "Vulnerability Detection",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-VDR-01"
+        },
+        {
+          "id": "VDR-CSO-DOC",
+          "name": "Documentation for Recommendations",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-VDR-11"
+        },
+        {
+          "id": "VDR-CSO-RES",
+          "name": "Vulnerability Response",
+          "actor": "CSO",
+          "controls": [],
+          "fka": "FRR-VDR-02"
+        },
+        {
+          "id": "VDR-EVA-EIR",
+          "name": "Evaluate Internet-Reachability",
+          "actor": "EVA",
+          "controls": [],
+          "fka": "FRR-VDR-08"
+        },
+        {
+          "id": "VDR-EVA-ELX",
+          "name": "Evaluate Exploitability",
+          "actor": "EVA",
+          "controls": [],
+          "fka": "FRR-VDR-07"
+        },
+        {
+          "id": "VDR-EVA-EPA",
+          "name": "Estimate Potential Adverse Impact",
+          "actor": "EVA",
+          "controls": [],
+          "fka": "FRR-VDR-09"
+        },
+        {
+          "id": "VDR-RPT-AVI",
+          "name": "Accepted Vulnerability Info",
+          "actor": "RPT",
+          "controls": [],
+          "fka": "FRR-VDR-RP-06"
+        },
+        {
+          "id": "VDR-RPT-PER",
+          "name": "Persistent Reporting",
+          "actor": "RPT",
+          "controls": [],
+          "fka": "FRR-VDR-RP-01"
+        },
+        {
+          "id": "VDR-RPT-VDT",
+          "name": "Vulnerability Details",
+          "actor": "RPT",
+          "controls": [],
+          "fka": "FRR-VDR-RP-05"
+        },
+        {
+          "id": "VDR-TFR-MAV",
+          "name": "Mark Accepted Vulnerabilities",
+          "actor": "TFR",
+          "controls": [],
+          "fka": "FRR-VDR-TF-03"
+        },
+        {
+          "id": "VDR-TFR-MHR",
+          "name": "Monthly Activity Report",
+          "actor": "TFR",
+          "controls": [],
+          "fka": "FRR-VDR-TF-01"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "VDR-AGM-MAP",
+          "name": "Maintain Agency POA&M",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-VDR-AG-02"
+        },
+        {
+          "id": "VDR-AGM-RVR",
+          "name": "Review Vulnerability Reports",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-VDR-AG-01"
+        },
+        {
+          "id": "VDR-BST-ADT",
+          "name": "Automate Detection",
+          "actor": "BST",
+          "controls": [],
+          "fka": "FRR-VDR-AY-03"
+        },
+        {
+          "id": "VDR-BST-DAC",
+          "name": "Detect After Changes",
+          "actor": "BST",
+          "controls": [],
+          "fka": "FRR-VDR-AY-04"
+        },
+        {
+          "id": "VDR-BST-DFR",
+          "name": "Design For Resilience",
+          "actor": "BST",
+          "controls": [],
+          "fka": "FRR-VDR-AY-02"
+        },
+        {
+          "id": "VDR-EVA-EFA",
+          "name": "Evaluation Factors",
+          "actor": "EVA",
+          "controls": [],
+          "fka": "FRR-VDR-10"
+        },
+        {
+          "id": "VDR-EVA-EFP",
+          "name": "Evaluate False Positives",
+          "actor": "EVA",
+          "controls": [],
+          "fka": "FRR-VDR-06"
+        },
+        {
+          "id": "VDR-EVA-GRV",
+          "name": "Group Vulnerabilities",
+          "actor": "EVA",
+          "controls": [],
+          "fka": "FRR-VDR-05"
+        },
+        {
+          "id": "VDR-RPT-HLO",
+          "name": "High-Level Overviews",
+          "actor": "RPT",
+          "controls": [],
+          "fka": "FRR-VDR-RP-02"
+        },
+        {
+          "id": "VDR-TFR-EVU",
+          "name": "Evaluate Vulnerabilities Quickly",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-LO-05",
+            "FRR-VDR-TF-MO-05",
+            "FRR-VDR-TF-HI-05"
+          ]
+        },
+        {
+          "id": "VDR-TFR-IRI",
+          "name": "Internet-Reachable Incidents",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-MO-06",
+            "FRR-VDR-TF-HI-06"
+          ]
+        },
+        {
+          "id": "VDR-TFR-KEV",
+          "name": "Remediate KEVs",
+          "actor": "TFR",
+          "controls": [],
+          "fka": "FRR-VDR-TF-02"
+        },
+        {
+          "id": "VDR-TFR-MRH",
+          "name": "Historical Activity",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-LO-01",
+            "FRR-VDR-TF-MO-01",
+            "FRR-VDR-TF-HI-01"
+          ]
+        },
+        {
+          "id": "VDR-TFR-PCD",
+          "name": "Persistent Complete Detection",
+          "actor": "TFR",
+          "controls": [],
+          "fka": "FRR-VDR-TF-LO-04"
+        },
+        {
+          "id": "VDR-TFR-PDD",
+          "name": "Persistent Drift Detection",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-LO-03",
+            "FRR-VDR-TF-MO-03",
+            "FRR-VDR-TF-HI-03"
+          ]
+        },
+        {
+          "id": "VDR-TFR-PSD",
+          "name": "Persistent Sample Detection",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-LO-02",
+            "FRR-VDR-TF-MO-02",
+            "FRR-VDR-TF-HI-02"
+          ]
+        },
+        {
+          "id": "VDR-TFR-PVR",
+          "name": "Mitigation and Remediation Expectations",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-LO-06",
+            "FRR-VDR-TF-MO-07",
+            "FRR-VDR-TF-HI-08"
+          ]
+        },
+        {
+          "id": "VDR-TFR-RMN",
+          "name": "Remaining Vulnerabilities",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-LO-07",
+            "FRR-VDR-TF-MO-09",
+            "FRR-VDR-TF-HI-09"
+          ]
+        }
+      ],
+      "MAY": [
+        {
+          "id": "VDR-BST-SIR",
+          "name": "Sampling",
+          "actor": "BST",
+          "controls": [],
+          "fka": "FRR-VDR-04"
+        },
+        {
+          "id": "VDR-FRP-ADV",
+          "name": "Sensitive Details",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-VDR-EX-02"
+        },
+        {
+          "id": "VDR-FRP-ARP",
+          "name": "Additional Requirements",
+          "actor": "FRP",
+          "controls": [],
+          "fka": "FRR-VDR-EX-01"
+        },
+        {
+          "id": "VDR-RPT-RPD",
+          "name": "Responsible Public Disclosure",
+          "actor": "RPT",
+          "controls": [],
+          "fka": "FRR-VDR-RP-04"
+        },
+        {
+          "id": "VDR-TFR-NRI",
+          "name": "Non-Internet-Reachable Incidents",
+          "actor": "TFR",
+          "controls": [],
+          "fka": [
+            "FRR-VDR-TF-HI-07"
+          ]
+        }
+      ],
+      "OTHER": [
+        {
+          "id": "VDR-AGM-DRE",
+          "name": "Do Not Request Extra Info",
+          "actor": "AGM",
+          "controls": [],
+          "fka": "FRR-VDR-AG-03"
+        },
+        {
+          "id": "VDR-BST-AKE",
+          "name": "Avoid KEVs",
+          "actor": "BST",
+          "controls": [],
+          "fka": "FRR-VDR-AY-06"
+        },
+        {
+          "id": "VDR-BST-MSP",
+          "name": "Maintain Security",
+          "actor": "BST",
+          "controls": [],
+          "fka": "FRR-VDR-AY-05"
+        },
+        {
+          "id": "VDR-RPT-NID",
+          "name": "Responsible Disclosure",
+          "actor": "RPT",
+          "controls": [],
+          "fka": "FRR-VDR-RP-03"
+        }
+      ]
+    }
+  },
+  "UCM": {
+    "family_name": "Using Cryptographic Modules",
+    "total_entries": 3,
+    "moderate_applicable": 3,
+    "must_count": 1,
+    "should_count": 2,
+    "may_count": 0,
+    "other_count": 0,
+    "classification": "REQUIRED",
+    "buckets": {
+      "MUST": [
+        {
+          "id": "UCM-CSX-CMD",
+          "name": "Cryptographic Module Documentation",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-UCM-01"
+        }
+      ],
+      "SHOULD": [
+        {
+          "id": "UCM-CSX-CAT",
+          "name": "Configuration of Agency Tenants",
+          "actor": "CSX",
+          "controls": [],
+          "fka": "FRR-UCM-02"
+        },
+        {
+          "id": "UCM-CSX-UVM",
+          "name": "Using Validated Cryptographic Modules",
+          "actor": "CSX",
+          "controls": [],
+          "fka": [
+            "FRR-UCM-03",
+            "FRR-UCM-04"
+          ]
+        }
+      ],
+      "MAY": [],
+      "OTHER": []
+    }
+  }
+}

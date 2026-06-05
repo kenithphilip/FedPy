@@ -146,4 +146,67 @@ describe('buildOscalSsp (pure)', () => {
     b.doc['system-security-plan'].metadata['last-modified'] = '';
     expect(JSON.stringify(a.doc)).toBe(JSON.stringify(b.doc));
   });
+
+  // ── REO-0: operator-supplied SSP inputs ────────────────────────────────────
+  // Per cloud-evidence/CLAUDE.md the SSP emitter never silently substitutes
+  // placeholder data for the authorization-boundary narrative or the
+  // system-implementation.users[] entries. When the operator supplies real
+  // values, the emitter uses them verbatim; when omitted, a clearly-marked
+  // REQUIRES-OPERATOR-INPUT diagnostic is emitted instead, so a 3PAO can
+  // see at-a-glance that the gap exists rather than mistaking placeholder
+  // text for a finalized narrative.
+  describe('REO: authorization-boundary + userRoles', () => {
+    it('emits REQUIRES-OPERATOR-INPUT marker when boundary description is omitted', () => {
+      const benchmark = benchmarkControls([], ['ac-2'], 'rev5', 'low');
+      const { doc } = buildOscalSsp(benchmark, {
+        outDir: '/tmp', runId: 'r', frmrVersion: 'v', impactLevel: 'low', systemId: 'x',
+      });
+      const boundary = doc['system-security-plan']['system-characteristics']['authorization-boundary'];
+      expect(boundary.description).toMatch(/^REQUIRES-OPERATOR-INPUT:/);
+      // No "placeholder" wording allowed.
+      expect(boundary.description.toLowerCase()).not.toContain('placeholder');
+    });
+
+    it('uses operator-supplied boundary description verbatim when provided', () => {
+      const benchmark = benchmarkControls([], ['ac-2'], 'rev5', 'low');
+      const real = 'Our boundary contains the ACME web tier (VPC vpc-abc), the data tier (RDS in vpc-abc), and the shared services VPC (peered).';
+      const { doc } = buildOscalSsp(benchmark, {
+        outDir: '/tmp', runId: 'r', frmrVersion: 'v', impactLevel: 'low', systemId: 'x',
+        authorizationBoundaryDescription: real,
+      });
+      const boundary = doc['system-security-plan']['system-characteristics']['authorization-boundary'];
+      expect(boundary.description).toBe(real);
+      expect(boundary.description).not.toMatch(/^REQUIRES-OPERATOR-INPUT:/);
+    });
+
+    it('emits REQUIRES-OPERATOR-INPUT marker for users[] when userRoles is omitted', () => {
+      const benchmark = benchmarkControls([], ['ac-2'], 'rev5', 'low');
+      const { doc } = buildOscalSsp(benchmark, {
+        outDir: '/tmp', runId: 'r', frmrVersion: 'v', impactLevel: 'low', systemId: 'x',
+      });
+      const users = doc['system-security-plan']['system-implementation'].users;
+      expect(users).toHaveLength(1);
+      expect(users[0]!.description).toMatch(/^REQUIRES-OPERATOR-INPUT:/);
+      expect(users[0]!.description.toLowerCase()).not.toContain('placeholder');
+    });
+
+    it('uses operator-supplied userRoles[] verbatim when provided', () => {
+      const benchmark = benchmarkControls([], ['ac-2'], 'rev5', 'low');
+      const { doc } = buildOscalSsp(benchmark, {
+        outDir: '/tmp', runId: 'r', frmrVersion: 'v', impactLevel: 'low', systemId: 'x',
+        userRoles: [
+          { title: 'Site Reliability Engineer', roleIds: ['admin'], description: 'On-call infrastructure operator with break-glass access.' },
+          { title: 'Developer', roleIds: ['developer'], description: 'Read-only on production; full access in staging.' },
+        ],
+      });
+      const users = doc['system-security-plan']['system-implementation'].users;
+      expect(users).toHaveLength(2);
+      expect(users[0]!.title).toBe('Site Reliability Engineer');
+      expect(users[1]!.title).toBe('Developer');
+      for (const u of users) {
+        expect(u.description).not.toMatch(/^REQUIRES-OPERATOR-INPUT:/);
+        expect(u.description.toLowerCase()).not.toContain('placeholder');
+      }
+    });
+  });
 });
