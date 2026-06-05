@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const OSCAL_SCHEMA_VERSION = '1.1.2';
 const SCHEMA_DIR = resolve(__dirname, '..', 'docs', 'oscal');
 
-export type OscalModel = 'assessment-results' | 'ssp' | 'poam';
+export type OscalModel = 'assessment-results' | 'ssp' | 'poam' | 'assessment-plan';
 
 export interface OscalValidationResult {
   valid: boolean;

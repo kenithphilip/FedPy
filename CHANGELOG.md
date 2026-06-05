@@ -6,6 +6,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-A.A2: OSCAL Assessment Plan v1.1.2 emitter
+Second slice of LOOP-A. Closes the missing middle of the OSCAL chain:
+`SSP ✅ → AP ✅ → AR ⚠️ → POA&M ✅`. The Assessment Plan describes WHAT the
+3PAO will assess, by WHAT methods, against WHICH controls — historically a
+Word .docx, but RFC-0024 mandates OSCAL JSON for 20x submissions. This
+emitter bootstraps a draft AP from the same evidence the SSP / AR / POA&M
+already use, so the 3PAO refines + signs rather than authoring from scratch.
+
+  - `core/oscal-ap.ts`: ~700 lines, schema-driven against the OSCAL v1.1.2
+    assessment-plan schema. Required-by-spec emit: `uuid` + `metadata` +
+    `import-ssp` (min/max=1) + `reviewed-controls.control-selections`.
+    Optional emit (all populated when inputs available): `local-definitions`
+    (with `activities[]` — one per registered KSI), `terms-and-conditions`
+    (RoE + Sampling Methodology parts), `assessment-subjects[]` (derived
+    from real `inventory.json`), `assessment-assets` (collector + tracker +
+    leveraged-cloud components), `tasks[]` (default 4-phase FedRAMP plan:
+    Scoping → Discovery → Testing → Reporting), `back-matter` (RoE +
+    Sampling + signed manifest links).
+  - Reviewed-controls enumerates EVERY control in the FedRAMP baseline at
+    the impact tier via `buildControlBenchmark()` — 149 controls at Low,
+    >150 at Moderate. No synthetic IDs; the control list mirrors the same
+    benchmark the SSP and AR use.
+  - `local-definitions.activities[]`: one OSCAL activity per registered
+    KSI (44 today), each carrying `method=TEST` + `ksi-id` props. The
+    activity description names the SDK calls the collector will execute.
+    Uses `activities[]` (canonical AP slot per the v1.1.2 schema), not
+    the `assessment-methods[]` slot which lives in AR not AP.
+  - `assessment-subjects[]`: when `inventory.json` exists, derives
+    component-group subjects (one per provider×asset-type) + per-asset
+    inventory-item subjects (capped at 1000 for compactness). When
+    inventory is absent, emits a single `include-all` subject with a
+    `REQUIRES-OPERATOR-INPUT:` marker — per the REO rule, never
+    silently substitutes fake subjects.
+  - Operator-supplied inputs flow through CLI flags + env: `--ap-roe-href`
+    populates the RoE back-matter resource + terms-and-conditions prose;
+    `--ap-sampling-href` populates the Sampling Methodology resource;
+    `--3pao-name` records a 3PAO party in metadata. Each is OPTIONAL —
+    when missing, a `REQUIRES-OPERATOR-INPUT:` marker is emitted naming
+    the field + the flag to set, so a 3PAO sees the gap at-a-glance.
+  - Tasks: when `tasks[]` is operator-supplied with dates, emit real
+    `timing.within-date-range`. When dates are omitted, emit
+    `REQUIRES-OPERATOR-INPUT:` in `task.remarks` instead of fabricating
+    a date. Default 4-phase plan covers FedRAMP scoping → discovery →
+    testing → reporting.
+  - Deterministic UUIDs throughout via `deterministicUuid()`; same
+    inputs → byte-identical document.
+  - `scripts/extract-oscal-schemas.mjs`: added `assessment-plan` to the
+    pinned-model list; `core/oscal-validate.ts`: `OscalModel` now
+    includes `'assessment-plan'`. The committed schema
+    (`docs/oscal/oscal_assessment-plan_schema.v1.1.2.json`, 94 KB) is
+    sourced from `usnistgov/OSCAL` v1.1.2 release assets, same OSC-2
+    pattern as the other models.
+  - `core/orchestrator.ts`: new `--oscal-ap` flag +
+    `CLOUD_EVIDENCE_OSCAL_AP` env. Runs BEFORE signing so the AP is
+    covered by the run manifest. `--ap-roe-href` /
+    `--ap-sampling-href` / `--3pao-name` flags wire to optional AP
+    inputs (+ env equivalents). ajv-validated against the committed
+    OSCAL schema; `--strict-schema` forces exit-code 2 on validation
+    failure.
+  - `tests/core/oscal-ap.test.ts`: 17 new tests covering schema validity
+    at Low + Moderate, required metadata, import-ssp + sspHref override,
+    full baseline-control enumeration (no synthetic IDs), activities per
+    KSI from real ksi-map source, REQUIRES-OPERATOR-INPUT marker emission
+    when RoE / sampling / dates are omitted, operator-supplied inputs
+    populating real back-matter resources, real subject derivation from
+    `inventory.json`, fallback include-all subject when inventory is
+    missing, determinism, XML emission parity, custom outPath,
+    `CLOUD_EVIDENCE_DISABLE_OSCAL_XML` toggle.
+
+Verification: typecheck clean; 832/832 tests passing (+17 from LOOP-A.A2);
+`npm run check:reo` returns 0.
+
 ### Added — LOOP-A.A1: OSCAL POA&M v1.1.2 emitter
 First slice of LOOP-A (OSCAL package completeness). Closes the highest-
 leverage gap in the FedRAMP authorization + monthly Continuous Monitoring

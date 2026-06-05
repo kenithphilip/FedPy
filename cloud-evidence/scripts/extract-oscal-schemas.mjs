@@ -22,8 +22,9 @@ const OUT_DIR = resolve(REPO_ROOT, 'docs', 'oscal');
 const OFFLINE = process.argv.includes('--offline');
 
 export const OSCAL_VERSION = '1.1.2';
-/** Models we emit (assessment-results) or will emit (ssp, poam for the SSP pipeline). */
-const MODELS = ['assessment-results', 'ssp', 'poam'];
+/** Models we emit (assessment-results, ssp, poam, assessment-plan for the LOOP-A
+ * SSP→AP→AR→POA&M chain). */
+const MODELS = ['assessment-results', 'ssp', 'poam', 'assessment-plan'];
 
 const assetUrl = (model) =>
   `https://github.com/usnistgov/OSCAL/releases/download/v${OSCAL_VERSION}/oscal_${model}_schema.json`;

@@ -63,6 +63,7 @@ import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
 import { emitOscalPoam } from './oscal-poam.ts';
+import { emitOscalAp } from './oscal-ap.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -124,6 +125,14 @@ interface Args {
   oscalSsp: boolean;
   /** When true, emit an OSCAL Plan of Action and Milestones (poam.json) from failing findings. */
   oscalPoam: boolean;
+  /** When true, emit an OSCAL Assessment Plan (ap.json) — the SAP draft. */
+  oscalAp: boolean;
+  /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
+  apRoeHref: string | null;
+  /** Optional sampling-methodology href to populate in the AP's back-matter. */
+  apSamplingMethodologyHref: string | null;
+  /** Optional 3PAO organization name to record as a metadata party on the AP. */
+  thirdPartyAssessor: string | null;
   /** When true, also render the OSCAL SSP to a Word document (ssp.docx). Implies oscalSsp. */
   sspDocx: boolean;
   /** Organization name to embed in OSCAL metadata. */
@@ -190,6 +199,10 @@ function parseArgs(argv: string[]): Args {
     oscal: process.env.CLOUD_EVIDENCE_OSCAL === '1',
     oscalSsp: process.env.CLOUD_EVIDENCE_OSCAL_SSP === '1',
     oscalPoam: process.env.CLOUD_EVIDENCE_OSCAL_POAM === '1',
+    oscalAp: process.env.CLOUD_EVIDENCE_OSCAL_AP === '1',
+    apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
+    apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
+    thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
     sspDocx: process.env.CLOUD_EVIDENCE_SSP_DOCX === '1',
     oscalOrgName: process.env.CLOUD_EVIDENCE_ORG_NAME ?? null,
     systemName: process.env.CLOUD_EVIDENCE_SYSTEM_NAME ?? null,
@@ -295,6 +308,19 @@ function parseArgs(argv: string[]): Args {
       case '--oscal-poam':
         // LOOP-A.A1: emit OSCAL POA&M v1.1.2 + XML.
         args.oscalPoam = true;
+        break;
+      case '--oscal-ap':
+        // LOOP-A.A2: emit OSCAL Assessment Plan v1.1.2 + XML.
+        args.oscalAp = true;
+        break;
+      case '--ap-roe-href':
+        args.apRoeHref = argv[++i] ?? null;
+        break;
+      case '--ap-sampling-href':
+        args.apSamplingMethodologyHref = argv[++i] ?? null;
+        break;
+      case '--3pao-name':
+        args.thirdPartyAssessor = argv[++i] ?? null;
         break;
       case '--ssp-docx':
         args.sspDocx = true;
@@ -425,6 +451,18 @@ Post-run artifacts:
                          Skipped automatically when there are zero failing findings (OSCAL schema
                          mandates poam-items.minItems=1; a "clean POA&M" is reported as a structured
                          skip-result, not a missing-evidence error). (env: CLOUD_EVIDENCE_OSCAL_POAM)
+  --oscal-ap             Emit an OSCAL 1.1.2 Assessment Plan / SAP draft (out/ap.json + .xml).
+                         Import-SSP href defaults to "ssp.json" (override with --ap-ssp-href via env).
+                         reviewed-controls enumerates the full FedRAMP baseline at the impact tier;
+                         local-definitions.activities[] registers one activity per KSI in the ksi-map;
+                         assessment-subjects derive from out/inventory.json when present.
+                         The 3PAO refines this draft + signs the finalized AP before testing.
+                         (env: CLOUD_EVIDENCE_OSCAL_AP)
+  --ap-roe-href <href>   Rules of Engagement document href (back-matter resource link)
+                         (env: CLOUD_EVIDENCE_AP_ROE_HREF)
+  --ap-sampling-href <h> Sampling Methodology (Appendix B) href (back-matter resource link)
+                         (env: CLOUD_EVIDENCE_AP_SAMPLING_HREF)
+  --3pao-name <name>     3PAO organization name to record on the AP (env: CLOUD_EVIDENCE_3PAO_NAME)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1673,6 +1711,49 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL SSP emission failed: ${e.message}`);
       log.error({ event: 'oscal_ssp.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- OSCAL Assessment Plan (LOOP-A.A2) — the SAP draft. The AR will
+  // Import-AP (LOOP-A.A3); the POA&M can reference its system-id alone OR
+  // co-reference this AP via the SSP chain. Runs BEFORE signing so the AP
+  // is covered by the run manifest. ----
+  if (args.oscalAp) {
+    try {
+      const r = emitOscalAp({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        organizationName: args.oscalOrgName ?? undefined,
+        thirdPartyAssessorName: args.thirdPartyAssessor ?? undefined,
+        sspHref: args.oscalSsp ? 'ssp.json' : undefined,
+        roeHref: args.apRoeHref ?? undefined,
+        samplingMethodologyHref: args.apSamplingMethodologyHref ?? undefined,
+        providers: args.providers,
+      });
+      console.log(
+        `OSCAL AP (draft): ${r.path} (${r.reviewed_control_count} controls, ${r.activity_count} activities, ${r.assessment_subject_count} subjects, ${r.task_count} tasks)`
+      );
+      const v = validateOscalFile(r.path, 'assessment-plan');
+      if (v.valid) {
+        console.log('OSCAL schema validation: ap.json is valid (NIST OSCAL 1.1.2).');
+        ledger.record('oscal_ap.validate', {
+          status: 'info', valid: true, model: 'assessment-plan',
+          controls: r.reviewed_control_count, activities: r.activity_count, tasks: r.task_count,
+        });
+      } else {
+        console.error(`OSCAL AP schema validation: ${v.errors.length} error(s)${v.schema_found ? '' : ' (schema not committed — run scripts/extract-oscal-schemas.mjs)'}`);
+        for (const e of v.errors.slice(0, 10)) console.error(`  ! ${e}`);
+        ledger.record('oscal_ap.validate', { status: 'fail', valid: false, model: 'assessment-plan', error_count: v.errors.length });
+        log.warn({ event: 'oscal_ap.invalid', error_count: v.errors.length });
+        if (args.strictSchema && v.schema_found) process.exitCode = 2;
+      }
+    } catch (e: any) {
+      console.error(`OSCAL AP emission failed: ${e.message}`);
+      log.error({ event: 'oscal_ap.fail', err_message: e?.message });
     }
   }
 
