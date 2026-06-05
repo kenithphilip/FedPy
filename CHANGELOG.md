@@ -6,6 +6,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-A.A1: OSCAL POA&M v1.1.2 emitter
+First slice of LOOP-A (OSCAL package completeness). Closes the highest-
+leverage gap in the FedRAMP authorization + monthly Continuous Monitoring
+submission package: every CSP must submit a Plan of Action and Milestones
+documenting open findings with remediation deadlines. RFC-0024 mandates
+OSCAL JSON; this slice ships full OSCAL v1.1.2 conformance + an XML
+projection via the existing oscal-xml.ts.
+
+  - `core/oscal-poam.ts`: 600+ lines, schema-driven. Reads every
+    `KSI-*.json` evidence file from outDir, maps each FAILING finding to:
+    (1) a `poam-item` (always), (2) an `observation` per `RawEvidence`
+    cited (deduplicated across findings citing the same SDK call), (3) a
+    `finding` per (rule × NIST control) pair so each item traces back to
+    baseline controls, (4) a `risk` for any severity > info with a
+    deterministic FedRAMP remediation deadline (Critical 30d, High 60d,
+    Medium 90d, Low 180d, Info 365d counted from envelope.collected_at).
+  - Deterministic UUIDs via `oscal.ts` `deterministicUuid()` — re-running
+    on identical evidence produces an identical document, supporting
+    LOOP-E.E2 (monthly POA&M workflow) full-document re-emission semantics
+    per `docs/PRE-LOOP-A-RESEARCH-FINDINGS.md`.
+  - Emits both `import-ssp` (when an SSP is co-emitted in the same run)
+    AND `system-id` so the chain works whether or not the SSP exists yet.
+  - back-matter references the signed evidence manifest when signing is
+    enabled — the 3PAO can follow the chain from POA&M → manifest →
+    per-KSI evidence file → SDK call.
+  - `metadata.revisions[]` history can be threaded through monthly runs
+    via `PoamEmitOptions.revisionsHistory` so a single POA&M document
+    captures the full version chain (LOOP-E.E2 wiring).
+  - OSCAL schema's `poam-items.minItems=1` constraint is handled
+    correctly: when there are zero failing findings, `emitOscalPoam()`
+    returns a structured `{path: null, skipped_reason: "no-failing-findings"}`
+    result rather than writing an invalid document. The orchestrator
+    logs this as a clean-state event, NOT a missing-evidence error.
+  - `core/orchestrator.ts`: new `--oscal-poam` flag +
+    `CLOUD_EVIDENCE_OSCAL_POAM` env. Emitter runs BEFORE signing so the
+    POA&M is covered by the manifest. ajv validates against the
+    committed OSCAL v1.1.2 schema; failure under `--strict-schema`
+    forces exit-code 2.
+  - `tests/core/oscal-poam.test.ts`: 18 new tests covering schema
+    validity, required metadata fields, import-ssp+system-id wiring,
+    back-matter signed-manifest reference, per-finding poam-item +
+    observation + risk creation, severity-based deadline math
+    (deterministic), empty-state skip semantics, XML emission parity,
+    `CLOUD_EVIDENCE_DISABLE_OSCAL_XML` toggle, and selective file-
+    name pattern matching (KSI-*.json only).
+
+Verification: typecheck clean; 815/815 tests passing (+18 from LOOP-A.A1);
+`npm run check:reo` returns 0.
+
+### Added — R1 + R2 + R3 + R4: pre-loop research findings
+Before LOOP-A.A1 started, four research blockers were resolved via direct
+catalog walks + fedramp.gov fetches:
+
+  - **R1** — `docs/AFR-FAMILY-CLASSIFICATION.md`: walked
+    `FRMR.documentation.json` directly. All 10 AFR-* families (PVA, FSI,
+    ICP, ADS, MAS, CCM, SCG, SCN, VDR, UCM) are REQUIRED at Moderate —
+    85 MUST entries across 160 total, each family has at least one MUST.
+    LOOP-G scope confirmed: G1 through G6 all stay as REQUIRED slices.
+  - **R2** — Monthly POA&M format: full-document re-emission to USDA
+    Connect.gov repository (Low/Mod CSOs). OSCAL JSON + XML supported.
+    LOOP-A.A1 implements this semantics. The Excel POA&M template is a
+    companion artifact for LOOP-A.A4 (submission bundler).
+  - **R3** — Phase Two pilot output format: no post-pilot guidance
+    available publicly. RFC-0014 remains authoritative. LOOP-A.A4 will
+    emit `package_format_version: "20x.phase-two.preview.2026"` so a
+    future format shift can be cleanly versioned.
+  - **R4** — Sampling: 100% of inventory monthly is baseline; sampling
+    permitted for internal-only assets (NOT externally accessible) per
+    methodology in SAP Appendix B with AO approval. LOOP-F.F3 will
+    auto-derive this with a stratified-by-asset-class minimum-10% floor.
+  - `docs/PRE-LOOP-A-RESEARCH-FINDINGS.md` consolidates all four findings
+    + cites primary sources.
+
 ### Added — REO-0: Real-Evidence-Only standard + 3 CI guardrails
 Foundational rule + enforcement layer for the 46-week LOOP-A through LOOP-K
 execution plan. The REO standard codifies the no-stubs / no-fixed-data /

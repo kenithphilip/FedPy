@@ -62,6 +62,7 @@ import { signRun, verifyRun } from './sign.ts';
 import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
+import { emitOscalPoam } from './oscal-poam.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -121,6 +122,8 @@ interface Args {
   oscal: boolean;
   /** When true, emit a draft OSCAL System Security Plan (ssp.json) bootstrapped from evidence. */
   oscalSsp: boolean;
+  /** When true, emit an OSCAL Plan of Action and Milestones (poam.json) from failing findings. */
+  oscalPoam: boolean;
   /** When true, also render the OSCAL SSP to a Word document (ssp.docx). Implies oscalSsp. */
   sspDocx: boolean;
   /** Organization name to embed in OSCAL metadata. */
@@ -186,6 +189,7 @@ function parseArgs(argv: string[]): Args {
     expectedPublicKey: process.env.EVIDENCE_EXPECTED_PUBLIC_KEY_PATH ?? null,
     oscal: process.env.CLOUD_EVIDENCE_OSCAL === '1',
     oscalSsp: process.env.CLOUD_EVIDENCE_OSCAL_SSP === '1',
+    oscalPoam: process.env.CLOUD_EVIDENCE_OSCAL_POAM === '1',
     sspDocx: process.env.CLOUD_EVIDENCE_SSP_DOCX === '1',
     oscalOrgName: process.env.CLOUD_EVIDENCE_ORG_NAME ?? null,
     systemName: process.env.CLOUD_EVIDENCE_SYSTEM_NAME ?? null,
@@ -287,6 +291,10 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--oscal-ssp':
         args.oscalSsp = true;
+        break;
+      case '--oscal-poam':
+        // LOOP-A.A1: emit OSCAL POA&M v1.1.2 + XML.
+        args.oscalPoam = true;
         break;
       case '--ssp-docx':
         args.sspDocx = true;
@@ -411,6 +419,12 @@ Post-run artifacts:
                          status derived from the control benchmark (env: CLOUD_EVIDENCE_OSCAL_SSP)
   --ssp-docx             Also render the SSP to a FedRAMP-style Word document (out/ssp.docx).
                          Implies --oscal-ssp (env: CLOUD_EVIDENCE_SSP_DOCX)
+  --oscal-poam           Emit an OSCAL 1.1.2 Plan of Action and Milestones (out/poam.json + .xml)
+                         from failing findings. One poam-item per failing finding, with deterministic
+                         deadlines per FedRAMP ConMon table (Critical 30d, High 60d, Med 90d, Low 180d).
+                         Skipped automatically when there are zero failing findings (OSCAL schema
+                         mandates poam-items.minItems=1; a "clean POA&M" is reported as a structured
+                         skip-result, not a missing-evidence error). (env: CLOUD_EVIDENCE_OSCAL_POAM)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1659,6 +1673,51 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL SSP emission failed: ${e.message}`);
       log.error({ event: 'oscal_ssp.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- OSCAL Plan of Action & Milestones (LOOP-A.A1) — one poam-item per
+  // failing finding, with FedRAMP-deadline math. Runs BEFORE signing so the
+  // POA&M is covered by the run manifest. Skipped automatically when there
+  // are zero failing findings (the OSCAL v1.1.2 schema mandates
+  // poam-items.minItems=1 — emitter returns a structured "skipped" result). ----
+  if (args.oscalPoam) {
+    try {
+      const r = emitOscalPoam({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        // import-ssp.href wired iff the SSP was also emitted this run.
+        ssp: args.oscalSsp ? { href: 'ssp.json', remarks: 'Local OSCAL SSP emitted in same run.' } : undefined,
+        // back-matter reference to the signed manifest. After signing runs
+        // below, the manifest path is well-known.
+        signedManifestHref: args.noSign ? undefined : 'manifest.json',
+      });
+      if (r.path === null) {
+        console.log(`OSCAL POA&M: skipped — ${r.skipped_reason} (this is a clean state, not a failure).`);
+        ledger.record('oscal_poam.skip', { status: 'info', reason: r.skipped_reason ?? 'unknown' });
+      } else {
+        const sev = r.by_severity;
+        console.log(
+          `OSCAL POA&M: ${r.path} (${r.poam_item_count} items: ${sev.critical}C/${sev.high}H/${sev.medium}M/${sev.low}L/${sev.info}I; ${r.risk_count} risks, ${r.observation_count} observations)`
+        );
+        const v = validateOscalFile(r.path, 'poam');
+        if (v.valid) {
+          console.log('OSCAL schema validation: poam.json is valid (NIST OSCAL 1.1.2).');
+          ledger.record('oscal_poam.validate', { status: 'info', valid: true, model: 'poam', items: r.poam_item_count });
+        } else {
+          console.error(`OSCAL POA&M schema validation: ${v.errors.length} error(s)${v.schema_found ? '' : ' (schema not committed — run scripts/extract-oscal-schemas.mjs)'}`);
+          for (const e of v.errors.slice(0, 10)) console.error(`  ! ${e}`);
+          ledger.record('oscal_poam.validate', { status: 'fail', valid: false, model: 'poam', error_count: v.errors.length });
+          log.warn({ event: 'oscal_poam.invalid', error_count: v.errors.length });
+          if (args.strictSchema && v.schema_found) process.exitCode = 2;
+        }
+      }
+    } catch (e: any) {
+      console.error(`OSCAL POA&M emission failed: ${e.message}`);
+      log.error({ event: 'oscal_poam.fail', err_message: e?.message });
     }
   }
 
