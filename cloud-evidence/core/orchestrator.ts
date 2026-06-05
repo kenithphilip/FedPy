@@ -127,6 +127,13 @@ interface Args {
   oscalPoam: boolean;
   /** When true, emit an OSCAL Assessment Plan (ap.json) — the SAP draft. */
   oscalAp: boolean;
+  /**
+   * When true (LOOP-A.A3), the AR emitter fails hard if its mandatory
+   * `import-ap` href cannot be resolved to a real document (no AP co-emitted
+   * AND no explicit --ap-href provided). Prevents shipping a submission
+   * package with a synthetic AP anchor.
+   */
+  strictChain: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -200,6 +207,7 @@ function parseArgs(argv: string[]): Args {
     oscalSsp: process.env.CLOUD_EVIDENCE_OSCAL_SSP === '1',
     oscalPoam: process.env.CLOUD_EVIDENCE_OSCAL_POAM === '1',
     oscalAp: process.env.CLOUD_EVIDENCE_OSCAL_AP === '1',
+    strictChain: process.env.CLOUD_EVIDENCE_STRICT_CHAIN === '1',
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -312,6 +320,10 @@ function parseArgs(argv: string[]): Args {
       case '--oscal-ap':
         // LOOP-A.A2: emit OSCAL Assessment Plan v1.1.2 + XML.
         args.oscalAp = true;
+        break;
+      case '--strict-chain':
+        // LOOP-A.A3: refuse to emit an AR with a synthetic import-ap.
+        args.strictChain = true;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -463,6 +475,10 @@ Post-run artifacts:
   --ap-sampling-href <h> Sampling Methodology (Appendix B) href (back-matter resource link)
                          (env: CLOUD_EVIDENCE_AP_SAMPLING_HREF)
   --3pao-name <name>     3PAO organization name to record on the AP (env: CLOUD_EVIDENCE_3PAO_NAME)
+  --strict-chain         Fail emission of the OSCAL AR if its mandatory import-ap href cannot
+                         be resolved to a real document (no AP co-emitted AND no explicit
+                         --ap-href). Prevents shipping a submission package with a synthetic
+                         AP anchor. (env: CLOUD_EVIDENCE_STRICT_CHAIN)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1648,8 +1664,13 @@ export async function main(): Promise<void> {
         runId,
         frmrVersion: config.frmr_version,
         organizationName: args.oscalOrgName ?? undefined,
+        // LOOP-A.A3: AR's mandatory import-ap resolves to local ap.json when
+        // LOOP-A.A2 ran in this orchestrator invocation. Explicit override
+        // via --ap-href would belong in args; for now the local-ap default
+        // is sufficient because LOOP-A.A2 always emits to outDir/ap.json.
+        strictChain: args.strictChain,
       });
-      console.log(`OSCAL: ${r.path} (${r.result_count} results, ${r.finding_count} findings, ${r.observation_count} observations)`);
+      console.log(`OSCAL: ${r.path} (${r.result_count} results, ${r.finding_count} findings, ${r.observation_count} observations; import-ap=${r.ap_link ?? 'unknown'})`);
       // OSC-1: validate the emitted document against the committed NIST schema.
       const v = validateOscalFile(r.path, 'assessment-results');
       if (v.valid) {

@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-A.A3: SSP → AP → AR chain wiring via import-ap
+Third slice of LOOP-A. Closes the OSCAL chain: `SSP ✅ → AP ✅ → AR ✅ → POA&M ✅`.
+The AR's mandatory `import-ap` element now resolves to a real Assessment
+Plan reference when one was co-emitted in the same orchestrator run, an
+operator-supplied URI when explicit, or a clearly-labelled synthetic anchor
+with descriptive remarks when no AP exists. A `--strict-chain` mode refuses
+to emit an AR with a synthetic AP reference at all — the right setting for
+production submission packages.
+
+  - `core/oscal.ts`: `OscalEmitOptions` gains `strictChain?: boolean`;
+    `OscalEmitResult` gains `ap_link?: 'local-ap' | 'explicit-href' | 'synthetic'`.
+    The emit body now resolves `import-ap.href` in priority order:
+    (1) operator-supplied `assessmentPlanHref`, (2) co-emitted local
+    `ap.json`, (3) synthetic anchor `#cloud-evidence-no-external-ap` +
+    descriptive remarks. Each path also gets a matching `ap-link`
+    prop in `metadata.props` so downstream consumers can read the
+    resolution status without re-parsing the href.
+  - `strictChain: true` throws a typed error explaining the resolution
+    failure when no AP can be resolved. The error names the flags that
+    would fix it. The orchestrator passes this when `--strict-chain` is
+    set — preventing a submission package from shipping with a synthetic
+    AP reference.
+  - `core/orchestrator.ts`: new `--strict-chain` flag +
+    `CLOUD_EVIDENCE_STRICT_CHAIN` env. AR console output now reports the
+    import-ap resolution status (`local-ap` / `explicit-href` / `synthetic`).
+    When `--oscal-ap` runs in the same invocation, the AR auto-resolves to
+    the local `ap.json` without any further configuration.
+  - `tests/core/oscal.test.ts`: +6 tests covering all three resolution
+    paths, `strictChain` enforcement (throws on synthetic, accepts
+    local-ap, accepts explicit-href), and the `ap-link` metadata prop.
+
+Verification: typecheck clean; 838/838 tests passing (+6 from LOOP-A.A3);
+`npm run check:reo` returns 0. OSCAL chain SSP→AP→AR→POA&M is now
+end-to-end complete and operator-controllable.
+
 ### Added — LOOP-A.A2: OSCAL Assessment Plan v1.1.2 emitter
 Second slice of LOOP-A. Closes the missing middle of the OSCAL chain:
 `SSP ✅ → AP ✅ → AR ⚠️ → POA&M ✅`. The Assessment Plan describes WHAT the

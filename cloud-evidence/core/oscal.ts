@@ -37,7 +37,7 @@
  *     via `EVIDENCE_OSCAL_FULL_RISK=1` if a consumer wants the full risk
  *     model.
  */
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import type { EvidenceFile, Finding, ProviderBlock, RawEvidence, AffectedResource } from './envelope.ts';
@@ -155,7 +155,29 @@ export interface OscalEmitOptions {
   runId: string;
   frmrVersion: string;
   organizationName?: string;
+  /**
+   * Optional explicit href for the AR's mandatory `import-ap` element.
+   * Per OSCAL v1.1.2 spec, every AR must Import-AP — there is no way to
+   * emit a valid AR without one. Resolution rules (LOOP-A.A3):
+   *   1. If `assessmentPlanHref` is set, use it verbatim.
+   *   2. Else, if `outDir/ap.json` exists (i.e. LOOP-A.A2 just emitted an
+   *      AP in the same run), default to `'ap.json'` — the SSP→AP→AR chain
+   *      is locally complete.
+   *   3. Else, emit `#cloud-evidence-no-external-ap` with a remarks
+   *      explaining that no AP was authored this run. A 3PAO that ingests
+   *      this AR alone will see the synthetic anchor and know they need to
+   *      supply or generate an AP before the package is submittable.
+   */
   assessmentPlanHref?: string;
+  /**
+   * When true, fail emission with a thrown error if the resolved
+   * `import-ap.href` cannot be resolved (no `assessmentPlanHref` supplied
+   * AND no local `ap.json` present). The orchestrator passes this when
+   * `--strict-chain` is set so a submission package never ships with a
+   * synthetic AP reference. Default: false (warns but still emits, so
+   * partial runs in dev environments are usable).
+   */
+  strictChain?: boolean;
 }
 
 export interface OscalEmitResult {
@@ -170,6 +192,15 @@ export interface OscalEmitResult {
   result_count: number;
   finding_count: number;
   observation_count: number;
+  /**
+   * Resolution status of the AR's `import-ap` href (LOOP-A.A3).
+   * `local-ap`: pointed at a real `ap.json` co-emitted in this run.
+   * `explicit-href`: operator-supplied href (no local existence check).
+   * `synthetic`: no AP was available — fallback to the synthetic anchor
+   *   with an explanatory remarks. The submission package is NOT
+   *   complete in this state.
+   */
+  ap_link?: 'local-ap' | 'explicit-href' | 'synthetic';
 }
 
 function evidenceFiles(dir: string): string[] {
@@ -374,6 +405,36 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
     totalObservations += result.observations?.length ?? 0;
   }
 
+  // ── LOOP-A.A3: resolve the AR's mandatory import-ap href ─────────────────
+  // Rule order: (1) explicit operator-supplied href; (2) local ap.json in the
+  // same outDir (LOOP-A.A2 co-emit); (3) synthetic anchor with a remarks
+  // explaining the gap. The orchestrator surfaces the resolution status so a
+  // 3PAO can see at-a-glance whether the AR is part of a complete chain.
+  const localApPath = resolve(opts.outDir, 'ap.json');
+  let importApHref: string;
+  let importApRemarks: string | undefined;
+  let apLink: 'local-ap' | 'explicit-href' | 'synthetic';
+  if (opts.assessmentPlanHref) {
+    importApHref = opts.assessmentPlanHref;
+    apLink = 'explicit-href';
+  } else if (existsSync(localApPath)) {
+    importApHref = 'ap.json';
+    importApRemarks = 'Local OSCAL Assessment Plan emitted in the same orchestrator run (LOOP-A.A2). The SSP → AP → AR chain is complete within this package.';
+    apLink = 'local-ap';
+  } else {
+    if (opts.strictChain) {
+      throw new Error(
+        'OSCAL AR emission failed: import-ap href could not be resolved. ' +
+        'No assessmentPlanHref was supplied and no local ap.json exists. ' +
+        'Either emit the AP first (--oscal-ap) or pass --ap-href <uri>. ' +
+        'Strict-chain mode prevents shipping an AR with a synthetic AP reference.',
+      );
+    }
+    importApHref = '#cloud-evidence-no-external-ap';
+    importApRemarks = 'No OSCAL Assessment Plan was authored or referenced for this run. The Assessment Results are derived directly from FRMR KSI definitions. A 3PAO ingesting this AR alone must supply or generate an AP before the submission package is complete. Re-run with --oscal-ap (and optionally --ap-roe-href / --ap-sampling-href) to emit a draft AP in the same package.';
+    apLink = 'synthetic';
+  }
+
   const orgUuid = deterministicUuid(`org:${opts.organizationName ?? 'CSP'}`);
   const ar: OscalAssessmentResults = {
     uuid: deterministicUuid(`assessment-results:${opts.runId}`),
@@ -387,12 +448,10 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
         { name: 'tool', value: TOOL_NAME, ns: 'urn:fedramp:cloud-evidence' },
         { name: 'tool-version', value: TOOL_VERSION, ns: 'urn:fedramp:cloud-evidence' },
         { name: 'frmr-version', value: opts.frmrVersion, ns: 'urn:fedramp:cloud-evidence' },
+        { name: 'ap-link', value: apLink, ns: 'urn:fedramp:cloud-evidence' },
       ],
     },
-    'import-ap': {
-      href: opts.assessmentPlanHref ?? '#cloud-evidence-synthetic-ap',
-      remarks: 'cloud-evidence does not consume an external OSCAL Assessment Plan; results are derived directly from FRMR KSI definitions.',
-    },
+    'import-ap': { href: importApHref, remarks: importApRemarks },
     results,
   };
 
@@ -421,6 +480,8 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
     result_count: results.length,
     finding_count: totalFindings,
     observation_count: totalObservations,
+    ap_link: apLink,
+    import_ap_href: importApHref,
   });
 
   return {
@@ -429,5 +490,6 @@ export function emitOscalAssessmentResults(opts: OscalEmitOptions): OscalEmitRes
     result_count: results.length,
     finding_count: totalFindings,
     observation_count: totalObservations,
+    ap_link: apLink,
   };
 }

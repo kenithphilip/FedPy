@@ -180,4 +180,71 @@ describe('emitOscalAssessmentResults', () => {
     const ksiIds = doc.results.map((res: any) => res.props.find((p: any) => p.name === 'ksi-id').value).sort();
     expect(ksiIds).toEqual(['KSI-IAM-AAM', 'KSI-IAM-MFA']);
   });
+
+  // ── LOOP-A.A3: SSP → AP → AR chain wiring via import-ap ────────────────
+  describe('import-ap chain wiring (LOOP-A.A3)', () => {
+    it('falls back to a synthetic anchor + descriptive remarks when no AP exists', () => {
+      writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
+      const r = emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
+      expect(r.ap_link).toBe('synthetic');
+      const doc = JSON.parse(readFileSync(r.path, 'utf8'))['assessment-results'];
+      expect(doc['import-ap'].href).toBe('#cloud-evidence-no-external-ap');
+      expect(doc['import-ap'].remarks).toMatch(/No OSCAL Assessment Plan/);
+      // The ap-link prop signals the resolution status to the consumer.
+      const apLinkProp = doc.metadata.props.find((p: any) => p.name === 'ap-link');
+      expect(apLinkProp?.value).toBe('synthetic');
+    });
+
+    it('auto-defaults to "ap.json" when a local AP was co-emitted', () => {
+      writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
+      // Drop a stub ap.json next to the evidence to simulate LOOP-A.A2 having run.
+      writeFileSync(resolve(tmp, 'ap.json'), JSON.stringify({ 'assessment-plan': { uuid: 'a-uuid' } }));
+      const r = emitOscalAssessmentResults({ outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1' });
+      expect(r.ap_link).toBe('local-ap');
+      const doc = JSON.parse(readFileSync(r.path, 'utf8'))['assessment-results'];
+      expect(doc['import-ap'].href).toBe('ap.json');
+      expect(doc['import-ap'].remarks).toMatch(/LOOP-A\.A2/);
+      const apLinkProp = doc.metadata.props.find((p: any) => p.name === 'ap-link');
+      expect(apLinkProp?.value).toBe('local-ap');
+    });
+
+    it('uses explicit assessmentPlanHref verbatim when supplied', () => {
+      writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
+      // Even if a local ap.json exists, the explicit href wins.
+      writeFileSync(resolve(tmp, 'ap.json'), JSON.stringify({ 'assessment-plan': { uuid: 'a-uuid' } }));
+      const r = emitOscalAssessmentResults({
+        outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1',
+        assessmentPlanHref: 'https://example.com/oscal/ap.json',
+      });
+      expect(r.ap_link).toBe('explicit-href');
+      const doc = JSON.parse(readFileSync(r.path, 'utf8'))['assessment-results'];
+      expect(doc['import-ap'].href).toBe('https://example.com/oscal/ap.json');
+    });
+
+    it('strictChain throws when no AP can be resolved', () => {
+      writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
+      expect(() => emitOscalAssessmentResults({
+        outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1', strictChain: true,
+      })).toThrow(/import-ap href could not be resolved/);
+    });
+
+    it('strictChain accepts a co-emitted local AP without error', () => {
+      writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
+      writeFileSync(resolve(tmp, 'ap.json'), JSON.stringify({ 'assessment-plan': { uuid: 'a-uuid' } }));
+      const r = emitOscalAssessmentResults({
+        outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1', strictChain: true,
+      });
+      expect(r.ap_link).toBe('local-ap');
+    });
+
+    it('strictChain accepts explicit assessmentPlanHref without checking existence (operator-asserted)', () => {
+      writeFileSync(resolve(tmp, 'KSI-IAM-MFA.json'), JSON.stringify(fakeEvidence()));
+      // strictChain doesn't fetch remote URIs — operator vouches for the href.
+      const r = emitOscalAssessmentResults({
+        outDir: tmp, runId: 'run-1', frmrVersion: '2025-06.r1', strictChain: true,
+        assessmentPlanHref: 'https://example.com/oscal/ap.json',
+      });
+      expect(r.ap_link).toBe('explicit-href');
+    });
+  });
 });
