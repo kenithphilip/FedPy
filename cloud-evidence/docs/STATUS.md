@@ -10,6 +10,15 @@
 - Last shipped: LOOP-A.A5 (commit `469049f`)
 - Next priority: LOOP-B.B1 (per-finding CVSS+EPSS scoring)
 
+> **Note on next-priority:** `ADDITIONAL-LOOPS-AUDIT.md` (2026-06-06)
+> proposed 6 new loops (L–Q) and 12 extensions to existing slices, but
+> all six are net-new scope items conditional on operator/sponsoring-
+> agency decisions (see audit §5 open questions). They do NOT preempt
+> LOOP-B.B1 — risk scoring is still the highest-priority enabling
+> slice for I, F, and E. LOOP-L (CRM + Inheritance) is the leading
+> candidate for adoption once the audit is ratified by the human;
+> at that point STATUS.md will note an `LOOP-L.L1` queued behind B.B1.
+
 ## Pre-flight
 | ID | Title | Status | Commit | Date |
 |---|---|---|---|---|
@@ -20,102 +29,133 @@
 | R4 | Sample selection methodology research | done | `7a95221` | (per CHANGELOG) |
 
 ## LOOP-A — OSCAL Package Completeness (COMPLETE)
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| A.A1 | OSCAL POA&M emitter | done | `7a95221` | — | (in EXECUTION-PLAN.md) |
-| A.A2 | OSCAL Assessment Plan emitter | done | `4f2170b` | — | (in EXECUTION-PLAN.md) |
-| A.A3 | AR import-AP chain wiring | done | `553637c` | — | (in EXECUTION-PLAN.md) |
-| A.A4 | Submission package bundler | done | `ecf1525` | — | (in EXECUTION-PLAN.md) |
-| A.A5 | Rules of Engagement template seed | done | `469049f` | — | (in EXECUTION-PLAN.md) |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| A.A1 | OSCAL POA&M emitter | done | `7a95221` | — | (in EXECUTION-PLAN.md) | — |
+| A.A2 | OSCAL Assessment Plan emitter | done | `4f2170b` | — | (in EXECUTION-PLAN.md) | — |
+| A.A3 | AR import-AP chain wiring | done | `553637c` | — | (in EXECUTION-PLAN.md) | — |
+| A.A4 | Submission package bundler | done | `ecf1525` | — | (in EXECUTION-PLAN.md) | — |
+| A.A5 | Rules of Engagement template seed | done | `469049f` | — | (in EXECUTION-PLAN.md) | — |
 
 ## LOOP-B — Risk + Remediation Engine
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | pending | — | — | `docs/loops/LOOP-B-SPEC.md` |
-| B.B2 | Remediation deadline math (KEV/PAIN/IRV/LEV) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` |
-| B.B3 | Risk acceptance workflow in tracker | pending | — | — | `docs/loops/LOOP-B-SPEC.md` |
-| B.B4 | Compensating-controls registry | pending | — | — | `docs/loops/LOOP-B-SPEC.md` |
-| B.B5 | Central Risk Register (RA-3) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B1.md` |
+| B.B2 | Remediation deadline math (KEV/PAIN/IRV/LEV) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B2.md` |
+| B.B3 | Risk acceptance workflow in tracker | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B3.md` |
+| B.B4 | Compensating-controls registry | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B4.md` |
+| B.B5 | Central Risk Register (RA-3) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B5.md` |
 
 ## LOOP-C — Document Template Pack
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| C.C1 | Configuration Management Plan (CMP) | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C2 | Information System Contingency Plan (ISCP) + Test AAR | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C3 | Incident Response Plan (IRP) + Test AAR | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C4 | Privacy Threshold Analysis (PTA) + PIA | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C5 | FIPS 199 categorization worksheet | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C6 | Continuous Monitoring Strategy + Plan | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C7 | Risk Management Strategy (RMS) | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C8 | Authorization request cover letter | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
-| C.C9 | Baseline Configuration document (CM-2) | pending | — | — | `docs/loops/LOOP-C-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| C.C1 | Configuration Management Plan (CMP) | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C1.md` |
+| C.C2 | Information System Contingency Plan (ISCP) + Test AAR | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C2.md` |
+| C.C3 | Incident Response Plan (IRP) + Test AAR | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C3.md` |
+| C.C4 | Privacy Threshold Analysis (PTA) + PIA | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C4.md` |
+| C.C5 | FIPS 199 categorization worksheet | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C5.md` |
+| C.C6 | Continuous Monitoring Strategy + Plan | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C6.md` |
+| C.C7 | Risk Management Strategy (RMS) | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C7.md` |
+| C.C8 | Authorization request cover letter | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C8.md` |
+| C.C9 | Baseline Configuration document (CM-2) | pending | — | — | `docs/loops/LOOP-C-SPEC.md` | `docs/slices/C/C.C9.md` |
 
 ## LOOP-D — Diagram Auto-Generation
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| D.D1 | Authorization Boundary Diagram | pending | — | — | `docs/loops/LOOP-D-SPEC.md` |
-| D.D2 | Network Diagram | pending | — | — | `docs/loops/LOOP-D-SPEC.md` |
-| D.D3 | Data Flow Diagram | pending | — | — | `docs/loops/LOOP-D-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| D.D1 | Authorization Boundary Diagram | pending | — | — | `docs/loops/LOOP-D-SPEC.md` | `docs/slices/D/D.D1.md` |
+| D.D2 | Network Diagram | pending | — | — | `docs/loops/LOOP-D-SPEC.md` | `docs/slices/D/D.D2.md` |
+| D.D3 | Data Flow Diagram | pending | — | — | `docs/loops/LOOP-D-SPEC.md` | `docs/slices/D/D.D3.md` |
 
 ## LOOP-E — Continuous Monitoring Agent
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| E.E1 | Monthly ConMon analysis report | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
-| E.E2 | Monthly POA&M delta workflow | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
-| E.E3 | Annual Assessment package generator | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
-| E.E4 | Annual SSP review/update workflow | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
-| E.E5 | Deviation Request (DR) emitter | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
-| E.E6 | Formal SCN doc emitter | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
-| E.E7 | Annual IRP/ISCP test cadence runner | pending | — | — | `docs/loops/LOOP-E-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| E.E1 | Monthly ConMon analysis report | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E1.md` |
+| E.E2 | Monthly POA&M delta workflow | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E2.md` |
+| E.E3 | Annual Assessment package generator | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E3.md` |
+| E.E4 | Annual SSP review/update workflow | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E4.md` |
+| E.E5 | Deviation Request (DR) emitter | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E5.md` |
+| E.E6 | Formal SCN doc emitter | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E6.md` |
+| E.E7 | Annual IRP/ISCP test cadence runner | pending | — | — | `docs/loops/LOOP-E-SPEC.md` | `docs/slices/E/E.E7.md` |
 
 ## LOOP-F — 3PAO Assessor Experience
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| F.F1 | 3PAO sign-off UI in tracker | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
-| F.F2 | Comment threads on findings | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
-| F.F3 | Sample selection methodology auto-derive | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
-| F.F4 | Evidence walk-through artifacts | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
-| F.F5 | 3PAO recommendation letter template | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
-| F.F6 | Full ATO workflow tracker (PM-10) | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
-| F.F7 | SAR draft generator | pending | — | — | `docs/loops/LOOP-F-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| F.F1 | 3PAO sign-off UI in tracker | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F1.md` |
+| F.F2 | Comment threads on findings | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F2.md` |
+| F.F3 | Sample selection methodology auto-derive | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F3.md` |
+| F.F4 | Evidence walk-through artifacts | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F4.md` |
+| F.F5 | 3PAO recommendation letter template | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F5.md` |
+| F.F6 | Full ATO workflow tracker (PM-10) | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F6.md` |
+| F.F7 | SAR draft generator | pending | — | — | `docs/loops/LOOP-F-SPEC.md` | `docs/slices/F/F.F7.md` |
 
 ## LOOP-G — AFR Family (20x deliverables)
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| G.G1 | AFR-FSI (FedRAMP Security Inbox) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` |
-| G.G2 | AFR-ICP (Incident Communications Procedures) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` |
-| G.G3 | AFR-ADS (Authorization Data Sharing) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` |
-| G.G4 | AFR-MAS (Minimum Assessment Scope) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` |
-| G.G5 | AFR-SCG (Secure Configuration Guide) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` |
-| G.G6 | AFR-CCM (Continuous Monitoring per 20x) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| G.G1 | AFR-FSI (FedRAMP Security Inbox) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G1.md` |
+| G.G2 | AFR-ICP (Incident Communications Procedures) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G2.md` |
+| G.G3 | AFR-ADS (Authorization Data Sharing) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G3.md` |
+| G.G4 | AFR-MAS (Minimum Assessment Scope) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G4.md` |
+| G.G5 | AFR-SCG (Secure Configuration Guide) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G5.md` |
+| G.G6 | AFR-CCM (Continuous Monitoring per 20x) | pending | — | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G6.md` |
 
 ## LOOP-H — Long-Term Storage + Multi-CSO
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| H.H1 | Immutable evidence archive | pending | — | — | `docs/loops/LOOP-H-SPEC.md` |
-| H.H2 | Audit retention policy enforcement (AU-11) | pending | — | — | `docs/loops/LOOP-H-SPEC.md` |
-| H.H3 | Multi-CSO support | pending | — | — | `docs/loops/LOOP-H-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| H.H1 | Immutable evidence archive | pending | — | — | `docs/loops/LOOP-H-SPEC.md` | `docs/slices/H/H.H1.md` |
+| H.H2 | Audit retention policy enforcement (AU-11) | pending | — | — | `docs/loops/LOOP-H-SPEC.md` | `docs/slices/H/H.H2.md` |
+| H.H3 | Multi-CSO support | pending | — | — | `docs/loops/LOOP-H-SPEC.md` | `docs/slices/H/H.H3.md` |
 
 ## LOOP-I — Stakeholder Dashboards
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| I.I1 | Executive posture dashboard | pending | — | — | `docs/loops/LOOP-I-SPEC.md` |
-| I.I2 | Finding burndown + deadline pipeline | pending | — | — | `docs/loops/LOOP-I-SPEC.md` |
-| I.I3 | Longitudinal trend analysis | pending | — | — | `docs/loops/LOOP-I-SPEC.md` |
-| I.I4 | SSP narrative library completion | pending | — | — | `docs/loops/LOOP-I-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| I.I1 | Executive posture dashboard | pending | — | — | `docs/loops/LOOP-I-SPEC.md` | `docs/slices/I/I.I1.md` |
+| I.I2 | Finding burndown + deadline pipeline | pending | — | — | `docs/loops/LOOP-I-SPEC.md` | `docs/slices/I/I.I2.md` |
+| I.I3 | Longitudinal trend analysis | pending | — | — | `docs/loops/LOOP-I-SPEC.md` | `docs/slices/I/I.I3.md` |
+| I.I4 | SSP narrative library completion | pending | — | — | `docs/loops/LOOP-I-SPEC.md` | `docs/slices/I/I.I4.md` |
 
 ## LOOP-J — Supply Chain + Privileges
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| J.J1 | User Roles & Privileges matrix (AC-2 + AC-6) | pending | — | — | `docs/loops/LOOP-J-SPEC.md` |
-| J.J2 | Subprocessor inventory expansion (SA-9) | pending | — | — | `docs/loops/LOOP-J-SPEC.md` |
-| J.J3 | Supply chain risk register (SR-3) + SBOM | pending | — | — | `docs/loops/LOOP-J-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| J.J1 | User Roles & Privileges matrix (AC-2 + AC-6) | pending | — | — | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J1.md` |
+| J.J2 | Subprocessor inventory expansion (SA-9) | pending | — | — | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J2.md` |
+| J.J3 | Supply chain risk register (SR-3) + SBOM | pending | — | — | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J3.md` |
 
 ## LOOP-K — Test Artifact Ingestion
-| Slice | Title | Status | Commit | Date | Spec |
-|---|---|---|---|---|---|
-| K.K1 | PenTest report ingest schema + tracker display | pending | — | — | `docs/loops/LOOP-K-SPEC.md` |
-| K.K2 | 3PAO test results matrix → OSCAL AR test-result-objects | pending | — | — | `docs/loops/LOOP-K-SPEC.md` |
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| K.K1 | PenTest report ingest schema + tracker display | pending | — | — | `docs/loops/LOOP-K-SPEC.md` | `docs/slices/K/K.K1.md` |
+| K.K2 | 3PAO test results matrix → OSCAL AR test-result-objects | pending | — | — | `docs/loops/LOOP-K-SPEC.md` | `docs/slices/K/K.K2.md` |
+
+## Per-loop risks registers
+Each loop has a dedicated risks register listing implementation,
+schedule, dependency, and external risks discovered during planning +
+slice authoring. Update the register every time a slice surfaces a new
+risk (per the Strong-Directive in `cloud-evidence/CLAUDE.md`).
+
+| Register | Loop | Path |
+|---|---|---|
+| LOOP-B risks | Risk + Remediation Engine | `docs/loops/LOOP-B-RISKS.md` |
+| LOOP-C risks | Document Template Pack | `docs/loops/LOOP-C-RISKS.md` |
+| LOOP-D risks | Diagram Auto-Generation | `docs/loops/LOOP-D-RISKS.md` |
+| LOOP-E risks | Continuous Monitoring Agent | `docs/loops/LOOP-E-RISKS.md` |
+| LOOP-F risks | 3PAO Assessor Experience | `docs/loops/LOOP-F-RISKS.md` |
+| LOOP-G risks | AFR Family | `docs/loops/LOOP-G-RISKS.md` |
+| LOOP-H risks | Long-Term Storage + Multi-CSO | `docs/loops/LOOP-H-RISKS.md` |
+| LOOP-I risks | Stakeholder Dashboards | `docs/loops/LOOP-I-RISKS.md` |
+| LOOP-J risks | Supply Chain + Privileges | `docs/loops/LOOP-J-RISKS.md` |
+| LOOP-K risks | Test Artifact Ingestion | `docs/loops/LOOP-K-RISKS.md` |
+
+## Cross-cutting references
+Reference docs that span every loop. Read these whenever planning
+across loops, onboarding a new contributor, or answering a "where
+does X term come from" question.
+
+| Doc | Purpose | Path |
+|---|---|---|
+| Dependency graph | Mermaid + tabular dependency map for every slice; critical path; parallelization streams | `docs/DEPENDENCY-GRAPH.md` |
+| Glossary | A–Z of every FedRAMP / NIST / OSCAL / internal term used in the spec corpus (90+ terms) | `docs/GLOSSARY.md` |
+| Implementation log template | Format + cadence for the per-slice "Implementation log" running journal | `docs/IMPLEMENTATION-LOG-TEMPLATE.md` |
+| Additional loops audit | Audit of FedRAMP/NIST corpus for items missing from the LOOP-A..K roadmap; proposes LOOP-L..Q + §3 extensions | `docs/ADDITIONAL-LOOPS-AUDIT.md` |
 
 ## Sections (artifact requirements layer)
 | Section | Title | Spec doc |

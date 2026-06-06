@@ -149,7 +149,7 @@ npm run check:coverage-regression
 2. **`docs/STATUS.md`** — current master status tracker for every slice. ALWAYS read this first to see what's done, in-progress, and pending. The next slice to work on is in the "Overall → Next priority" line.
 3. **`docs/SLICE-COMPLETION-PROCEDURE.md`** — MANDATORY 7-step procedure when shipping any slice.
 4. **`docs/EXECUTION-PLAN.md`** — high-level plan with all 55 slices.
-5. **`docs/loops/LOOP-X-SPEC.md`** — full per-slice implementation specs for the loop you're working on:
+5. **`docs/loops/LOOP-X-SPEC.md`** — full per-slice implementation specs for the loop you're working on. Each `LOOP-X-SPEC.md` cross-references its per-slice docs under `docs/slices/X/`:
    - `docs/loops/LOOP-B-SPEC.md` — Risk + Remediation Engine (5 slices)
    - `docs/loops/LOOP-C-SPEC.md` — Document Template Pack (9 slices)
    - `docs/loops/LOOP-D-SPEC.md` — Diagram Auto-Generation (3 slices)
@@ -160,34 +160,56 @@ npm run check:coverage-regression
    - `docs/loops/LOOP-I-SPEC.md` — Stakeholder Dashboards (4 slices)
    - `docs/loops/LOOP-J-SPEC.md` — Supply Chain + Privileges (3 slices)
    - `docs/loops/LOOP-K-SPEC.md` — Test Artifact Ingestion (2 slices)
-6. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
-   - `docs/sections/SECTION-A.md` — Submission package artifacts
-   - `docs/sections/SECTION-B.md` — 3PAO assessment workflow
-   - `docs/sections/SECTION-C.md` — Post-authorization ConMon
-   - `docs/sections/SECTION-D.md` — Audit agent UX
-   - `docs/sections/SECTION-E.md` — NIST 800-53 control mapping
-   - `docs/sections/SECTION-F.md` — FedRAMP 20x specific deliverables
-7. **`CHANGELOG.md`** "Unreleased" section — what's already shipped per slice.
-8. **`docs/AFR-FAMILY-CLASSIFICATION.md`** — R1: all 10 AFR families REQUIRED at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
-9. **`docs/PRE-LOOP-A-RESEARCH-FINDINGS.md`** — R2/R3/R4 (drives LOOP-E.E2 + LOOP-F.F3).
-10. `ARCHITECTURE.md` (repo root) — system shape.
-11. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate for new emit families.
-12. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
-13. `RUNBOOK.md` — operational invariants.
+6. **`docs/slices/X/X.XN.md`** — per-slice deep-context docs (one per pending slice, 49 total). Each carries:
+   - YAML frontmatter (`slice_id`, `status`, `commit`, `completed_date`, `depends_on`, `blocks`, `estimated_effort`, `last_updated`)
+   - TL;DR, why-this-slice-exists, authoritative sources (verbatim quotes), files to create/extend, schemas, build steps, REQUIRES-OPERATOR-INPUT table, test specifications, REO compliance notes, verification commands, known risks, open questions, **Implementation log** running journal, completion checklist, resume-from-fresh-session checklist.
+   - When resuming a SPECIFIC slice, this is the SINGLE file to read after CLAUDE.md.
+7. **`docs/loops/LOOP-X-RISKS.md`** — per-loop risks registers (one per LOOP-B..K, 10 total). When a slice surfaces a new risk during implementation, update the register in the same commit.
+8. **`docs/DEPENDENCY-GRAPH.md`** — Mermaid + tabular dependency map for every slice; critical path; parallelization streams; advisory graph for proposed LOOP-L..Q.
+9. **`docs/GLOSSARY.md`** — A–Z of every FedRAMP / NIST / OSCAL / FedPy-specific term used in the spec corpus (90+ terms). When you encounter an unfamiliar acronym, check here first.
+10. **`docs/IMPLEMENTATION-LOG-TEMPLATE.md`** — format + cadence for the per-slice Implementation log. Required reading before you start implementing a slice.
+11. **`docs/ADDITIONAL-LOOPS-AUDIT.md`** — audit (2026-06-06) surfacing 6 proposed new loops (L–Q) + 12 extensions. NOT YET ADOPTED; do not implement without explicit adoption signal in STATUS.md.
+12. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
+    - `docs/sections/SECTION-A.md` — Submission package artifacts
+    - `docs/sections/SECTION-B.md` — 3PAO assessment workflow
+    - `docs/sections/SECTION-C.md` — Post-authorization ConMon
+    - `docs/sections/SECTION-D.md` — Audit agent UX
+    - `docs/sections/SECTION-E.md` — NIST 800-53 control mapping
+    - `docs/sections/SECTION-F.md` — FedRAMP 20x specific deliverables
+13. **`CHANGELOG.md`** "Unreleased" section — what's already shipped per slice.
+14. **`docs/AFR-FAMILY-CLASSIFICATION.md`** — R1: all 10 AFR families REQUIRED at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
+15. **`docs/PRE-LOOP-A-RESEARCH-FINDINGS.md`** — R2/R3/R4 (drives LOOP-E.E2 + LOOP-F.F3).
+16. `ARCHITECTURE.md` (repo root) — system shape.
+17. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate for new emit families.
+18. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
+19. `RUNBOOK.md` — operational invariants.
 
 If a new contributor reads only one file, it should be this one. If they read two, the second is `docs/STATUS.md`.
 
-## Resuming work — the 5-step procedure
+## Resuming work — two paths
 
-A fresh session opens in the repo and auto-loads this file. To pick up:
+A fresh session opens in the repo and auto-loads this file. Pick the path that matches what you were told to do:
+
+### Path A — resuming the "next pending" slice (default)
 
 1. **Read `docs/STATUS.md`** — find the "Overall → Next priority" line. That's the slice you work on.
-2. **Read `docs/loops/LOOP-X-SPEC.md`** for that slice — find your slice's section. EVERY detail is there: files to create, schemas, tests, REO checks, verification commands.
-3. **Read `docs/SLICE-COMPLETION-PROCEDURE.md`** — review the 7-step procedure you MUST follow when done.
-4. **Execute** the slice under the REO standard.
-5. **Follow the 7-step completion procedure** atomically with your final commit.
+2. **Read `docs/loops/LOOP-X-SPEC.md`** for that slice's loop — high-level context + slice rationale.
+3. **Read `docs/slices/X/X.XN.md`** — the deep-context per-slice doc. Frontmatter (`depends_on`, `blocks`, `status`, `commit`) tells you exactly what's blocked. The body has files-to-create, schemas, build steps, REO checks, REQUIRES-OPERATOR-INPUT table, tests, risks, open questions, **Implementation log** running journal, and verification commands.
+4. **Read `docs/loops/LOOP-X-RISKS.md`** — the per-loop risks register. If you discover a new risk during this slice, add it here in the same commit.
+5. **Read `docs/SLICE-COMPLETION-PROCEDURE.md`** — review the 7-step procedure you MUST follow when done.
+6. **Read `docs/IMPLEMENTATION-LOG-TEMPLATE.md`** if you have not before — defines the running-journal format for the per-slice doc.
+7. **Execute** the slice under the REO standard, updating the Implementation log section as you go.
+8. **Follow the 7-step completion procedure** atomically with your final commit.
 
-NO EXCEPTIONS. The 7-step procedure is what keeps STATUS.md, the spec docs, CHANGELOG.md, and the git history in sync. Skipping any step breaks the on-disk source of truth.
+### Path B — resuming a SPECIFIC slice (when told "continue with X.XN")
+
+1. **Read `docs/slices/X/X.XN.md` directly.** That single file has the frontmatter (status, depends_on, blocks, last_updated) + every implementation detail + the Implementation log of prior sessions. It is the entry point for that slice.
+2. **Read `docs/loops/LOOP-X-RISKS.md`** — register for the slice's loop.
+3. **Cross-reference `docs/DEPENDENCY-GRAPH.md`** if dependencies need to be confirmed (e.g. to check the slice is unblocked).
+4. **Read `docs/SLICE-COMPLETION-PROCEDURE.md`**.
+5. **Execute + 7-step completion** as in Path A.
+
+NO EXCEPTIONS. The 7-step procedure is what keeps STATUS.md, the spec docs, the per-slice docs, CHANGELOG.md, and the git history in sync. Skipping any step breaks the on-disk source of truth.
 
 ## Strong directive (REO-enforced)
 
@@ -195,8 +217,21 @@ NO EXCEPTIONS. The 7-step procedure is what keeps STATUS.md, the spec docs, CHAN
 1. Pass typecheck + tests + check:reo (atomic — green before commit)
 2. Update STATUS.md (slice row + Overall section)
 3. Update the loop's spec doc (slice's status row)
-4. Add a CHANGELOG.md "Unreleased" entry
-5. Commit with the slice ID in the message
-6. Push to origin/main
+4. **Update the per-slice doc's frontmatter** (`status: done`, `commit: <hash>`, `completed_date: <ISO>`, `last_updated: <ISO>`)
+5. **Append the final Implementation log entry** to the per-slice doc (per `docs/IMPLEMENTATION-LOG-TEMPLATE.md`) — date, outcome, commit reference
+6. **Add any newly-discovered risks to `docs/loops/LOOP-X-RISKS.md`** in the same commit (if surfaced during implementation)
+7. Add a CHANGELOG.md "Unreleased" entry
+8. Commit with the slice ID in the message
+9. Push to origin/main
 
-**Failure to follow this procedure is a REO violation.** The slice is not "done" until all 6 steps execute. Future sessions WILL see the inconsistency and reject it.
+**During work in-progress** (not at completion), the Implementation log MUST be updated at every meaningful milestone:
+- At every commit boundary (even WIP commits)
+- At every test failure (transient or persistent)
+- At every research question answered
+- At every spec divergence
+- At every newly-discovered risk (followed by an immediate entry in `LOOP-X-RISKS.md`)
+- At every external dependency pin (version, schema, API)
+
+See `docs/IMPLEMENTATION-LOG-TEMPLATE.md` §3 for the full update cadence + §4 for example entries.
+
+**Failure to follow this procedure is a REO violation.** The slice is not "done" until all 9 steps execute. Future sessions WILL see the inconsistency and reject it. The per-slice doc + risks register are the on-disk archaeological record of the slice; if they are not kept current with the code, a 3PAO reviewing the trail will find the gap.
