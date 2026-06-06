@@ -65,6 +65,7 @@ import { emitOscalSsp } from './oscal-ssp.ts';
 import { emitOscalPoam } from './oscal-poam.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
+import { emitRoeDocx } from './roe-emit.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -146,6 +147,12 @@ interface Args {
    * production submissions.
    */
   strictBundle: boolean;
+  /**
+   * When true (LOOP-A.A5), render a Rules of Engagement Word template
+   * (out/roe.docx) pre-filled with system identity, boundary, IP ranges
+   * from real inventory, scan windows, and escalation contacts.
+   */
+  roe: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -222,6 +229,7 @@ function parseArgs(argv: string[]): Args {
     strictChain: process.env.CLOUD_EVIDENCE_STRICT_CHAIN === '1',
     submissionBundle: process.env.CLOUD_EVIDENCE_SUBMISSION_BUNDLE === '1',
     strictBundle: process.env.CLOUD_EVIDENCE_STRICT_BUNDLE === '1',
+    roe: process.env.CLOUD_EVIDENCE_ROE === '1',
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -347,6 +355,10 @@ function parseArgs(argv: string[]): Args {
         // LOOP-A.A4: refuse to write a bundle with gaps or a broken chain.
         args.strictBundle = true;
         args.submissionBundle = true;
+        break;
+      case '--roe':
+        // LOOP-A.A5: emit Rules of Engagement Word template seed.
+        args.roe = true;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -512,6 +524,15 @@ Post-run artifacts:
                          required artifact is missing OR the SSP→AP→AR→POA&M chain is
                          broken. The right setting for production submissions.
                          (env: CLOUD_EVIDENCE_STRICT_BUNDLE)
+  --roe                  Emit a Rules of Engagement Word template (out/roe.docx)
+                         pre-filled with system identity (--system-name / --system-id),
+                         authorization-boundary narrative, IP ranges auto-derived from
+                         inventory.json, scan windows (env-supplied), escalation contacts,
+                         and the controls-in-scope KSI list. The 3PAO completes remaining
+                         REQUIRES-OPERATOR-INPUT fields and obtains CSP + 3PAO signatures.
+                         The RoE is referenced from the AP back-matter (LOOP-A.A2) and
+                         included in the submission bundle (LOOP-A.A4).
+                         (env: CLOUD_EVIDENCE_ROE)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1808,6 +1829,45 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL AP emission failed: ${e.message}`);
       log.error({ event: 'oscal_ap.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Rules of Engagement template seed (LOOP-A.A5) — Word .docx
+  // pre-filled with system identity + boundary + IPs from real inventory +
+  // scan windows + escalation contacts + controls-in-scope. The 3PAO
+  // completes any REQUIRES-OPERATOR-INPUT markers and obtains signatures.
+  // Runs BEFORE signing so the RoE is covered by the manifest. ----
+  if (args.roe) {
+    try {
+      const r = emitRoeDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        thirdPartyAssessor: args.thirdPartyAssessor ?? undefined,
+        signedRoeHref: args.apRoeHref ?? undefined,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `RoE (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.ip_count} IP rows, ${r.contact_count} contacts, ${r.scan_window_count} scan window(s); ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('roe.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        ip_count: r.ip_count,
+        contact_count: r.contact_count,
+        scan_window_count: r.scan_window_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`RoE emission failed: ${e.message}`);
+      log.error({ event: 'roe.fail', err_message: e?.message });
     }
   }
 

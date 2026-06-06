@@ -78,6 +78,7 @@ type Role =
   | 'oscal-ar-xml'
   | 'oscal-poam'
   | 'oscal-poam-xml'
+  | 'rules-of-engagement-docx'
   | 'inventory-workbook-xlsx'
   | 'inventory-workbook-csv'
   | 'inventory-coverage-report'
@@ -111,6 +112,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'oscal-ar-xml', filename: 'assessment-results.xml', description: 'OSCAL AR — XML representation' },
   { role: 'oscal-poam', filename: 'poam.json', description: 'OSCAL Plan of Action and Milestones (v1.1.2) — emitted only when failing findings exist' },
   { role: 'oscal-poam-xml', filename: 'poam.xml', description: 'OSCAL POA&M — XML representation' },
+  { role: 'rules-of-engagement-docx', filename: 'roe.docx', description: 'Rules of Engagement Word template — 3PAO completes + signs' },
   { role: 'inventory-workbook-xlsx', filename: 'inventory-workbook.xlsx', required: true, description: 'FedRAMP Integrated Inventory Workbook (Appendix M)' },
   { role: 'inventory-workbook-csv', filename: 'inventory-workbook.csv', description: 'Inventory Workbook — CSV representation' },
   { role: 'inventory-coverage-report', filename: 'inventory-coverage.json', description: 'Per-run cell-level coverage report against the FedRAMP Appendix M contract' },

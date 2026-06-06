@@ -6,6 +6,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-A.A5: Rules of Engagement template seed (closes LOOP-A)
+Fifth and final slice of LOOP-A. Produces a Word .docx Rules of Engagement
+template pre-filled with system identity, authorization-boundary narrative,
+IP ranges auto-derived from real `inventory.json`, scan windows, escalation
+contacts, and the full controls-in-scope KSI list. The 3PAO opens the
+document, completes any `REQUIRES-OPERATOR-INPUT` markers, and obtains
+CSP + 3PAO signatures — the RoE is formally 3PAO-authored, but seeding
+it from real data eliminates the busywork of transcribing boundaries
+and IP ranges from the SSP/inventory.
+
+  - `core/roe-emit.ts`: ~500 lines, dependency-free `.docx` (same OOXML
+    + zip-store pattern the SSP-2 renderer uses; no `python-docx`, no
+    `docx` npm package). The document is structured as 10 sections:
+    1. **System Identity** — name, ID, impact level, CSP, 3PAO, run id,
+       FRMR version (auto-filled when provided; REQUIRES-OPERATOR-INPUT
+       otherwise).
+    2. **Assessment Scope** — boundary narrative + controls-in-scope
+       table (one row per KSI in the ksi-map, real and current).
+    3. **Assessment Period & Scan Windows** — start/end dates + scan
+       window table (operator-supplied; REQUIRES-OPERATOR-INPUT row when
+       absent).
+    4. **In-Scope Network Addresses** — IP table auto-derived from
+       `out/inventory.json` (deduplicated). Each row cites the asset
+       type / location / provider for context. When inventory is
+       missing or empty, a REQUIRES-OPERATOR-INPUT row explains the fix.
+       Operator-supplied `ipRanges` override the inventory list.
+    5. **Testing Authorization** — 8-row table of activities × authorized
+       × constraints. Standard FedRAMP authorizations (read-only IAM
+       enumeration, authenticated scans, configuration capture) hard-
+       coded; controversial ones (penetration testing, social
+       engineering) emit REQUIRES-OPERATOR-INPUT for explicit CSP
+       acknowledgement.
+    6. **Out of Scope / Prohibited Activities** — bulleted list of
+       things requiring written CSP approval.
+    7. **Escalation Contacts** — 6-row default contacts table with
+       escalation roles flagged ⚡. Operator-supplied contacts render
+       verbatim.
+    8. **Incident Handling During Testing** — 5-step procedure
+       referencing the FedRAMP Incident Communications Procedures
+       (AFR-ICP) the LOOP-G.G2 slice will implement.
+    9. **Signatures** — CSP + 3PAO signature/date block.
+    10. **Document Provenance** — tool name, run id, inventory source,
+        published RoE URL.
+  - `RoEEmitOptions`: every operator-supplied field optional;
+    `RoEEmitResult.requires_operator_input[]` lists what's still missing.
+    `ready_for_signature` is true only when every operator field is
+    supplied AND scan windows + IP ranges are populated.
+  - **REO compliance**: zero fabricated data. Every IP comes from real
+    inventory; every contact field defaults to `REQUIRES-OPERATOR-INPUT`
+    when missing (never substitutes "John Doe" or a fake phone number);
+    every signature cell is `REQUIRES-OPERATOR-INPUT`; KSI scope list
+    is read from real `core/ksi-map.ts`.
+  - `core/orchestrator.ts`: new `--roe` flag + `CLOUD_EVIDENCE_ROE`
+    env. Runs BEFORE signing so the RoE is covered by the manifest +
+    included in the submission bundle. Console output shows IP count,
+    contact count, scan window count, and ready-for-signature status.
+  - `core/submission-bundle.ts`: added `rules-of-engagement-docx`
+    role + `roe.docx` filename to the well-known artifact catalogue
+    so the LOOP-A.A4 bundler classifies it correctly.
+  - `tests/core/roe-emit.test.ts`: 16 tests covering REQUIRES-OPERATOR-INPUT
+    marker emission, operator-supplied verbatim rendering, IP
+    derivation from inventory (with dedup), inventory-empty fallback,
+    operator override of inventory IPs, default vs supplied contacts
+    (with ⚡ escalation flag), KSI scope read, ready_for_signature
+    computation, custom outPath, document.xml body content probing,
+    and store-only ZIP structure validation via raw OOXML part listing.
+
+Verification: typecheck clean; 874/874 tests passing (+16 from
+LOOP-A.A5); `npm run check:reo` returns 0.
+
+**LOOP-A is now complete.** All 5 slices delivered:
+  A.1 (POA&M emitter) + A.2 (AP emitter) + A.3 (AR chain wiring) +
+  A.4 (submission bundler) + A.5 (RoE template). The full FedRAMP 20x
+  submission package — SSP → AP → AR → POA&M → IIW → RoE → signed
+  manifest → RFC 3161 timestamp → INDEX.json, all wrapped in a single
+  signed tarball — is now emit-able end-to-end with one orchestrator
+  run. Next loops (LOOP-B risk engine, LOOP-C document templates,
+  LOOP-D diagrams, LOOP-E ConMon, LOOP-F 3PAO UX, LOOP-G AFR family,
+  LOOP-H storage + multi-CSO, LOOP-I dashboards, LOOP-J supply chain,
+  LOOP-K test ingestion) remain — but LOOP-A delivers a complete
+  authorization-time submission package today.
+
 ### Added — LOOP-A.A4: FedRAMP 20x submission package bundler
 Fourth slice of LOOP-A. Produces a single uploadable artifact — a signed,
 timestamped, gzipped tarball — that contains EVERYTHING a 3PAO / FedRAMP
