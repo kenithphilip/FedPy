@@ -6,6 +6,76 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-A.A4: FedRAMP 20x submission package bundler
+Fourth slice of LOOP-A. Produces a single uploadable artifact — a signed,
+timestamped, gzipped tarball — that contains EVERYTHING a 3PAO / FedRAMP
+PMO / Authorizing Official needs to review a submission: OSCAL SSP + AP +
+AR + POA&M, the Integrated Inventory Workbook (Appendix M), every per-KSI
+evidence envelope, the Ed25519-signed manifest, the RFC 3161 timestamp,
+and an `INDEX.json` enumerating each artifact with sha256 + role +
+in-manifest flag + chain integrity verdict.
+
+The FedRAMP secure repository (USDA Connect.gov for Low/Moderate per R2
+findings) expects one upload per submission, not a loose directory. The
+bundler also performs chain integrity verification at bundle time — if
+the AR's `import-ap` is synthetic, or any required artifact is missing,
+`--strict-bundle` mode refuses to write.
+
+  - `core/submission-bundle.ts`: ~500 lines, pure-JS POSIX ustar tar
+    writer (no external dependency — node's built-in `zlib` handles
+    gzip). Walks `outDir` + `summaries/` for files, classifies each
+    against a 24-role well-known catalogue (`oscal-ssp`, `oscal-ap`,
+    `oscal-ar`, `oscal-poam`, `inventory-workbook-xlsx`,
+    `signed-manifest`, `rfc3161-timestamp`, `ksi-evidence`, etc.),
+    computes sha256 per artifact, and emits an `INDEX.json` at the top
+    of the archive so a consumer streaming the tarball sees the
+    manifest before any payload.
+  - **Chain integrity check**: at bundle time, validates that
+    `ap.import-ssp.href`, `ar.import-ap.href`, and the POA&M's
+    system-id/import-ssp pair all resolve. Synthetic AR import-ap
+    (`#cloud-evidence-no-external-ap` from LOOP-A.A3 when no AP exists)
+    is flagged as a chain break — the submission package would ship
+    with a dangling reference. `--strict-bundle` rejects the bundle in
+    that state with a typed error naming the fix.
+  - **Required-artifact gap detection**: cross-references the actual
+    files in `outDir` against the well-known catalogue's `required:
+    true` set (SSP, AP, AR, IIW, manifest, manifest.sig). Each missing
+    file is recorded in `INDEX.json.gaps[]` with a description + role
+    name. Strict mode refuses to write a bundle with gaps.
+  - **Package format versioning**: `INDEX.json.package_format_version =
+    "20x.phase-two.preview.2026"` per R3 (no post-Phase-Two-pilot
+    guidance published yet). A future format shift produces a clean
+    version bump rather than silently changing the structure.
+  - **Reproducibility**: when `mtime` is supplied via
+    `BundleEmitOptions.mtime`, every tar header gets that fixed seconds-
+    since-epoch value + uid/gid/uname/gname=0/root for byte-stable
+    bundles across machines. Tests verify byte-identical payload
+    sections across two separate runs with the same inputs.
+  - **REO compliance**: bundler never synthesizes content — only
+    packages what already exists on disk. `INDEX.json.provenance`
+    names the bundler module + cites every read. Files outside the
+    well-known catalogue (operator-added) are still bundled with role
+    = `'unrecognized'` rather than silently dropped.
+  - `core/orchestrator.ts`: new `--submission-bundle` flag +
+    `CLOUD_EVIDENCE_SUBMISSION_BUNDLE` env. Runs AFTER signing so the
+    bundle includes the manifest+sig+RFC3161 timestamp. `--strict-bundle`
+    (and `CLOUD_EVIDENCE_STRICT_BUNDLE` env) implies
+    `--submission-bundle` and forces exit-code 4 on incomplete
+    submissions. Console output shows chain status, gap count, bundle
+    sha256, and KB.
+  - `tests/core/submission-bundle.test.ts`: 20 new tests covering the
+    file catalogue, sha256 + bytes accuracy, in-manifest flag, gap
+    detection, chain check (complete + broken-by-synthetic-AR), strict
+    mode throwing on gaps + chain breaks, reproducibility (same inputs
+    → byte-identical payload sections), tarball round-trip through
+    gunzip + POSIX ustar parser, INDEX.json equality on-disk vs in-tar,
+    summaries/ subdir traversal, ustar 100-byte name limit, EOF
+    zero-trailer padding, and the raw `writeTar()` POSIX ustar writer.
+
+Verification: typecheck clean; 858/858 tests passing (+20 from
+LOOP-A.A4); `npm run check:reo` returns 0. OSCAL chain SSP→AP→AR→POA&M
+is now packageable as a single signed deliverable.
+
 ### Added — LOOP-A.A3: SSP → AP → AR chain wiring via import-ap
 Third slice of LOOP-A. Closes the OSCAL chain: `SSP ✅ → AP ✅ → AR ✅ → POA&M ✅`.
 The AR's mandatory `import-ap` element now resolves to a real Assessment

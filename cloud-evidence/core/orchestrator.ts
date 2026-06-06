@@ -64,6 +64,7 @@ import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
 import { emitOscalPoam } from './oscal-poam.ts';
 import { emitOscalAp } from './oscal-ap.ts';
+import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -134,6 +135,17 @@ interface Args {
    * package with a synthetic AP anchor.
    */
   strictChain: boolean;
+  /**
+   * When true (LOOP-A.A4), build a signed FedRAMP 20x submission package
+   * (tar.gz) bundling SSP+AP+AR+POA&M+IIW+manifest+timestamp+INDEX.json.
+   */
+  submissionBundle: boolean;
+  /**
+   * When true with submissionBundle, the bundler fails hard if any required
+   * artifact is missing OR the OSCAL chain is broken. The right setting for
+   * production submissions.
+   */
+  strictBundle: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -208,6 +220,8 @@ function parseArgs(argv: string[]): Args {
     oscalPoam: process.env.CLOUD_EVIDENCE_OSCAL_POAM === '1',
     oscalAp: process.env.CLOUD_EVIDENCE_OSCAL_AP === '1',
     strictChain: process.env.CLOUD_EVIDENCE_STRICT_CHAIN === '1',
+    submissionBundle: process.env.CLOUD_EVIDENCE_SUBMISSION_BUNDLE === '1',
+    strictBundle: process.env.CLOUD_EVIDENCE_STRICT_BUNDLE === '1',
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -324,6 +338,15 @@ function parseArgs(argv: string[]): Args {
       case '--strict-chain':
         // LOOP-A.A3: refuse to emit an AR with a synthetic import-ap.
         args.strictChain = true;
+        break;
+      case '--submission-bundle':
+        // LOOP-A.A4: build the signed FedRAMP 20x submission tarball.
+        args.submissionBundle = true;
+        break;
+      case '--strict-bundle':
+        // LOOP-A.A4: refuse to write a bundle with gaps or a broken chain.
+        args.strictBundle = true;
+        args.submissionBundle = true;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -479,6 +502,16 @@ Post-run artifacts:
                          be resolved to a real document (no AP co-emitted AND no explicit
                          --ap-href). Prevents shipping a submission package with a synthetic
                          AP anchor. (env: CLOUD_EVIDENCE_STRICT_CHAIN)
+  --submission-bundle    Build a signed FedRAMP 20x submission package
+                         (out/submission-package.tar.gz). Bundles SSP+AP+AR+POA&M+IIW
+                         + per-KSI evidence + signed manifest + RFC 3161 timestamp +
+                         INDEX.json with chain integrity check + sha256 per artifact.
+                         The bundle is what a CSP uploads to the FedRAMP secure repository.
+                         (env: CLOUD_EVIDENCE_SUBMISSION_BUNDLE)
+  --strict-bundle        Implies --submission-bundle. Refuse to write the tarball if any
+                         required artifact is missing OR the SSP→AP→AR→POA&M chain is
+                         broken. The right setting for production submissions.
+                         (env: CLOUD_EVIDENCE_STRICT_BUNDLE)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1855,6 +1888,47 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`Signing failed: ${e.message}`);
       log.error({ event: 'sign.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Submission package bundler (LOOP-A.A4) ----
+  // Runs AFTER signing so the bundle includes the manifest + signature + the
+  // RFC 3161 timestamp. Strict mode (--strict-bundle) refuses to write when
+  // any required artifact is missing OR the OSCAL chain is broken — the
+  // right setting for production submissions to the FedRAMP secure repository.
+  if (args.submissionBundle) {
+    try {
+      const bundle = emitSubmissionBundle({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        strict: args.strictBundle,
+      });
+      const chainBadge = bundle.chain_complete ? '✓ chain complete' : '⚠ chain incomplete';
+      const gapBadge = bundle.gap_count === 0 ? '✓ no gaps' : `⚠ ${bundle.gap_count} gap(s)`;
+      console.log(
+        `Submission bundle: ${bundle.bundle_path} ` +
+        `(${(bundle.bundle_bytes / 1024).toFixed(1)} KB, ${bundle.artifact_count} artifact(s); ${chainBadge}; ${gapBadge})`,
+      );
+      console.log(`  Bundle SHA-256: ${bundle.bundle_sha256}`);
+      // Bundle emitted; status reflects whether it's submission-ready
+      // (no gaps + chain complete). When incomplete, we record 'info' rather
+      // than 'fail' because the bundle did write — the operator/CI is left
+      // to decide whether to ship it. --strict-bundle is the gate that
+      // converts incompleteness into a hard error before write.
+      ledger.record('submission_bundle.emit', {
+        status: 'info',
+        ship_ready: bundle.chain_complete && bundle.gap_count === 0,
+        artifact_count: bundle.artifact_count,
+        gap_count: bundle.gap_count,
+        chain_complete: bundle.chain_complete,
+        bundle_sha256: bundle.bundle_sha256,
+        bundle_bytes: bundle.bundle_bytes,
+      });
+    } catch (e: any) {
+      console.error(`Submission bundle emission failed: ${e.message}`);
+      log.error({ event: 'submission_bundle.fail', err_message: e?.message });
+      if (args.strictBundle) process.exitCode = 4;
     }
   }
 
