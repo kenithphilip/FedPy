@@ -145,33 +145,58 @@ npm run check:coverage-regression
 
 ## Reading list (in priority order)
 
-1. This file — REO rules.
-2. **`docs/EXECUTION-PLAN.md`** — every remaining slice in LOOP-B through
-   LOOP-K with per-slice descriptions, files to create, build steps,
-   tests, REO notes. **Read this before starting any new slice.**
-3. `CHANGELOG.md` (Unreleased section) — what's already shipped (LOOP-A
-   complete; every slice has an entry with module names + file paths).
-4. `docs/AFR-FAMILY-CLASSIFICATION.md` — R1: all 10 AFR families REQUIRED
-   at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
-5. `docs/PRE-LOOP-A-RESEARCH-FINDINGS.md` — R2/R3/R4: POA&M format,
-   Phase Two pilot, sampling methodology (drives LOOP-E.E2 + LOOP-F.F3).
-6. `ARCHITECTURE.md` (repo root) — system shape.
-7. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate
-   it for new emit families.
-8. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
-9. `RUNBOOK.md` — operational invariants (read-only proxy, signing, etc.).
+1. **This file** — REO rules + Real Slice Contract.
+2. **`docs/STATUS.md`** — current master status tracker for every slice. ALWAYS read this first to see what's done, in-progress, and pending. The next slice to work on is in the "Overall → Next priority" line.
+3. **`docs/SLICE-COMPLETION-PROCEDURE.md`** — MANDATORY 7-step procedure when shipping any slice.
+4. **`docs/EXECUTION-PLAN.md`** — high-level plan with all 55 slices.
+5. **`docs/loops/LOOP-X-SPEC.md`** — full per-slice implementation specs for the loop you're working on:
+   - `docs/loops/LOOP-B-SPEC.md` — Risk + Remediation Engine (5 slices)
+   - `docs/loops/LOOP-C-SPEC.md` — Document Template Pack (9 slices)
+   - `docs/loops/LOOP-D-SPEC.md` — Diagram Auto-Generation (3 slices)
+   - `docs/loops/LOOP-E-SPEC.md` — Continuous Monitoring Agent (7 slices)
+   - `docs/loops/LOOP-F-SPEC.md` — 3PAO Assessor Experience (7 slices)
+   - `docs/loops/LOOP-G-SPEC.md` — AFR Family (6 slices)
+   - `docs/loops/LOOP-H-SPEC.md` — Long-Term Storage + Multi-CSO (3 slices)
+   - `docs/loops/LOOP-I-SPEC.md` — Stakeholder Dashboards (4 slices)
+   - `docs/loops/LOOP-J-SPEC.md` — Supply Chain + Privileges (3 slices)
+   - `docs/loops/LOOP-K-SPEC.md` — Test Artifact Ingestion (2 slices)
+6. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
+   - `docs/sections/SECTION-A.md` — Submission package artifacts
+   - `docs/sections/SECTION-B.md` — 3PAO assessment workflow
+   - `docs/sections/SECTION-C.md` — Post-authorization ConMon
+   - `docs/sections/SECTION-D.md` — Audit agent UX
+   - `docs/sections/SECTION-E.md` — NIST 800-53 control mapping
+   - `docs/sections/SECTION-F.md` — FedRAMP 20x specific deliverables
+7. **`CHANGELOG.md`** "Unreleased" section — what's already shipped per slice.
+8. **`docs/AFR-FAMILY-CLASSIFICATION.md`** — R1: all 10 AFR families REQUIRED at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
+9. **`docs/PRE-LOOP-A-RESEARCH-FINDINGS.md`** — R2/R3/R4 (drives LOOP-E.E2 + LOOP-F.F3).
+10. `ARCHITECTURE.md` (repo root) — system shape.
+11. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate for new emit families.
+12. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
+13. `RUNBOOK.md` — operational invariants.
 
-If a new contributor (human or model) reads only one file, it should be
-this one. If they read two, the second is `docs/EXECUTION-PLAN.md`.
+If a new contributor reads only one file, it should be this one. If they read two, the second is `docs/STATUS.md`.
 
-## Resuming work
+## Resuming work — the 5-step procedure
 
-A fresh session opens in the repo and auto-loads this file. To pick up
-where LOOP-A left off:
+A fresh session opens in the repo and auto-loads this file. To pick up:
 
-1. `git log --oneline -5` — see the most recent commit.
-2. Read `docs/EXECUTION-PLAN.md` "Status snapshot" + the next-slice section.
-3. Say: `continue with LOOP-B.B1` (or whichever slice is next).
-4. The session creates a TaskCreate entry, executes under REO, commits,
-   and pushes. No conversation history needed — every piece of context
-   is on disk and committed.
+1. **Read `docs/STATUS.md`** — find the "Overall → Next priority" line. That's the slice you work on.
+2. **Read `docs/loops/LOOP-X-SPEC.md`** for that slice — find your slice's section. EVERY detail is there: files to create, schemas, tests, REO checks, verification commands.
+3. **Read `docs/SLICE-COMPLETION-PROCEDURE.md`** — review the 7-step procedure you MUST follow when done.
+4. **Execute** the slice under the REO standard.
+5. **Follow the 7-step completion procedure** atomically with your final commit.
+
+NO EXCEPTIONS. The 7-step procedure is what keeps STATUS.md, the spec docs, CHANGELOG.md, and the git history in sync. Skipping any step breaks the on-disk source of truth.
+
+## Strong directive (REO-enforced)
+
+**Every slice completion MUST:**
+1. Pass typecheck + tests + check:reo (atomic — green before commit)
+2. Update STATUS.md (slice row + Overall section)
+3. Update the loop's spec doc (slice's status row)
+4. Add a CHANGELOG.md "Unreleased" entry
+5. Commit with the slice ID in the message
+6. Push to origin/main
+
+**Failure to follow this procedure is a REO violation.** The slice is not "done" until all 6 steps execute. Future sessions WILL see the inconsistency and reject it.
