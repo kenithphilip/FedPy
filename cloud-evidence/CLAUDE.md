@@ -146,11 +146,32 @@ npm run check:coverage-regression
 ## Reading list (in priority order)
 
 1. This file — REO rules.
-2. `ARCHITECTURE.md` (repo root) — system shape.
-3. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate
+2. **`docs/EXECUTION-PLAN.md`** — every remaining slice in LOOP-B through
+   LOOP-K with per-slice descriptions, files to create, build steps,
+   tests, REO notes. **Read this before starting any new slice.**
+3. `CHANGELOG.md` (Unreleased section) — what's already shipped (LOOP-A
+   complete; every slice has an entry with module names + file paths).
+4. `docs/AFR-FAMILY-CLASSIFICATION.md` — R1: all 10 AFR families REQUIRED
+   at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
+5. `docs/PRE-LOOP-A-RESEARCH-FINDINGS.md` — R2/R3/R4: POA&M format,
+   Phase Two pilot, sampling methodology (drives LOOP-E.E2 + LOOP-F.F3).
+6. `ARCHITECTURE.md` (repo root) — system shape.
+7. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate
    it for new emit families.
-4. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
-5. `RUNBOOK.md` — operational invariants (read-only proxy, signing, etc.).
+8. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
+9. `RUNBOOK.md` — operational invariants (read-only proxy, signing, etc.).
 
 If a new contributor (human or model) reads only one file, it should be
-this one.
+this one. If they read two, the second is `docs/EXECUTION-PLAN.md`.
+
+## Resuming work
+
+A fresh session opens in the repo and auto-loads this file. To pick up
+where LOOP-A left off:
+
+1. `git log --oneline -5` — see the most recent commit.
+2. Read `docs/EXECUTION-PLAN.md` "Status snapshot" + the next-slice section.
+3. Say: `continue with LOOP-B.B1` (or whichever slice is next).
+4. The session creates a TaskCreate entry, executes under REO, commits,
+   and pushes. No conversation history needed — every piece of context
+   is on disk and committed.
