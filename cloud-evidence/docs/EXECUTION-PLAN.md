@@ -54,6 +54,40 @@ SSP → AP → AR → POA&M → IIW → RoE → signed manifest → RFC 3161 tim
 
 ---
 
+## Added loops L-Q (2026-06-07)
+
+LOOP-L through LOOP-Q were surfaced by
+`docs/ADDITIONAL-LOOPS-AUDIT.md` (2026-06-06) and the human ratified
+the audit on 2026-06-07. All six loops are now fully specified
+(`docs/loops/LOOP-{L,M,N,O,P,Q}-SPEC.md` + 25 per-slice docs +
+6 RISKS registers) and a second-pass audit
+(`docs/SECOND-PASS-AUDIT.md`) confirmed nothing else is still missing.
+
+| Loop | Title | Slices | Effort | Dependencies | Applicability |
+|---|---|---|---|---|---|
+| **L** | CRM + Leveraged-Authorization Inheritance | 4 | 4 weeks | A.A1, D.D1 | REQUIRED |
+| **M** | Privacy Package Extension (SORN + DPIA) | 4 | 4 weeks | C.C4, J.J2 | REQUIRED (confirmed) |
+| **N** | Threat Modeling + Adversarial Validation | 4 | 4 weeks | D.D3, B.B1 | REQUIRED |
+| **O** | AI/ML Governance | 5 | 5 weeks | B.B1, C.C4 | REQUIRED (confirmed) |
+| **P** | Insider Threat + PS-family | 5 | 5 weeks | existing tracker, J.J1 | REQUIRED |
+| **Q** | Marketplace + Post-ATO Publication | 3 | 3 weeks | A.A4, E.E1 | REQUIRED |
+| **TOTAL** | | **25** | **25 weeks** | | |
+
+Combined roadmap: LOOP-A (5 done) + LOOP-B..K (50) + LOOP-L..Q (25)
+= **80 slices, 17 loops**. Implementation priority remains LOOP-B.B1
+first (risk scoring is a shared dependency for N.N3 and O.O3).
+LOOP-L.L1 is queued immediately behind LOOP-B.B1.
+
+Detailed per-slice specs:
+- `docs/loops/LOOP-L-SPEC.md` — CRM Workbook (L.L1), Inherited-controls tracker (L.L2), CRM Gap Report (L.L3), Per-control responsibility split renderer (L.L4)
+- `docs/loops/LOOP-M-SPEC.md` — SORN emitter (M.M1), DPIA (M.M2), PT-family inventory (M.M3), Privacy incident response (M.M4)
+- `docs/loops/LOOP-N-SPEC.md` — STRIDE threat model (N.N1), Attack surface enumeration (N.N2), PASTA/red-team framework (N.N3), MITRE ATT&CK mapping (N.N4)
+- `docs/loops/LOOP-O-SPEC.md` — AI/ML asset inventory (O.O1), NIST AI RMF alignment (O.O2), AI risk register (O.O3), AI evaluation per OMB M-24-10 (O.O4), Model card + datasheet emitter (O.O5)
+- `docs/loops/LOOP-P-SPEC.md` — Insider Threat Program (P.P1), Position risk designation (P.P2), Transfer + termination (P.P3), Access agreements + NDA (P.P4), Continuous workforce monitoring (P.P5)
+- `docs/loops/LOOP-Q-SPEC.md` — Marketplace listing (Q.Q1), Post-ATO ConMon publication (Q.Q2), Agency authorization tracking (Q.Q3)
+
+---
+
 # LOOP-B — Risk + Remediation Engine
 
 **Why:** LOOP-A.A1 POA&M emits FedRAMP-baseline deadlines per severity

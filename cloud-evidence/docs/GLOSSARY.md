@@ -10,9 +10,12 @@
 >   captures the operational meaning that the spec docs presume.)
 > - **Authoritative source URL** when applicable.
 >
-> 90+ terms. Indexed alphabetically. If you add a term during slice
+> 120+ terms. Indexed alphabetically. If you add a term during slice
 > implementation, add it here too — the per-slice docs presume the
-> glossary is current.
+> glossary is current. 2026-06-07: 30+ new entries added covering
+> LOOP-L (CRM/Inheritance), LOOP-M (Privacy/SORN/DPIA), LOOP-N (Threat
+> Modeling), LOOP-O (AI/ML Governance), LOOP-P (Insider Threat + PS),
+> and LOOP-Q (Marketplace + Post-ATO).
 
 ---
 
@@ -114,6 +117,31 @@ LOOP-A.A4 + REO Rule 1.6.
 **AU-11 (Audit Record Retention)** — *NIST SP 800-53 Rev 5 control.*
 Three-year FedRAMP retention requirement. Implemented by LOOP-H.H2.
 
+**AI 600-1 (GenAI Profile)** — *NIST.* Generative-AI profile of the AI
+RMF, addressing risks specific to generative models (confabulation,
+data poisoning, prompt injection, IP). Drives LOOP-O.O3 + O.O4.
+https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.600-1.pdf
+
+**AI RMF (Artificial Intelligence Risk Management Framework)** —
+*NIST AI 100-1, v1.0 (2023).* The federal AI-risk framework. Four
+functions: GOVERN, MAP, MEASURE, MANAGE. Drives LOOP-O.O2.
+https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.100-1.pdf
+
+**Agency Authorization** — *FedRAMP.* Authorization track where a
+sponsoring federal agency's AO issues the ATO directly (vs the now-
+retired JAB path). Tracked per-agency in LOOP-Q.Q3.
+
+**Appendix J** — See **SSP Appendix J** under S.
+
+**Attack Surface** — *NIST SP 800-160.* Enumeration of every boundary
+entry point + exposed service through which an adversary can interact
+with a system. Enumerated by LOOP-N.N2.
+
+**ATT&CK (MITRE ATT&CK)** — *MITRE.* Knowledge base of adversary
+tactics, techniques, and procedures observed in the wild. Includes the
+Cloud Matrix variant. Mapped to the boundary in LOOP-N.N4.
+https://attack.mitre.org/
+
 ## B
 
 **Baseline (control baseline)** — *NIST SP 800-53B.* The published low /
@@ -178,8 +206,26 @@ inventory cell can't be filled. Required by REO Rule 1.5.
 fill-rate per asset family + per emit-field; coverage cannot regress
 (G2 guardrail).
 
-**CRM (Customer Responsibility Matrix)** — *FedRAMP.* Synonym for
-CIS/CRM workbook. Proposed LOOP-L.L1.
+**CRM (Customer Responsibility Matrix)** — *FedRAMP.* The mandatory
+SSP Appendix J workbook assigning each NIST 800-53 Rev 5 control to one
+responsibility bucket: CSP-Implemented, Customer-Implemented, Shared,
+Hybrid, Inherited, or Not-Applicable. Synonym for CIS/CRM workbook.
+Implemented by LOOP-L.L1.
+
+**Cloud Matrix (ATT&CK Cloud)** — *MITRE.* The cloud-specific variant of
+the MITRE ATT&CK matrix covering IaaS, SaaS, identity providers, and
+office suites. Filtered subset consumed by LOOP-N.N4.
+https://attack.mitre.org/matrices/enterprise/cloud/
+
+**CSP-Implemented** — *FedRAMP / SSP Appendix J.* CRM responsibility
+bucket where the CSP performs the control implementation end-to-end
+(no customer action required). One of six buckets enumerated by
+LOOP-L.L1.
+
+**Customer-Implemented** — *FedRAMP / SSP Appendix J.* CRM
+responsibility bucket where the customer must perform the control
+implementation (the CSP cannot complete it). One of six buckets
+enumerated by LOOP-L.L1.
 
 **CSP (Cloud Service Provider)** — *FedRAMP.* The vendor seeking
 authorization. In this repo: the operator running `cloud-evidence/`.
@@ -204,8 +250,18 @@ https://www.first.org/cvss/v3.1/specification-document
 ∈ {public, internal, confidential, cui, pii}. Set via cloud tag
 `fedramp_data_classification`. Drives LOOP-B.B1 criticality.
 
+**Datasheet for Datasets** — *Gebru et al. 2018; NIST AI RMF MAP.*
+Structured document for training-data provenance: collection process,
+demographics, intended use, known biases, maintenance. Emitted per
+training-dataset by LOOP-O.O5.
+
 **Determination statement** — *NIST 800-53A Rev 5.* Sub-objective of
 an assessment objective; maps to OSCAL AR `finding.target` in LOOP-K.K2.
+
+**DPIA (Data Protection Impact Assessment)** — *GDPR Art. 35 / OMB
+M-03-22.* Privacy-impact assessment scoped to cross-border data
+transfers and agency-partner data sharing. Beyond the baseline PIA.
+Implemented by LOOP-M.M2.
 
 **Diagram Label** — *Internal synthesized field.* `asset.diagram_label`
 computed in INV-S6 when operator opts in; provenance recorded in
@@ -229,6 +285,22 @@ https://www.first.org/epss/
 
 **Envelope** — *Internal.* `core/envelope.ts` defines the canonical
 KSI envelope JSON: `{ ksi_id, collected_at, findings[], provenance, ... }`.
+
+**EO 13587** — *Executive Order (2011).* Establishes the federal
+Insider Threat Program (cross-agency). Foundational authority for
+PM-12 + LOOP-P.P1.
+https://www.federalregister.gov/documents/2011/10/13/2011-26729/structural-reforms-to-improve-the-security-of-classified-networks-and-the-responsible-sharing-and
+
+**EO 14110** — *Executive Order (Oct 2023).* "Safe, Secure, and
+Trustworthy Development and Use of Artificial Intelligence." Drives
+OMB M-24-10 implementation deadlines and the AI risk-management
+obligations enumerated in LOOP-O.
+https://www.federalregister.gov/documents/2023/11/01/2023-24283/
+
+**EO 14179** — *Executive Order (Jan 2025).* "Removing Barriers to
+American Leadership in Artificial Intelligence." Reframes (does not
+fully rescind) EO 14110; OMB M-25-21 updates LOOP-O implementation
+guidance accordingly.
 
 **Evidence walk-through artifacts** — *FedRAMP B-side.* Screenshots +
 transcripts captured during 3PAO testing. LOOP-F.F4.
@@ -278,6 +350,12 @@ in `.github/workflows/ci.yml`.
 **HMAC-SHA256** — *Cryptographic primitive.* Used in LOOP-G.G1 webhook
 auth + generic-webhook adapter (Phase F.4).
 
+**Hybrid Control** — *FedRAMP / SSP Appendix J.* CRM responsibility
+bucket where the CSP implements one portion of the control and the
+customer implements another portion (distinct from Shared, where both
+parties implement the same portion). One of six buckets enumerated by
+LOOP-L.L1.
+
 ## I
 
 **IAM-AAM (Account Access Management)** — *KSI.* Existing IAM collector
@@ -303,6 +381,14 @@ metadata consumed downstream.
 
 **Inventory** — *Internal.* `out/inventory.json` is the structured
 asset catalog. Every diagram + risk-score input traces here.
+
+**Inherited Control** — *FedRAMP / SSP Appendix J.* CRM responsibility
+bucket where the control is implemented by an underlying FedRAMP-
+Authorized IaaS/PaaS and the CSO inherits the implementation
+end-to-end. Tracked back to the underlying provider's CRM by
+LOOP-L.L2.
+
+**Insider Threat (PM-12)** — See **PM-12** under P.
 
 **IR-8 (Incident Response Plan)** — *NIST SP 800-53 Rev 5 control.*
 Drives LOOP-C.C3.
@@ -341,14 +427,16 @@ applies the FedRAMP CMP table.
 
 **Leveraged Authorization** — *FedRAMP.* When a CSO inherits controls
 from an underlying FedRAMP-Authorized IaaS/PaaS (AWS GovCloud, GCP
-Assured Workloads, Azure Government). Drives LOOP-L.L2/L.L3 (proposed).
+Assured Workloads, Azure Government). Drives LOOP-L.L2 + L.L3.
 
 **lint:no-stubs** — *Internal G1 guardrail.* `scripts/lint-no-stubs.mjs`
 scans production paths for forbidden tokens (TODO, FIXME, sample,
 placeholder, lorem, "coming soon", "not yet implemented", etc.).
 
 **LOOP (LOOP-A through LOOP-Q)** — *Internal roadmap unit.* A
-themed collection of slices. LOOP-A..K enumerated; LOOP-L..Q proposed.
+themed collection of slices. LOOP-A complete; LOOP-B..K + LOOP-L..Q
+all specified with per-slice docs + risks registers (LOOP-L..Q
+ratified 2026-06-07).
 
 ## M
 
@@ -361,10 +449,29 @@ collectors validate MFA presence on privileged accounts.
 **Moderate (FedRAMP)** — *Impact level.* The scope target for this
 repo. Maps to NIST SP 800-53B Moderate baseline.
 
+**Marketplace (FedRAMP)** — See **FedRAMP Marketplace** under F.
+
+**Model Card** — *Mitchell et al. 2019; NIST AI RMF MAP.* Structured
+document for trained-model transparency: intended use, training data,
+performance metrics across slices, ethical considerations, limitations.
+Emitted per inference endpoint by LOOP-O.O5.
+
+**MITRE ATT&CK** — See **ATT&CK** under A.
+
 ## N
 
-**NIST AI RMF 1.0** — *NIST AI 100-1.* Drives LOOP-O (proposed).
+**NIST AI RMF 1.0** — *NIST AI 100-1.* Drives LOOP-O.
 https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.100-1.pdf
+
+**NIST SP 800-122** — *Guide to Protecting the Confidentiality of PII.*
+Drives the PT-family inventory (LOOP-M.M3) + privacy incident response
+(LOOP-M.M4).
+https://csrc.nist.gov/publications/detail/sp/800-122/final
+
+**NISPOM (32 CFR Part 117)** — *National Industrial Security Program
+Operating Manual.* Insider-threat program minimum standards for
+cleared contractors. Authority for LOOP-P.P1.
+https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-D/part-117
 
 **NIST SP 800-30 Rev 1** — Risk Assessment. Drives B.B1 likelihood +
 impact derivation.
@@ -402,10 +509,25 @@ tabletop facilitation (proposed).
 `core/ssp-docx.ts`; reusable primitive for LOOP-C docs.
 
 **OMB M-03-22** — Privacy provisions of E-Government Act §208. Drives
-LOOP-C.C4 PIA + LOOP-M (proposed).
+LOOP-C.C4 PIA + LOOP-M (SORN, DPIA).
+
+**OMB M-17-12** — *OMB.* Preparing for and responding to a breach of
+PII. Drives privacy-incident response procedures in LOOP-M.M4.
+https://www.whitehouse.gov/wp-content/uploads/legacy_drupal_files/omb/memoranda/2017/m-17-12_0.pdf
 
 **OMB M-24-10** — Advancing AI use cases at federal agencies. Drives
-LOOP-O (proposed).
+LOOP-O (AI/ML Governance).
+
+**OMB M-25-21** — *OMB (2025).* Successor guidance to M-24-10
+implementing EO 14179 ("Removing Barriers to American Leadership in
+AI"). Updates pre-deployment + ongoing AI evaluation requirements for
+federal use. Drives LOOP-O.O4.
+
+**OPM Position Designation Tool / 5 CFR 731** — *OPM.* The federal
+process for assigning a position risk designation (Low / Moderate /
+High / Critical-Sensitive) and corresponding background-investigation
+tier. Drives LOOP-P.P2 designation matrix.
+https://www.opm.gov/suitability/suitability-executive-agent/policy/
 
 **OSCAL (Open Security Controls Assessment Language)** — *NIST.*
 JSON/XML/YAML representation of security artifacts. v1.1.2 used here.
@@ -422,10 +544,22 @@ run. LOOP-H.H1 archives the directory tree per run.
 
 **PA-id (Provisional Authorization ID)** — *FedRAMP PMO assigned.*
 Per-CSO unique identifier. Inherited-authorization PA-ids needed for
-LOOP-L.L2 (proposed).
+LOOP-L.L2.
 
 **PAIN / IRV / LEV (deadline tiers)** — *FedRAMP VDR.* Vulnerability
 deadline classes consumed by LOOP-B.B2.
+
+**PASTA (Process for Attack Simulation and Threat Analysis)** —
+*Industry.* 7-stage risk-centric threat-modeling methodology. Drives
+the LOOP-N.N3 red-team adversarial test framework.
+
+**Post-ATO ConMon** — *FedRAMP.* Monthly evidence + POA&M delta
+delivery to the FedRAMP secure repository after ATO is issued.
+Implemented by LOOP-Q.Q2; ConMon strategy in LOOP-C.C6 + LOOP-E.
+
+**Privacy Act §552a** — *5 U.S.C. §552a (Privacy Act of 1974).* Sets
+SORN publication + Records-Management obligations for any federal
+"system of records." Authority for LOOP-M.M1.
 
 **Phase Two pilot** — *FedRAMP 20x.* The currently-active 20x Moderate
 pilot. Output bundle format pinned in LOOP-A.A4 as
@@ -444,7 +578,8 @@ Drives LOOP-C.C7.
 Drives LOOP-F.F6.
 
 **PM-12 (Insider Threat Program)** — *NIST SP 800-53 Rev 5 control.*
-Drives proposed LOOP-P.P1.
+Drives LOOP-P.P1. Authority extends from EO 13587 + 32 CFR Part 117
+(NISPOM).
 
 **PM-15 / PM-16 (Threat Intelligence)** — *NIST SP 800-53 Rev 5
 controls.* Drive proposed §3.9 threat-intel ingest.
@@ -460,8 +595,19 @@ monthly by LOOP-E.E2.
 sourceCalls[], signingKeyId, runId, requirementTexts? }` block. REO
 Rule 1.7 + G3 guardrail.
 
-**PS-3 / PS-4 / PS-7 / PS-8 (Personnel Security)** — *NIST SP 800-53
-Rev 5 controls.* Drive proposed LOOP-P.P2.
+**PS-family (PS-1 through PS-9)** — *NIST SP 800-53 Rev 5 controls.*
+The full Personnel Security family: PS-1 Policy/Procedures, PS-2
+Position Risk Designation, PS-3 Screening, PS-4 Termination, PS-5
+Transfer, PS-6 Access Agreements, PS-7 External Personnel, PS-8
+Sanctions, PS-9 Position Descriptions. Drives LOOP-P.P1..P.P5.
+
+**PT-family (PT-1 through PT-8)** — *NIST SP 800-53 Rev 5 controls.*
+The Personally Identifiable Information Processing and Transparency
+family: PT-1 Policy/Procedures, PT-2 Authority for Processing, PT-3
+PII Purpose Specification, PT-4 Consent, PT-5 Privacy Notice, PT-6
+SORN, PT-7 Specific Categories of PII, PT-8 Computer Matching
+Requirements. Inventoried by LOOP-M.M3; PT-7 + breach-notification
+implemented by LOOP-M.M4.
 
 **PTA (Privacy Threshold Analysis)** — *FedRAMP / OMB M-03-22.*
 Emitted by LOOP-C.C4.
@@ -568,8 +714,24 @@ LOOP-B.B2 supersedes with KEV/PAIN/IRV/LEV math.
 **SLICE-COMPLETION-PROCEDURE.md** — *Internal.* The mandatory 7-step
 procedure executed atomically with every slice's final commit.
 
-**SORN (System of Records Notice)** — *Privacy Act of 1974.* Proposed
-LOOP-M.M1.
+**Safety-Impacting AI** — *OMB M-24-10.* AI categorized as
+having the potential to directly affect the physical safety of
+individuals. Triggers enhanced pre-deployment + ongoing evaluation
+under LOOP-O.O4 and risk-register escalation in LOOP-O.O3.
+
+**Shared Control** — *FedRAMP / SSP Appendix J.* CRM responsibility
+bucket where both the CSP and the customer must perform overlapping
+parts of the same control. Distinct from Hybrid. One of six buckets
+enumerated by LOOP-L.L1.
+
+**SORN (System of Records Notice)** — *Privacy Act of 1974 §552a.*
+Required Federal Register notice for any federal system of records.
+Emitted by LOOP-M.M1. Aligns with PT-6.
+
+**Rights-Impacting AI** — *OMB M-24-10.* AI categorized as
+having a meaningful effect on access to government benefits,
+employment, healthcare, housing, or other legal rights. Triggers
+enhanced pre-deployment + ongoing evaluation under LOOP-O.O4.
 
 **SR-3 (Supply Chain Controls)** — *NIST SP 800-53 Rev 5 control.*
 Drives LOOP-J.J3.
@@ -578,8 +740,9 @@ Drives LOOP-J.J3.
 plan describing how the CSO implements controls. OSCAL emitter
 already shipped (SSP-1); .docx renderer shipped (SSP-2).
 
-**SSP Appendix J** — *FedRAMP.* The CIS/CRM workbook. Proposed
-LOOP-L.L1.
+**SSP Appendix J** — *FedRAMP.* The CIS/CRM workbook documenting
+per-control responsibility allocation (CSP-Implemented, Customer-
+Implemented, Shared, Hybrid, Inherited, N/A). Implemented by LOOP-L.L1.
 
 **SSP Appendix M** — *FedRAMP.* Diagrams (Authorization Boundary +
 Network + Data Flow). LOOP-D.
@@ -592,7 +755,10 @@ LOOP-C.C10.
 **STIX** — *OASIS.* Structured Threat Information eXpression. CISA AIS
 emits STIX.
 
-**STRIDE** — *Microsoft.* Threat-modeling taxonomy. Proposed LOOP-N.N1.
+**STRIDE** — *Microsoft.* Per-component threat-modeling taxonomy:
+**S**poofing, **T**ampering, **R**epudiation, **I**nformation
+disclosure, **D**enial of service, **E**levation of privilege.
+Implemented by LOOP-N.N1 (generated from inventory + DFD).
 
 ## T
 
@@ -671,6 +837,14 @@ emitter primitive for .docx and .xlsx OOXML containers.
 - NIST SP 800-218 SSDF — https://csrc.nist.gov/publications/detail/sp/800-218/final
 - NIST CSF v2.0 — https://www.nist.gov/cyberframework
 - NIST AI RMF 1.0 — https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.100-1.pdf
+- NIST AI 600-1 GenAI Profile — https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.600-1.pdf
+- NIST SP 800-122 (PII protection) — https://csrc.nist.gov/publications/detail/sp/800-122/final
+- MITRE ATT&CK — https://attack.mitre.org/
+- MITRE ATT&CK Cloud Matrix — https://attack.mitre.org/matrices/enterprise/cloud/
+- EO 13587 (Insider Threat) — https://www.federalregister.gov/documents/2011/10/13/2011-26729/
+- EO 14110 (AI) — https://www.federalregister.gov/documents/2023/11/01/2023-24283/
+- OMB M-17-12 (PII breach) — https://www.whitehouse.gov/wp-content/uploads/legacy_drupal_files/omb/memoranda/2017/m-17-12_0.pdf
+- OPM Position Designation (5 CFR 731) — https://www.opm.gov/suitability/suitability-executive-agent/policy/
 - NIST CMVP / FIPS 140-3 — https://csrc.nist.gov/projects/cryptographic-module-validation-program
 - OSCAL v1.1.2 — https://pages.nist.gov/OSCAL/learn/
 - OSCAL Releases — https://github.com/usnistgov/OSCAL/releases/tag/v1.1.2

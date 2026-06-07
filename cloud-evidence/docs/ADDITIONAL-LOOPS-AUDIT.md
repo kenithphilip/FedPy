@@ -15,6 +15,30 @@
 > items are flagged under §4 as out-of-scope, with a documented
 > re-visit trigger.
 
+## Status update (2026-06-07)
+
+**LOOP-L through LOOP-Q have been fully specified per the human's
+decision.** M (Privacy/SORN/DPIA) and O (AI/ML Governance) are
+**confirmed-applicable** (no longer conditional on operator decisions).
+The six conditional questions in §5 are resolved: all six loops are
+adopted and queued behind LOOP-B.B1. See:
+
+- `docs/loops/LOOP-L-SPEC.md` (4 slices) + `docs/slices/L/*.md`
+- `docs/loops/LOOP-M-SPEC.md` (4 slices) + `docs/slices/M/*.md`
+- `docs/loops/LOOP-N-SPEC.md` (4 slices) + `docs/slices/N/*.md`
+- `docs/loops/LOOP-O-SPEC.md` (5 slices) + `docs/slices/O/*.md`
+- `docs/loops/LOOP-P-SPEC.md` (5 slices) + `docs/slices/P/*.md`
+- `docs/loops/LOOP-Q-SPEC.md` (3 slices) + `docs/slices/Q/*.md`
+- `docs/loops/LOOP-{L,M,N,O,P,Q}-RISKS.md` (6 per-loop risks registers)
+
+A second-pass audit (`docs/SECOND-PASS-AUDIT.md`) was run AFTER L-Q
+specification to find anything **still missing** after the L-Q layer.
+Read it alongside this file when assessing roadmap completeness.
+
+The §3 single-slice extensions (12 items) remain as scoped — they
+have not been promoted to standalone loops; they are absorbed into
+their parent slices' implementation plans where applicable.
+
 ---
 
 ## 1. Methodology

@@ -160,6 +160,12 @@ npm run check:coverage-regression
    - `docs/loops/LOOP-I-SPEC.md` — Stakeholder Dashboards (4 slices)
    - `docs/loops/LOOP-J-SPEC.md` — Supply Chain + Privileges (3 slices)
    - `docs/loops/LOOP-K-SPEC.md` — Test Artifact Ingestion (2 slices)
+   - `docs/loops/LOOP-L-SPEC.md` — Customer Responsibility Matrix + Inheritance (4 slices)
+   - `docs/loops/LOOP-M-SPEC.md` — Privacy Package Extension (SORN, DPIA) (4 slices)
+   - `docs/loops/LOOP-N-SPEC.md` — Threat Modeling + Adversarial Validation (4 slices)
+   - `docs/loops/LOOP-O-SPEC.md` — AI/ML Governance per NIST AI RMF + OMB M-24-10 (5 slices)
+   - `docs/loops/LOOP-P-SPEC.md` — Insider Threat + PS-family Workforce Security (5 slices)
+   - `docs/loops/LOOP-Q-SPEC.md` — Marketplace + Post-ATO Publication (3 slices)
 6. **`docs/slices/X/X.XN.md`** — per-slice deep-context docs (one per pending slice, 49 total). Each carries:
    - YAML frontmatter (`slice_id`, `status`, `commit`, `completed_date`, `depends_on`, `blocks`, `estimated_effort`, `last_updated`)
    - TL;DR, why-this-slice-exists, authoritative sources (verbatim quotes), files to create/extend, schemas, build steps, REQUIRES-OPERATOR-INPUT table, test specifications, REO compliance notes, verification commands, known risks, open questions, **Implementation log** running journal, completion checklist, resume-from-fresh-session checklist.
@@ -168,21 +174,22 @@ npm run check:coverage-regression
 8. **`docs/DEPENDENCY-GRAPH.md`** — Mermaid + tabular dependency map for every slice; critical path; parallelization streams; advisory graph for proposed LOOP-L..Q.
 9. **`docs/GLOSSARY.md`** — A–Z of every FedRAMP / NIST / OSCAL / FedPy-specific term used in the spec corpus (90+ terms). When you encounter an unfamiliar acronym, check here first.
 10. **`docs/IMPLEMENTATION-LOG-TEMPLATE.md`** — format + cadence for the per-slice Implementation log. Required reading before you start implementing a slice.
-11. **`docs/ADDITIONAL-LOOPS-AUDIT.md`** — audit (2026-06-06) surfacing 6 proposed new loops (L–Q) + 12 extensions. NOT YET ADOPTED; do not implement without explicit adoption signal in STATUS.md.
-12. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
+11. **`docs/ADDITIONAL-LOOPS-AUDIT.md`** — audit (2026-06-06) surfacing 6 new loops (L–Q) + 12 extensions. RATIFIED 2026-06-07; loops L–Q now have full SPEC + per-slice docs + risks registers. M and O are confirmed applicable. Implementation queued behind LOOP-B.B1.
+12. **`docs/SECOND-PASS-AUDIT.md`** — post-LOOP-L..Q audit (2026-06-07) confirming nothing else is still missing after L-Q specification. Read alongside `ADDITIONAL-LOOPS-AUDIT.md` when assessing roadmap completeness.
+13. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
     - `docs/sections/SECTION-A.md` — Submission package artifacts
     - `docs/sections/SECTION-B.md` — 3PAO assessment workflow
     - `docs/sections/SECTION-C.md` — Post-authorization ConMon
     - `docs/sections/SECTION-D.md` — Audit agent UX
     - `docs/sections/SECTION-E.md` — NIST 800-53 control mapping
     - `docs/sections/SECTION-F.md` — FedRAMP 20x specific deliverables
-13. **`CHANGELOG.md`** "Unreleased" section — what's already shipped per slice.
-14. **`docs/AFR-FAMILY-CLASSIFICATION.md`** — R1: all 10 AFR families REQUIRED at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
-15. **`docs/PRE-LOOP-A-RESEARCH-FINDINGS.md`** — R2/R3/R4 (drives LOOP-E.E2 + LOOP-F.F3).
-16. `ARCHITECTURE.md` (repo root) — system shape.
-17. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate for new emit families.
-18. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
-19. `RUNBOOK.md` — operational invariants.
+14. **`CHANGELOG.md`** "Unreleased" section — what's already shipped per slice.
+15. **`docs/AFR-FAMILY-CLASSIFICATION.md`** — R1: all 10 AFR families REQUIRED at Moderate, per-family CSP-actionable MUSTs (drives LOOP-G).
+16. **`docs/PRE-LOOP-A-RESEARCH-FINDINGS.md`** — R2/R3/R4 (drives LOOP-E.E2 + LOOP-F.F3).
+17. `ARCHITECTURE.md` (repo root) — system shape.
+18. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate for new emit families.
+19. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
+20. `RUNBOOK.md` — operational invariants.
 
 If a new contributor reads only one file, it should be this one. If they read two, the second is `docs/STATUS.md`.
 

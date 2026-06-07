@@ -5,19 +5,22 @@
 > When a slice completes: update its row + commit + push (atomic with the slice's own commit).
 
 ## Overall
-- Total slices: 55 (5 LOOP-A done + 50 LOOP-B-K pending) + 4 pre-loop research (R1-R4 done) + REO-0 (done)
-- Loops complete: 1 of 11 (LOOP-A)
+- Total slices: 80 (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending) + 4 pre-loop research (R1-R4 done) + REO-0 (done)
+- Loops total: 17 (A-Q)
+- Loops complete: 1 of 17 (LOOP-A)
 - Last shipped: LOOP-A.A5 (commit `469049f`)
-- Next priority: LOOP-B.B1 (per-finding CVSS+EPSS scoring)
+- Next priority: LOOP-B.B1 (per-finding CVSS+EPSS scoring) — LOOP-L through LOOP-Q queued behind B.B1
 
-> **Note on next-priority:** `ADDITIONAL-LOOPS-AUDIT.md` (2026-06-06)
-> proposed 6 new loops (L–Q) and 12 extensions to existing slices, but
-> all six are net-new scope items conditional on operator/sponsoring-
-> agency decisions (see audit §5 open questions). They do NOT preempt
-> LOOP-B.B1 — risk scoring is still the highest-priority enabling
-> slice for I, F, and E. LOOP-L (CRM + Inheritance) is the leading
-> candidate for adoption once the audit is ratified by the human;
-> at that point STATUS.md will note an `LOOP-L.L1` queued behind B.B1.
+> **Note on LOOP-L through LOOP-Q (2026-06-07):** `ADDITIONAL-LOOPS-AUDIT.md`
+> (2026-06-06) surfaced 6 net-new loops (L–Q). The human has ratified the
+> audit and all six are now fully specified (`docs/loops/LOOP-{L,M,N,O,P,Q}-SPEC.md`
+> + 25 per-slice docs under `docs/slices/{L,M,N,O,P,Q}/` + 6 risks registers).
+> LOOP-M (Privacy/SORN/DPIA) and LOOP-O (AI/ML Governance) are now
+> **confirmed applicable** (no longer conditional on operator decisions).
+> Next-priority remains LOOP-B.B1 — risk scoring is still the highest-priority
+> enabling slice for I, F, E, and (now) N + O. LOOP-L.L1 is queued
+> immediately behind B.B1. A second-pass audit (`docs/SECOND-PASS-AUDIT.md`)
+> ran after L-Q specification to confirm nothing else is still missing.
 
 ## Pre-flight
 | ID | Title | Status | Commit | Date |
@@ -126,6 +129,55 @@
 | K.K1 | PenTest report ingest schema + tracker display | pending | — | — | `docs/loops/LOOP-K-SPEC.md` | `docs/slices/K/K.K1.md` |
 | K.K2 | 3PAO test results matrix → OSCAL AR test-result-objects | pending | — | — | `docs/loops/LOOP-K-SPEC.md` | `docs/slices/K/K.K2.md` |
 
+## LOOP-L — Customer Responsibility Matrix + Leveraged-Authorization Inheritance
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| L.L1 | CRM Workbook generator (SSP Appendix J) | pending | — | — | `docs/loops/LOOP-L-SPEC.md` | `docs/slices/L/L.L1.md` |
+| L.L2 | Inherited-controls tracker + Leveraged-Authorization enumeration | pending | — | — | `docs/loops/LOOP-L-SPEC.md` | `docs/slices/L/L.L2.md` |
+| L.L3 | CRM Gap Report | pending | — | — | `docs/loops/LOOP-L-SPEC.md` | `docs/slices/L/L.L3.md` |
+| L.L4 | Per-control Responsibility Split Renderer | pending | — | — | `docs/loops/LOOP-L-SPEC.md` | `docs/slices/L/L.L4.md` |
+
+## LOOP-M — Privacy Package Extension (SORN + DPIA) — CONFIRMED APPLICABLE
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| M.M1 | System of Records Notice (SORN) emitter — Privacy Act §552a | pending | — | — | `docs/loops/LOOP-M-SPEC.md` | `docs/slices/M/M.M1.md` |
+| M.M2 | Data Protection Impact Assessment (DPIA) for cross-border / agency-partner data | pending | — | — | `docs/loops/LOOP-M-SPEC.md` | `docs/slices/M/M.M2.md` |
+| M.M3 | PT-family controls inventory (PT-1..PT-8) beyond PTA/PIA scope | pending | — | — | `docs/loops/LOOP-M-SPEC.md` | `docs/slices/M/M.M3.md` |
+| M.M4 | Privacy incident response procedures (PT-7 + breach notification per OMB M-17-12) | pending | — | — | `docs/loops/LOOP-M-SPEC.md` | `docs/slices/M/M.M4.md` |
+
+## LOOP-N — Threat Modeling + Adversarial Validation
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| N.N1 | STRIDE threat model generator (per-component, from inventory + DFD) | pending | — | — | `docs/loops/LOOP-N-SPEC.md` | `docs/slices/N/N.N1.md` |
+| N.N2 | Attack surface enumeration (boundary entry points + exposed services) | pending | — | — | `docs/loops/LOOP-N-SPEC.md` | `docs/slices/N/N.N2.md` |
+| N.N3 | PASTA / red-team adversarial test framework (automated adversarial runs) | pending | — | — | `docs/loops/LOOP-N-SPEC.md` | `docs/slices/N/N.N3.md` |
+| N.N4 | MITRE ATT&CK technique mapping (which techniques apply to our boundary) | pending | — | — | `docs/loops/LOOP-N-SPEC.md` | `docs/slices/N/N.N4.md` |
+
+## LOOP-O — AI/ML Governance per NIST AI RMF + OMB M-24-10 — CONFIRMED APPLICABLE
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| O.O1 | AI/ML asset inventory (models, training data, inference endpoints) | pending | — | — | `docs/loops/LOOP-O-SPEC.md` | `docs/slices/O/O.O1.md` |
+| O.O2 | NIST AI RMF alignment (GOVERN / MAP / MEASURE / MANAGE) | pending | — | — | `docs/loops/LOOP-O-SPEC.md` | `docs/slices/O/O.O2.md` |
+| O.O3 | AI risk register (bias, fairness, robustness, adversarial) | pending | — | — | `docs/loops/LOOP-O-SPEC.md` | `docs/slices/O/O.O3.md` |
+| O.O4 | AI evaluation per OMB M-24-10 (pre-deployment + ongoing) | pending | — | — | `docs/loops/LOOP-O-SPEC.md` | `docs/slices/O/O.O4.md` |
+| O.O5 | Model card + datasheet emitter | pending | — | — | `docs/loops/LOOP-O-SPEC.md` | `docs/slices/O/O.O5.md` |
+
+## LOOP-P — Insider Threat + PS-family Workforce Security
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| P.P1 | Insider Threat Program documentation + tracker workflow | pending | — | — | `docs/loops/LOOP-P-SPEC.md` | `docs/slices/P/P.P1.md` |
+| P.P2 | Position risk designation per role (PS-2 + PS-3 screening) | pending | — | — | `docs/loops/LOOP-P-SPEC.md` | `docs/slices/P/P.P2.md` |
+| P.P3 | Personnel transfer + termination procedures (PS-4 + PS-5) | pending | — | — | `docs/loops/LOOP-P-SPEC.md` | `docs/slices/P/P.P3.md` |
+| P.P4 | Access agreements + acknowledgments + NDA (PS-6) | pending | — | — | `docs/loops/LOOP-P-SPEC.md` | `docs/slices/P/P.P4.md` |
+| P.P5 | Continuous workforce monitoring + behavioral analytics | pending | — | — | `docs/loops/LOOP-P-SPEC.md` | `docs/slices/P/P.P5.md` |
+
+## LOOP-Q — Marketplace + Post-ATO Publication
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| Q.Q1 | FedRAMP Marketplace listing emitter (per RFC-0021 format) | pending | — | — | `docs/loops/LOOP-Q-SPEC.md` | `docs/slices/Q/Q.Q1.md` |
+| Q.Q2 | Post-ATO ConMon publication (monthly delivery to FedRAMP secure repository) | pending | — | — | `docs/loops/LOOP-Q-SPEC.md` | `docs/slices/Q/Q.Q2.md` |
+| Q.Q3 | Agency authorization tracking (who is using the CSO + their authorization documents) | pending | — | — | `docs/loops/LOOP-Q-SPEC.md` | `docs/slices/Q/Q.Q3.md` |
+
 ## Per-loop risks registers
 Each loop has a dedicated risks register listing implementation,
 schedule, dependency, and external risks discovered during planning +
@@ -144,6 +196,12 @@ risk (per the Strong-Directive in `cloud-evidence/CLAUDE.md`).
 | LOOP-I risks | Stakeholder Dashboards | `docs/loops/LOOP-I-RISKS.md` |
 | LOOP-J risks | Supply Chain + Privileges | `docs/loops/LOOP-J-RISKS.md` |
 | LOOP-K risks | Test Artifact Ingestion | `docs/loops/LOOP-K-RISKS.md` |
+| LOOP-L risks | CRM + Leveraged-Authorization Inheritance | `docs/loops/LOOP-L-RISKS.md` |
+| LOOP-M risks | Privacy Package Extension (SORN + DPIA) | `docs/loops/LOOP-M-RISKS.md` |
+| LOOP-N risks | Threat Modeling + Adversarial Validation | `docs/loops/LOOP-N-RISKS.md` |
+| LOOP-O risks | AI/ML Governance | `docs/loops/LOOP-O-RISKS.md` |
+| LOOP-P risks | Insider Threat + PS-family | `docs/loops/LOOP-P-RISKS.md` |
+| LOOP-Q risks | Marketplace + Post-ATO Publication | `docs/loops/LOOP-Q-RISKS.md` |
 
 ## Cross-cutting references
 Reference docs that span every loop. Read these whenever planning
@@ -156,6 +214,7 @@ does X term come from" question.
 | Glossary | A–Z of every FedRAMP / NIST / OSCAL / internal term used in the spec corpus (90+ terms) | `docs/GLOSSARY.md` |
 | Implementation log template | Format + cadence for the per-slice "Implementation log" running journal | `docs/IMPLEMENTATION-LOG-TEMPLATE.md` |
 | Additional loops audit | Audit of FedRAMP/NIST corpus for items missing from the LOOP-A..K roadmap; proposes LOOP-L..Q + §3 extensions | `docs/ADDITIONAL-LOOPS-AUDIT.md` |
+| Second-pass audit | Post-LOOP-L..Q audit confirming nothing else is still missing after L-Q specification | `docs/SECOND-PASS-AUDIT.md` |
 
 ## Sections (artifact requirements layer)
 | Section | Title | Spec doc |

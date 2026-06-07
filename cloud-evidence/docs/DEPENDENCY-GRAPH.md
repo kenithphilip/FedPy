@@ -1,13 +1,15 @@
-# Dependency Graph — every slice across LOOP-A through LOOP-K
+# Dependency Graph — every slice across LOOP-A through LOOP-Q
 
 > Single source of truth for slice ordering. Derived from the `depends_on`
 > and `blocks` frontmatter in every per-slice doc under `docs/slices/X/X.XN.md`.
 > Read this when planning what to work on next, what can be parallelised,
 > and what cannot start yet.
 >
-> **Scope:** 49 enumerated slices (LOOP-A complete; LOOP-B through LOOP-K
-> pending). Loops L–Q proposed in `ADDITIONAL-LOOPS-AUDIT.md` are
-> graphed separately at the bottom (advisory, not yet adopted).
+> **Scope:** 74 enumerated slices (LOOP-A complete; LOOP-B through LOOP-Q
+> pending). LOOP-L through LOOP-Q were ratified 2026-06-07 (see
+> `ADDITIONAL-LOOPS-AUDIT.md` + `SECOND-PASS-AUDIT.md`) and are now
+> first-class nodes in §1 and §2 below. LOOP-M (Privacy/SORN/DPIA) and
+> LOOP-O (AI/ML Governance) are confirmed applicable.
 
 ---
 
@@ -357,6 +359,83 @@ graph TD
   K.K1 --> K.K2
 
   %% =========================================================
+  %% LOOP-L CRM + Leveraged-Authorization Inheritance
+  %% =========================================================
+  A.A1 --> L.L1[L.L1 CRM Workbook generator]
+  D.D1 --> L.L1
+  REFARCH --> L.L1
+  SSP1 --> L.L1
+  L.L1 --> L.L2[L.L2 Inherited-controls tracker]
+  J.J2 --> L.L2
+  L.L1 --> L.L3[L.L3 CRM Gap Report]
+  L.L2 --> L.L3
+  L.L1 --> L.L4[L.L4 Per-control responsibility split]
+  L.L2 --> L.L4
+
+  %% =========================================================
+  %% LOOP-M Privacy Package Extension (SORN + DPIA)
+  %% =========================================================
+  C.C4 --> M.M1[M.M1 SORN emitter]
+  J.J2 --> M.M1
+  M.M1 --> M.M2[M.M2 DPIA cross-border/agency-partner]
+  C.C4 --> M.M2
+  J.J2 --> M.M2
+  C.C4 --> M.M3[M.M3 PT-family inventory PT-1..PT-8]
+  M.M3 --> M.M4[M.M4 Privacy incident response PT-7]
+  C.C3 --> M.M4
+
+  %% =========================================================
+  %% LOOP-N Threat Modeling + Adversarial Validation
+  %% =========================================================
+  D.D3 --> N.N1[N.N1 STRIDE threat model per-component]
+  INVCHAIN --> N.N1
+  D.D1 --> N.N2[N.N2 Attack surface enumeration]
+  REFARCH --> N.N2
+  B.B1 --> N.N3[N.N3 PASTA red-team adversarial framework]
+  N.N1 --> N.N3
+  N.N2 --> N.N3
+  N.N1 --> N.N4[N.N4 MITRE ATT&CK technique mapping]
+  N.N2 --> N.N4
+
+  %% =========================================================
+  %% LOOP-O AI/ML Governance per NIST AI RMF + OMB M-24-10
+  %% =========================================================
+  INVCHAIN --> O.O1[O.O1 AI/ML asset inventory]
+  O.O1 --> O.O2[O.O2 NIST AI RMF GOVERN/MAP/MEASURE/MANAGE]
+  C.C4 --> O.O2
+  O.O1 --> O.O3[O.O3 AI risk register]
+  B.B1 --> O.O3
+  O.O2 --> O.O3
+  O.O1 --> O.O4[O.O4 AI evaluation per OMB M-24-10]
+  O.O2 --> O.O4
+  O.O3 --> O.O4
+  O.O1 --> O.O5[O.O5 Model card + datasheet emitter]
+  O.O2 --> O.O5
+
+  %% =========================================================
+  %% LOOP-P Insider Threat + PS-family
+  %% =========================================================
+  J.J1 --> P.P1[P.P1 Insider Threat Program]
+  P.P1 --> P.P2[P.P2 Position risk designation PS-2/PS-3]
+  J.J1 --> P.P2
+  P.P2 --> P.P3[P.P3 Transfer + termination PS-4/PS-5]
+  J.J1 --> P.P3
+  P.P1 --> P.P4[P.P4 Access agreements + NDA PS-6]
+  J.J1 --> P.P4
+  P.P1 --> P.P5[P.P5 Continuous workforce monitoring]
+  P.P3 --> P.P5
+
+  %% =========================================================
+  %% LOOP-Q Marketplace + Post-ATO Publication
+  %% =========================================================
+  A.A4 --> Q.Q1[Q.Q1 FedRAMP Marketplace listing RFC-0021]
+  F.F6 --> Q.Q1
+  E.E1 --> Q.Q2[Q.Q2 Post-ATO ConMon publication]
+  A.A4 --> Q.Q2
+  Q.Q1 --> Q.Q3[Q.Q3 Agency authorization tracking]
+  F.F6 --> Q.Q3
+
+  %% =========================================================
   %% Pre-flight wiring
   %% =========================================================
   REO0 --> A.A1
@@ -439,6 +518,31 @@ underlying expansion is documented in the corresponding per-slice doc.
 | **J.J3** | A.A1, A.A4, J.J2, SSP-1, INV-P4, E.2 SBOM | B.B5, C.C7, I.I1, F.F7 |
 | **K.K1** | A.A1, A.A3, A.A4, F.F4 | F.F1, F.F4, F.F7, E.E1, K.K2 |
 | **K.K2** | A.A1, A.A2, A.A3, A.A4, K.K1, F.F1 | F.F1, F.F3, F.F7, E.E3 |
+| **L.L1** | A.A1, D.D1, reference-arch, SSP-1 | L.L2, L.L3, L.L4 |
+| **L.L2** | L.L1, J.J2 | L.L3, L.L4 |
+| **L.L3** | L.L1, L.L2 | (terminal — feeds CRM gap closure) |
+| **L.L4** | L.L1, L.L2 | (terminal — UI renderer) |
+| **M.M1** | C.C4, J.J2 | M.M2 |
+| **M.M2** | M.M1, C.C4, J.J2 | (terminal — DPIA artifact) |
+| **M.M3** | C.C4 | M.M4 |
+| **M.M4** | M.M3, C.C3 | (terminal — privacy incident artifact) |
+| **N.N1** | D.D3, INV-chain | N.N3, N.N4 |
+| **N.N2** | D.D1, reference-arch | N.N3, N.N4 |
+| **N.N3** | B.B1, N.N1, N.N2 | (terminal — adversarial test framework) |
+| **N.N4** | N.N1, N.N2 | (terminal — ATT&CK mapping) |
+| **O.O1** | INV-chain | O.O2, O.O3, O.O4, O.O5 |
+| **O.O2** | O.O1, C.C4 | O.O3, O.O4, O.O5 |
+| **O.O3** | O.O1, B.B1, O.O2 | O.O4 |
+| **O.O4** | O.O1, O.O2, O.O3 | (terminal — pre-deployment + ongoing AI eval) |
+| **O.O5** | O.O1, O.O2 | (terminal — model card + datasheet) |
+| **P.P1** | existing tracker (RBAC + audit log), J.J1 | P.P2, P.P3, P.P4, P.P5 |
+| **P.P2** | P.P1, J.J1 | P.P3 |
+| **P.P3** | P.P2, J.J1 | P.P5 |
+| **P.P4** | P.P1, J.J1 | (terminal — access agreements + NDA) |
+| **P.P5** | P.P1, P.P3 | (terminal — continuous workforce monitoring) |
+| **Q.Q1** | A.A4, F.F6 | Q.Q3 |
+| **Q.Q2** | E.E1, A.A4 | (terminal — monthly publication to FedRAMP repo) |
+| **Q.Q3** | Q.Q1, F.F6 | (terminal — agency authorization tracking) |
 
 Cycle notes (self-referential pairs in the table above):
 - **E.E3 ↔ E.E4** — E.E4 depends on E.E3 for the annual harness; E.E3
@@ -502,6 +606,18 @@ LOOP-B + LOOP-C.C7 + LOOP-F.F7): **12 nodes** post-REO-0.
 - `A.A1 → B.B1 → I.I3 → E.E1 → G.G6 → F.F4 → F.F7` (longitudinal-trends
   feedback path; 8 hops post-A.A1)
 
+**LOOP-L through LOOP-Q critical chains (added 2026-06-07):**
+
+- `A.A1 → L.L1 → L.L2 → L.L3` (CRM workbook → inheritance → gap report; 4 hops)
+- `C.C4 → M.M1 → M.M2` (PTA/PIA → SORN → DPIA; 3 hops)
+- `D.D3 → N.N1 → N.N3` (DFD → STRIDE → adversarial framework; 3 hops)
+- `INV-chain → O.O1 → O.O2 → O.O3 → O.O4` (inventory → RMF alignment → risk register → eval; 5 hops)
+- `J.J1 → P.P1 → P.P2 → P.P3 → P.P5` (privileges → insider threat → screening → transfer → monitoring; 5 hops)
+- `A.A4 → F.F6 → Q.Q1 → Q.Q3` (bundler → ATO state → Marketplace listing → agency tracking; 4 hops)
+
+These chains run **in parallel** with the LOOP-B → LOOP-F.F7 critical path and
+do not extend the SAR-completion gate.
+
 ---
 
 ## 4. Parallelization opportunities
@@ -544,6 +660,43 @@ baseline:
 - Both gated only by LOOP-A.
 - Effort: ~2 weeks.
 
+**Stream 6 — CRM + Inheritance (L):**
+- L.L1 gated by A.A1 + D.D1 + reference-arch + SSP-1.
+- L.L2 waits for L.L1 + J.J2.
+- L.L3 + L.L4 wait for L.L1 + L.L2 (mutually independent of each other).
+- Effort: ~4 weeks. Two of four slices parallelisable post-L.L2.
+
+**Stream 7 — Privacy Package (M) — CONFIRMED APPLICABLE:**
+- M.M1 + M.M3 mutually independent (both depend only on C.C4).
+- M.M2 waits for M.M1.
+- M.M4 waits for M.M3 + C.C3.
+- Effort: ~4 weeks. Two top-of-stream slices parallelisable.
+
+**Stream 8 — Threat Modeling (N):**
+- N.N1 + N.N2 mutually independent.
+- N.N3 + N.N4 wait for N.N1 + N.N2.
+- N.N3 also depends on B.B1 (risk scoring fuels adversarial test severity).
+- Effort: ~4 weeks. Two top-of-stream slices parallelisable.
+
+**Stream 9 — AI/ML Governance (O) — CONFIRMED APPLICABLE:**
+- O.O1 leads.
+- O.O2 + O.O3 + O.O5 mutually parallelisable post-O.O1+O.O2.
+- O.O4 is terminal (depends on O.O1+O.O2+O.O3).
+- Effort: ~5 weeks. Three of five slices parallelisable post-O.O2.
+
+**Stream 10 — Insider Threat + PS-family (P):**
+- P.P1 leads.
+- P.P2 + P.P4 mutually parallel post-P.P1.
+- P.P3 waits for P.P2.
+- P.P5 waits for P.P1 + P.P3.
+- Effort: ~5 weeks.
+
+**Stream 11 — Marketplace + Post-ATO (Q):**
+- Q.Q1 + Q.Q2 mutually independent.
+- Q.Q3 waits for Q.Q1.
+- Q.Q1 + Q.Q3 gated by F.F6 (ATO state machine).
+- Effort: ~3 weeks.
+
 ### 4.2 Strict-sequential gates (no parallelism possible)
 
 - **A.A1 → A.A2 → A.A3 → A.A4 → A.A5** — DONE.
@@ -570,53 +723,47 @@ If 3 engineers are available concurrently:
 Note: F.F7 SAR draft has 22 precedents and must be last across all
 streams. Plan its kickoff for after Streams A+B+C have closed.
 
+### 4.4 LOOP-L through LOOP-Q parallel layer (ratified 2026-06-07)
+
+Loops L–Q add 25 more slices and ~25 weeks of single-thread effort, but
+they layer **on top of** the LOOP-B..K streams and do not extend the
+LOOP-F.F7 critical path. Recommended overlay (additional engineers /
+parallel streams):
+
+| Overlay Stream | Path | Estimated weeks | Gate |
+|---|---|---|---|
+| Overlay L | L.L1 → L.L2 → (L.L3 ∥ L.L4) | 4 | A.A1 + D.D1 + SSP-1 |
+| Overlay M | (M.M1 ∥ M.M3) → (M.M2 ∥ M.M4) | 4 | C.C4 + C.C3 + J.J2 |
+| Overlay N | (N.N1 ∥ N.N2) → (N.N3 ∥ N.N4) | 4 | D.D3 + B.B1 |
+| Overlay O | O.O1 → O.O2 → (O.O3 ∥ O.O5) → O.O4 | 5 | INV-chain + C.C4 + B.B1 |
+| Overlay P | P.P1 → (P.P2 ∥ P.P4) → P.P3 → P.P5 | 5 | tracker (RBAC+audit) + J.J1 |
+| Overlay Q | (Q.Q1 ∥ Q.Q2) → Q.Q3 | 3 | A.A4 + F.F6 + E.E1 |
+
+If all overlays staffed concurrently with the base 3-stream plan,
+overall delivery extends from ~19 weeks to ~24 weeks (gated by Overlay O
++ Overlay P each at 5 weeks plus the existing 19-week base).
+
 ---
 
-## 5. Proposed loops (LOOP-L through LOOP-Q, advisory)
+## 5. LOOP-L through LOOP-Q — ratified 2026-06-07
 
-These are from `ADDITIONAL-LOOPS-AUDIT.md` and are **not yet adopted**.
-Their dependencies (if adopted) would be:
+LOOP-L through LOOP-Q were proposed by `ADDITIONAL-LOOPS-AUDIT.md`
+(2026-06-06) and **ratified by the human on 2026-06-07**. All 25 slices
+are now first-class nodes in §1 (Mermaid graph) and §2 (tabular
+dependencies) above. M (Privacy/SORN/DPIA) and O (AI/ML Governance) are
+confirmed applicable (no longer conditional).
 
-```mermaid
-graph TD
-  SSP1 --> L.L1[L.L1 CIS/CRM workbook]
-  C.C5 --> L.L1
-  J.J2 --> L.L1
-  L.L1 --> L.L2[L.L2 OSCAL Component Def leveraged]
-  L.L2 --> L.L3[L.L3 Inheritance traceability]
-  L.L3 --> L.L4[L.L4 Responsibility-matrix UI]
-  L.L1 --> C.C8[C.C8 cover letter consumes CRM]
+The earlier advisory dependency sketch (initial audit-time guess) has
+been superseded by the per-slice frontmatter under
+`docs/slices/{L,M,N,O,P,Q}/*.md`, which is the authoritative source for
+§1 and §2. A second-pass audit (`docs/SECOND-PASS-AUDIT.md`) confirmed
+nothing else is still missing after L-Q specification.
 
-  C.C4 --> M.M1[M.M1 SORN structured-input]
-  M.M1 --> M.M2[M.M2 PCM strategy doc]
-  M.M2 --> M.M3[M.M3 PTA recheck cadence]
-  E.E4 --> M.M3
+Implementation priority remains LOOP-B.B1 first (risk scoring is a
+shared dependency for N.N3 and O.O3). LOOP-L.L1 is queued immediately
+behind B.B1.
 
-  A.A4 --> N.N1[N.N1 STRIDE threat model]
-  D.D1 --> N.N1
-  N.N1 --> N.N2[N.N2 Tabletop facilitator]
-  N.N1 --> N.N3[N.N3 Adversarial KSI tests]
-
-  B.B3 --> O.O1[O.O1 AI use-case inventory]
-  O.O1 --> O.O2[O.O2 AI RMF MEASURE]
-  O.O2 --> O.O3[O.O3 AI audit log]
-  H.H2 --> O.O3
-  O.O3 --> O.O4[O.O4 AI risk-acceptance]
-
-  J.J1 --> P.P1[P.P1 Insider-threat program]
-  A.A1 --> P.P1
-  P.P1 --> P.P2[P.P2 Personnel screening evidence]
-  P.P2 --> P.P3[P.P3 Workforce training records]
-
-  A.A4 --> Q.Q1[Q.Q1 Marketplace metadata]
-  F.F6 --> Q.Q1
-  G.G3 --> Q.Q1
-  Q.Q1 --> Q.Q2[Q.Q2 Agency reuse acknowledgment]
-  Q.Q2 --> Q.Q3[Q.Q3 ATO status state machine]
-```
-
-Adoption decision documented separately; see ADDITIONAL-LOOPS-AUDIT.md
-§2 + §5 (open questions) + §6 (recommended prioritization).
+Per-loop risks: see `docs/loops/LOOP-{L,M,N,O,P,Q}-RISKS.md`.
 
 ---
 
