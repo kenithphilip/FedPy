@@ -22,6 +22,19 @@
 > 800-171 Rev 3, CDI, DC3, DoD Cloud Computing SRG, Cloud Equivalency),
 > and CIRCIA extensions (CIRCIA, Covered Entity, Covered Cyber
 > Incident, Ransom Payment Report, 6 USC §681b, PPD-21 sectors).
+> 2026-06-07 (fourth pass): 25+ new entries added covering LOOP-W
+> (SSDF self-attestation per OMB M-22-18 / M-23-16: CISA Common Form,
+> SP 800-218 + 800-218A SSDF, RSAA, Practice Group, SSDF Practice,
+> SSDF Task, Self-Attestation vs Engineering Attestation), LOOP-T
+> (NDAA §889 Part A / Part B + §1634 Kaspersky, FAR 52.204-25,
+> FAR 52.204-26, FAR 4.2102, Covered Telecommunications Equipment or
+> Services, 8 Federal-Government Business Hours, DHS Section 889
+> Reporting Memo, BIS Entity List, OFAC SDN List, SAM.gov Exclusions),
+> and the SEC Form 8-K Item 1.05 extension (SEC Final Rule 33-11216,
+> Form 8-K Item 1.05, Material Cybersecurity Incident, Materiality /
+> TSC v. Northway, 4-Business-Day Cyber Disclosure, Smaller Reporting
+> Company, Wholly-Owned Subsidiary, iXBRL Inline Tagging, EDGAR
+> CIK / CCC / Password / PMAC, EO 14028 §4).
 
 ---
 
@@ -32,6 +45,45 @@ organization accredited by A2LA to perform FedRAMP assessments of CSOs.
 The 3PAO produces the SAR + signs the recommendation letter that
 accompanies the authorization package.
 https://www.fedramp.gov/3pao-requirements/
+
+**4-Business-Day Cyber Disclosure (SEC)** — *SEC Final Rule 33-11216
+(July 2023).* The four-business-day deadline by which an SEC-registered
+public company must file Form 8-K Item 1.05 disclosing a Material
+Cybersecurity Incident, measured from the date the company determines
+the incident is material (NOT from the discovery date). If a CSP is a
+public registrant or a wholly-owned subsidiary whose parent is, LOOP-W
+must track this clock alongside the CIRCIA 72-hour clock. Implemented
+by LOOP-W.
+https://www.sec.gov/files/rules/final/2023/33-11216.pdf
+
+**8 Federal-Government Business Hours (FAR 52.204-25(d))** — *FAR
+52.204-25 paragraph (d) reporting clause.* The deadline by which a
+federal contractor that identifies covered telecommunications equipment
+or services (NDAA §889 Part A or Part B) during contract performance
+MUST report the discovery to the contracting officer (one business
+day for the initial report, with additional information within 10
+business days). Tracked by LOOP-T.T2 reporting workflow.
+https://www.acquisition.gov/far/52.204-25
+
+**800-218 SSDF v1.1** — *NIST SP 800-218 (February 2022).* Secure
+Software Development Framework v1.1. Defines 4 Practice Groups (PO
+Prepare the Organization, PS Protect the Software, PW Produce
+Well-Secured Software, RV Respond to Vulnerabilities) and 19 Practices,
+each decomposed into Tasks with implementation examples and references.
+The reference taxonomy invoked by OMB M-22-18 / M-23-16 self-attestation
+common form. Drives LOOP-W self-attestation crosswalk and LOOP-J.J3 SBOM
+integration.
+https://csrc.nist.gov/publications/detail/sp/800-218/final
+
+**800-218A SSDF-AI IPD** — *NIST SP 800-218A Initial Public Draft
+(April 2024).* "Secure Software Development Practices for Generative
+AI and Dual-Use Foundation Models." Profile of 800-218 that adds
+AI-specific Tasks (e.g. model-card emission, training-data lineage,
+prompt-injection testing, adversarial evaluation) under the existing
+PO/PS/PW/RV Practice Groups. Cross-references LOOP-O AI/ML governance
+artifacts and is consumed by LOOP-W self-attestation when the registrant
+ships generative-AI features.
+https://csrc.nist.gov/pubs/sp/800/218/a/ipd
 
 **AAR (After-Action Report)** — *Internal / NIST 800-184.* A
 post-tabletop / post-incident written report covering what happened,
@@ -155,6 +207,16 @@ moderate / high control-set per impact level. FedRAMP Moderate baseline
 has ~325 controls + enhancements. Catalog at
 `docs/nist-r5-baselines.generated.json`.
 
+**BIS Entity List (15 CFR Part 744 Supp. 4)** — *U.S. Department of
+Commerce Bureau of Industry and Security (BIS).* The list of foreign
+parties subject to specific Export Administration Regulations license
+requirements. Adding a vendor or its parent to the Entity List is a
+trigger condition for LOOP-T re-evaluation of NDAA §889 supply-chain
+risk and for OFAC/sanctions screening. The list is republished in the
+Federal Register on a rolling basis; LOOP-T.T3 pulls the BIS-published
+JSON snapshot.
+https://www.bis.doc.gov/index.php/policy-guidance/lists-of-parties-of-concern/entity-list
+
 **BOD (Binding Operational Directive)** — *CISA.* Mandatory federal
 agency directive. **BOD 20-01** (VDP), **BOD 22-01** (KEV), **BOD 23-01**
 (Asset Visibility) inform 20x scope.
@@ -184,6 +246,18 @@ Proposed LOOP-L.L1 in ADDITIONAL-LOOPS-AUDIT.md §2.
 **CISA AIS (Automated Indicator Sharing)** — *CISA.* The federal STIX
 feed for threat indicators. Proposed extension under
 ADDITIONAL-LOOPS-AUDIT.md §3.9.
+
+**CISA Common Form (OMB 1670-0052)** — *CISA / OMB.* The Secure
+Software Development Attestation Common Form (OMB Control Number
+1670-0052) that a software producer signs and submits to CISA's
+Repository for Software Attestations and Artifacts (RSAA) per OMB
+M-22-18 / M-23-16. Lists the SSDF-mapped practices the producer
+attests to performing. LOOP-W emits the populated Common Form + the
+RSAA submission envelope.
+https://www.cisa.gov/resources-tools/services/secure-software-development-attestation-form
+
+**Common Form Self-Attestation** — See **Self-Attestation (vs Engineering
+Attestation)** under S.
 
 **CIRCIA (Cyber Incident Reporting for Critical Infrastructure Act)** —
 *Federal statute, 6 USC §681b.* Enacted March 2022; CISA published the
@@ -233,6 +307,18 @@ data-classification tagging.
 of the 16 PPD-21 critical-infrastructure sectors that meets CISA's
 size + role thresholds. CSPs processing critical-infrastructure
 workloads are Covered Entities. Determines CIRCIA reporting obligation.
+
+**Covered Telecommunications Equipment or Services (FAR 52.204-25(a))** —
+*FAR 52.204-25 paragraph (a).* Telecommunications and video-surveillance
+equipment or services produced or provided by Huawei, ZTE, Hytera,
+Hangzhou Hikvision, Dahua, or any subsidiary or affiliate, AND any
+covered telecommunications service that uses such equipment as a
+substantial or essential component of any system or as critical
+technology. Triggers NDAA §889 Part A prohibition (use / sale to USG)
+and Part B prohibition (USG contracts with entities that use it).
+LOOP-T.T1 collectors enumerate boundary inventory against this
+definition.
+https://www.acquisition.gov/far/52.204-25
 
 **Crypto Agility** — *NIST IR 8547 / OMB M-23-02.* The system property
 of being able to swap cryptographic algorithms (or algorithm
@@ -334,6 +420,16 @@ in LOOP-S.S3 for the attestation package's SPRS coverage.
 underpinning -7019. Cited in LOOP-S.S3 as the trail that the
 equivalency attestation aligns to.
 
+**DHS Section 889 Reporting Memo** — *DHS Procurement Innovation Lab /
+DHS HQ (revised 2024).* The DHS implementation guidance for federal
+contractors reporting identifications of Covered Telecommunications
+Equipment or Services during contract performance per FAR 52.204-25(d).
+Pins the report content (CAGE code, contract number, identifying
+party, removal plan) and the contracting officer routing. LOOP-T.T2
+emits in this format when DHS is the contracting agency; otherwise the
+agency-specific equivalent.
+https://www.dhs.gov/sites/default/files/publications/section-889-implementation-guidance.pdf
+
 **Datasheet for Datasets** — *Gebru et al. 2018; NIST AI RMF MAP.*
 Structured document for training-data provenance: collection process,
 demographics, intended use, known biases, maintenance. Emitted per
@@ -363,6 +459,25 @@ LOOP-E.E5.
 **Ed25519** — *Cryptographic signature algorithm.* Used by `core/sign.ts`
 for all evidence envelopes. REO Rule 1.6.
 
+**EDGAR CIK / CCC / Password / PMAC** — *SEC EDGAR filer-credential set.*
+The four credentials the SEC EDGAR filing system uses to authenticate a
+filer: CIK (Central Index Key, the 10-digit registrant identifier; not
+secret), CCC (CIK Confirmation Code, an 8-char secret bound to the
+CIK), Password (filer login password), and PMAC (Password Modification
+Authorization Code, used to rotate the password). LOOP-W.W3 + the
+SEC 8-K extension pack populate the EDGAR submission envelope using the
+CIK + CCC from operator config; Password + PMAC stay out of the repo.
+https://www.sec.gov/edgar/filer-information
+
+**EO 14028 §4 (Software Supply Chain)** — *Executive Order 14028
+(May 2021), Section 4.* "Enhancing Software Supply Chain Security."
+Directs NIST to publish guidance for federal-procured software
+(realized as SP 800-218 SSDF) and directs OMB to require federal
+agencies to obtain producer self-attestations to that guidance
+(realized as OMB M-22-18 + M-23-16). Root authority for the LOOP-W
+self-attestation flow.
+https://www.federalregister.gov/documents/2021/05/17/2021-10460/improving-the-nations-cybersecurity
+
 **EPSS (Exploit Prediction Scoring System)** — *FIRST.org.* Per-CVE
 probability of exploitation. Consumed by LOOP-B.B1.
 https://www.first.org/epss/
@@ -390,6 +505,35 @@ guidance accordingly.
 transcripts captured during 3PAO testing. LOOP-F.F4.
 
 ## F
+
+**FAR 4.2102** — *Federal Acquisition Regulation Subpart 4.21,
+section 4.2102 (Prohibition).* Codifies NDAA §889 Part A + Part B
+prohibitions into the FAR procurement framework. Pins the contractor
+representation + reporting requirements that flow through FAR
+52.204-25, FAR 52.204-26, and SAM.gov representations. Cited by
+LOOP-T.T1 + T.T2 as the procurement-side anchor for the §889
+inventory + reporting workflow.
+https://www.acquisition.gov/far/subpart-4.21
+
+**FAR 52.204-25 (Part A vs Part B)** — *FAR clause 52.204-25
+(Prohibition on Contracting for Certain Telecommunications and
+Video Surveillance Services or Equipment).* Implements NDAA §889
+in contracts. **Part A** = contractor may not provide covered
+telecommunications equipment or services to USG. **Part B** = USG
+may not enter into a contract with an entity that uses such equipment
+or services. The two parts have different scopes (sale-to-USG vs
+use-anywhere-in-the-entity), different applicability tests, and
+different reporting deadlines. LOOP-T.T1 emits per-asset Part A +
+Part B determinations.
+https://www.acquisition.gov/far/52.204-25
+
+**FAR 52.204-26** — *FAR clause 52.204-26 (Covered Telecommunications
+Equipment or Services—Representation).* The pre-award representation
+in which a contractor declares whether it does or does not provide /
+use Covered Telecommunications Equipment or Services. Posted by the
+contractor in SAM.gov. LOOP-T.T2 emits the supporting evidence pack +
+representation language.
+https://www.acquisition.gov/far/52.204-26
 
 **FedRAMP** — *Federal Risk and Authorization Management Program.* The
 US-government CSP authorization program.
@@ -434,6 +578,15 @@ categorization. Worksheet emitted by LOOP-C.C5.
 PASS/FAIL/INFO/REQUIRES-OPERATOR-INPUT determination from a collector.
 Defined in `core/findings.ts`.
 
+**Form 8-K Item 1.05** — *SEC Final Rule 33-11216 (July 2023).* The
+SEC Form 8-K item the registrant must file within 4 business days of
+determining a cybersecurity incident is material. Item 1.05 requires
+disclosure of the nature, scope, and timing of the incident plus the
+material impact (financial, operational, reputational). LOOP-W /
+G.G2-SEC-8K-EXTENSION emit the populated Item 1.05 narrative + the
+iXBRL-tagged 8-K envelope.
+https://www.sec.gov/files/rules/final/2023/33-11216.pdf
+
 **FRMR** — *FedRAMP Machine-Readable Requirements.* JSON catalog at
 `github.com/FedRAMP/docs`. Source of truth for all FedRAMP-specific
 requirements. Cached locally as `docs/frmr-requirements.generated.json`.
@@ -470,6 +623,14 @@ LOOP-L.L1.
 
 **IAM-AAM (Account Access Management)** — *KSI.* Existing IAM collector
 covering AC-2.
+
+**iXBRL Inline Tagging (SEC)** — *SEC EDGAR / XBRL US.* Inline eXtensible
+Business Reporting Language. SEC Form 8-K Item 1.05 disclosures must be
+filed with iXBRL inline tags that machine-tag the disclosure elements
+(incident date, materiality determination date, nature of incident,
+material impact). LOOP-W / G.G2-SEC-8K-EXTENSION emits the iXBRL-tagged
+HTML envelope, not just plain narrative.
+https://www.sec.gov/structureddata/osd-inline-xbrl.html
 
 **IAM-ELP (Enforce Least Privilege)** — *KSI.* Existing IAM collector
 covering AC-6.
@@ -553,6 +714,22 @@ ratified 2026-06-07).
 **Manifest** — *Internal.* Signed `out/manifest.json` enumerates every
 artifact + sha256. Subject of the RFC 3161 timestamp.
 
+**Material Cybersecurity Incident (SEC)** — *SEC Final Rule 33-11216.* A
+cybersecurity incident that a registrant determines is "material" under
+the TSC v. Northway standard (i.e. a reasonable investor would consider
+the incident important in making an investment decision). Triggers the
+Form 8-K Item 1.05 4-business-day disclosure clock. Materiality is a
+separate determination from incident-discovery; the 4-business-day clock
+starts on the materiality-determination date, not the discovery date.
+
+**Materiality (TSC v. Northway standard)** — *U.S. Supreme Court (TSC
+Industries, Inc. v. Northway, Inc., 426 U.S. 438 (1976)).* The federal
+securities-law standard for whether information is "material": there
+must be a substantial likelihood that a reasonable investor would
+consider it important in deciding how to vote or invest. Pinned by the
+SEC in the 2023 cybersecurity disclosure rule as the threshold for
+Form 8-K Item 1.05 reporting.
+
 **MFA (Multi-Factor Authentication)** — *NIST IA-2.* Existing IAM-MFA
 collectors validate MFA presence on privileged accounts.
 
@@ -569,6 +746,24 @@ Emitted per inference endpoint by LOOP-O.O5.
 **MITRE ATT&CK** — See **ATT&CK** under A.
 
 ## N
+
+**NDAA §889 (Pub. L. 115-232)** — *National Defense Authorization Act
+for Fiscal Year 2019, Section 889.* The federal statute that prohibits
+USG use of (Part A, effective August 2019) and USG contracts with
+entities that use (Part B, effective August 2020) Covered
+Telecommunications Equipment or Services from named PRC vendors
+(Huawei, ZTE, Hytera, Hangzhou Hikvision, Dahua). Implemented in the
+FAR via 52.204-25, 52.204-26, and 4.2102. Root statutory authority for
+LOOP-T.
+https://www.congress.gov/115/plaws/publ232/PLAW-115publ232.pdf
+
+**NDAA §1634 (Kaspersky prohibition)** — *National Defense Authorization
+Act for Fiscal Year 2018, Section 1634.* Statutory prohibition on USG
+use of any hardware, software, or services developed or provided in
+whole or in part by Kaspersky Lab. Separate from §889 but enumerated in
+the same LOOP-T inventory pass (T.T1) because the operational
+remove-and-attest workflow is identical.
+https://www.congress.gov/115/plaws/publ91/PLAW-115publ91.pdf
 
 **NIST AI RMF 1.0** — *NIST AI 100-1.* Drives LOOP-O.
 https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.100-1.pdf
@@ -647,6 +842,29 @@ LOOP-C.C4 PIA + LOOP-M (SORN, DPIA).
 PII. Drives privacy-incident response procedures in LOOP-M.M4.
 https://www.whitehouse.gov/wp-content/uploads/legacy_drupal_files/omb/memoranda/2017/m-17-12_0.pdf
 
+**OFAC SDN List** — *U.S. Department of the Treasury Office of Foreign
+Assets Control.* The Specially Designated Nationals and Blocked Persons
+List. Adding a vendor or its parent entity to the SDN List is a trigger
+for LOOP-T re-evaluation (a sanctioned entity cannot legally be paid).
+The SDN list is published as XML / CSV and pulled by LOOP-T.T3 in
+addition to the BIS Entity List + SAM.gov Exclusions.
+https://ofac.treasury.gov/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists
+
+**OMB M-22-18** — *OMB (September 2022).* "Enhancing the Security of the
+Software Supply Chain through Secure Software Development Practices."
+Operationalises EO 14028 §4 by requiring federal agencies to obtain a
+self-attestation, conformant to NIST SP 800-218 SSDF, from any producer
+of software the agency uses. LOOP-W emits the self-attestation pack.
+https://www.whitehouse.gov/wp-content/uploads/2022/09/M-22-18.pdf
+
+**OMB M-23-16** — *OMB (June 2023).* "Update to Memorandum M-22-18,
+Enhancing the Security of the Software Supply Chain through Secure
+Software Development Practices." Updates M-22-18 by deferring some
+deadlines, specifying the CISA Common Form as the canonical attestation
+artifact, and tying submission to CISA's RSAA. LOOP-W defaults to
+M-23-16 deadlines.
+https://www.whitehouse.gov/wp-content/uploads/2023/06/M-23-16-Update-to-M-22-18-Enhancing-Software-Security.pdf
+
 **OMB M-23-02** — *OMB (November 2022).* "Migrating to Post-Quantum
 Cryptography." Operationalises NSM-10 for federal agencies: requires
 each agency to compile a cryptographic inventory, assess migration
@@ -715,6 +933,15 @@ Facilities, Healthcare and Public Health, Information Technology,
 Nuclear, Transportation Systems, Water and Wastewater. LOOP-G.G2.CIRCIA
 + LOOP-M.M4.CIRCIA scope CSP applicability against this list.
 https://obamawhitehouse.archives.gov/the-press-office/2013/02/12/presidential-policy-directive-critical-infrastructure-security-and-resil
+
+**Practice Group (PO / PS / PW / RV per SP 800-218)** — *NIST SP
+800-218.* The four top-level groups SSDF uses to organize Practices:
+**PO** Prepare the Organization (policies, training, infra), **PS**
+Protect the Software (source / artifact integrity, provenance), **PW**
+Produce Well-Secured Software (design, secure coding, review, test),
+**RV** Respond to Vulnerabilities (intake, analysis, remediation). The
+CISA Common Form lines up its declarations against PO / PS / PW / RV;
+LOOP-W groups its emitted attestations the same way.
 
 **Privacy Act §552a** — *5 U.S.C. §552a (Privacy Act of 1974).* Sets
 SORN publication + Records-Management obligations for any federal
@@ -799,6 +1026,14 @@ ransom payment. Distinct schema + faster deadline than the 72-hour
 Covered Cyber Incident report. Emitted by LOOP-G.G2.CIRCIA when the
 operator records a ransom payment in the tracker.
 
+**Repository for Software Attestations and Artifacts (RSAA)** —
+*CISA.* The CISA-hosted federal repository where software producers
+submit signed CISA Common Form Self-Attestations + supporting
+artifacts per OMB M-22-18 / M-23-16. LOOP-W.W4 emits the signed
+submission envelope (attestation form + provenance + Ed25519 signature)
+in the RSAA-required schema.
+https://www.cisa.gov/resources-tools/services/repository-software-attestations-and-artifacts-rsaa
+
 **Read-only guardrail** — *Internal.* `core/readonly-guardrail-*.ts`
 wraps cloud SDKs; throws on any non-read API call.
 
@@ -850,6 +1085,14 @@ RPL-ARP. Existing backup-recovery-plan KSI collectors.
 **SA-9 (External System Services)** — *NIST SP 800-53 Rev 5 control.*
 Subprocessor inventory + risk-tier classification. LOOP-J.J2.
 
+**SAM.gov Exclusions** — *GSA / IAE (Integrated Award Environment).*
+The federal exclusions list published in SAM.gov enumerating entities
+debarred, suspended, proposed for debarment, or otherwise excluded from
+receiving federal contracts or assistance. LOOP-T.T3 pulls the SAM.gov
+Exclusions feed in parallel with the BIS Entity List + OFAC SDN list
+to compute a single supply-chain-eligibility verdict per subprocessor.
+https://sam.gov/content/exclusions
+
 **SA-11 (Developer Testing)** — *NIST SP 800-53 Rev 5 control.* SSDF
 attestation cross-link.
 
@@ -867,6 +1110,33 @@ Drives proposed §3.7 boundary flow-log ingestion.
 
 **SCN (Significant Change Notification)** — *FedRAMP CMP.* Classifier
 + doc emitter. SCN classifier exists; SCN doc emitter is LOOP-E.E6.
+
+**SEC Final Rule 33-11216** — *U.S. Securities and Exchange Commission
+(July 26, 2023).* "Cybersecurity Risk Management, Strategy, Governance,
+and Incident Disclosure." Adds Form 8-K Item 1.05 (incident disclosure
+within 4 business days of materiality determination) and Regulation
+S-K Item 106 (annual cyber-risk-management governance disclosure in
+Form 10-K). Root authority for the LOOP-W / G.G2-SEC-8K-EXTENSION
+disclosure flow.
+https://www.sec.gov/files/rules/final/2023/33-11216.pdf
+
+**Section 889 Part A vs Part B** — See **FAR 52.204-25 (Part A vs
+Part B)** under F.
+
+**Self-Attestation (vs Engineering Attestation)** — *OMB M-22-18 /
+M-23-16.* A self-attestation is a statement signed by the producer's
+CEO (or designated equivalent) declaring conformance to the SSDF
+practices. An engineering attestation, by contrast, is a 3PAO-signed
+audit-style attestation that conformance has been independently
+verified. M-23-16 deferred mandatory engineering attestation; the
+default for LOOP-W is a self-attestation signed via the tracker.
+
+**Smaller Reporting Company (SEC)** — *17 CFR §240.12b-2.* An SEC-
+registered company with public float under $250M or annual revenues
+under $100M. Under SEC Final Rule 33-11216, Smaller Reporting
+Companies got a 180-day deferral on Form 8-K Item 1.05 compliance.
+LOOP-W tracks this status because it changes the cutover date.
+https://www.ecfr.gov/current/title-17/chapter-II/part-240/subpart-A/subject-group-ECFRefffd57b6ca5b6/section-240.12b-2
 
 **security.txt** — *IETF RFC 9116.* The public-facing VDP file
 proposed in §3.2.
@@ -918,6 +1188,20 @@ LOOP-C.C10.
 
 **SSDF (Secure Software Development Framework)** — *NIST SP 800-218.*
 
+**SSDF Practice** — *NIST SP 800-218.* A Practice is the second-level
+unit under a Practice Group: a named, scoped behavior the producer
+performs (e.g. PO.1.1 "Identify and document all security requirements
+for the organization's software development infrastructure and
+processes"). 800-218 lists 19 Practices across PO / PS / PW / RV.
+LOOP-W maps each Common Form declaration to a specific Practice.
+
+**SSDF Task** — *NIST SP 800-218.* A Task is the third-level unit
+under an SSDF Practice: a concrete action the producer performs to
+satisfy the Practice. 800-218 enumerates approximately 50 Tasks. The
+CISA Common Form lets the producer attest at the Practice level; the
+LOOP-W evidence pack drills down to Task-level evidence for higher-
+confidence (engineering-attestation-ready) submissions.
+
 **STIX** — *OASIS.* Structured Threat Information eXpression. CISA AIS
 emits STIX.
 
@@ -931,6 +1215,14 @@ Implemented by LOOP-N.N1 (generated from inventory + DFD).
 **Tag (cloud-resource)** — *Operator input mechanism.* Tags like
 `fedramp_boundary`, `fedramp_data_classification`,
 `fedramp_asset_tier` flow operator decisions to evidence. REO Rule 4.
+
+**TSC Industries v. Northway, 426 U.S. 438 (1976)** — *U.S. Supreme
+Court.* The case that pinned the federal securities-law materiality
+standard: information is material when there is a substantial
+likelihood that a reasonable investor would consider it important.
+Adopted by the SEC in Final Rule 33-11216 as the cybersecurity-incident
+materiality threshold. See Materiality entry under M.
+https://supreme.justia.com/cases/federal/us/426/438/
 
 **Tracker** — *Internal.* The local React + SQLite app under
 `cloud-evidence/tracker/`. Captures operator + 3PAO + AO actions with
@@ -965,6 +1257,15 @@ each AI use case. Proposed LOOP-O.O1.
 constant.* Enumerates every well-known artifact role + filename for
 the LOOP-A.A4 bundler. Every emitter that produces a submission-
 package file MUST add a WELL_KNOWN row.
+
+**Wholly-Owned Subsidiary (SEC disclosure)** — *SEC.* For SEC Form 8-K
+Item 1.05, a wholly-owned subsidiary of an SEC-registered parent does
+NOT file its own 8-K — the parent registrant files on behalf of the
+subsidiary if the incident is material at the consolidated level. A
+CSP that is a wholly-owned subsidiary of a public-company parent must
+therefore route incident notifications upstream so the parent can make
+the materiality determination + meet the 4-business-day clock. LOOP-W
+encodes this routing as an operator-config field.
 
 ## X
 
@@ -1038,3 +1339,24 @@ emitter primitive for .docx and .xlsx OOXML containers.
 - DoD Cloud Computing SRG — https://public.cyber.mil/dccs/dccs-documents/
 - CIRCIA (6 USC §681b) — https://www.cisa.gov/topics/cyber-threats-and-advisories/information-sharing/cyber-incident-reporting-critical-infrastructure-act-2022-circia
 - PPD-21 — https://obamawhitehouse.archives.gov/the-press-office/2013/02/12/presidential-policy-directive-critical-infrastructure-security-and-resil
+- SEC Final Rule 33-11216 (Cyber Disclosure) — https://www.sec.gov/files/rules/final/2023/33-11216.pdf
+- SEC EDGAR Filer Information — https://www.sec.gov/edgar/filer-information
+- SEC Inline XBRL — https://www.sec.gov/structureddata/osd-inline-xbrl.html
+- TSC Industries v. Northway, 426 U.S. 438 (1976) — https://supreme.justia.com/cases/federal/us/426/438/
+- 17 CFR §240.12b-2 (Smaller Reporting Company definition) — https://www.ecfr.gov/current/title-17/chapter-II/part-240/subpart-A/subject-group-ECFRefffd57b6ca5b6/section-240.12b-2
+- EO 14028 (Software Supply Chain) — https://www.federalregister.gov/documents/2021/05/17/2021-10460/improving-the-nations-cybersecurity
+- OMB M-22-18 — https://www.whitehouse.gov/wp-content/uploads/2022/09/M-22-18.pdf
+- OMB M-23-16 — https://www.whitehouse.gov/wp-content/uploads/2023/06/M-23-16-Update-to-M-22-18-Enhancing-Software-Security.pdf
+- NIST SP 800-218 SSDF v1.1 — https://csrc.nist.gov/publications/detail/sp/800-218/final
+- NIST SP 800-218A SSDF-AI IPD — https://csrc.nist.gov/pubs/sp/800/218/a/ipd
+- CISA SSDF Common Form (OMB 1670-0052) — https://www.cisa.gov/resources-tools/services/secure-software-development-attestation-form
+- CISA RSAA — https://www.cisa.gov/resources-tools/services/repository-software-attestations-and-artifacts-rsaa
+- NDAA §889 (Pub. L. 115-232) — https://www.congress.gov/115/plaws/publ232/PLAW-115publ232.pdf
+- NDAA §1634 (Pub. L. 115-91) — https://www.congress.gov/115/plaws/publ91/PLAW-115publ91.pdf
+- FAR 4.2102 — https://www.acquisition.gov/far/subpart-4.21
+- FAR 52.204-25 — https://www.acquisition.gov/far/52.204-25
+- FAR 52.204-26 — https://www.acquisition.gov/far/52.204-26
+- DHS Section 889 Implementation Guidance — https://www.dhs.gov/sites/default/files/publications/section-889-implementation-guidance.pdf
+- BIS Entity List — https://www.bis.doc.gov/index.php/policy-guidance/lists-of-parties-of-concern/entity-list
+- OFAC SDN List — https://ofac.treasury.gov/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists
+- SAM.gov Exclusions — https://sam.gov/content/exclusions

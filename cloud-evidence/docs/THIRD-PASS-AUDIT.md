@@ -1,5 +1,12 @@
 # Third-Pass Audit (after LOOP-A through LOOP-S + CIRCIA)
 
+> **Status (2026-06-07):** All three third-pass items SPECIFIED.
+> - LOOP-W (Prohibited Vendors): SPEC + RISKS + 4 per-slice docs written.
+> - LOOP-T (NIST SSDF + CISA Common Form): SPEC + RISKS + 5 per-slice docs written.
+> - SEC 8-K Item 1.05: G.G2-SEC-8K-EXTENSION written; CIRCIA-WORKFLOW.md §9.1 corrected.
+> Implementation status remains 'proposed' for all new slices. Next priority: LOOP-W.W1.
+> Fourth-pass audit produced in docs/FOURTH-PASS-AUDIT.md.
+
 > Date: 2026-06-07. Author: automated audit pass (third).
 > Status: PROPOSED — not yet adopted in STATUS.md.
 >

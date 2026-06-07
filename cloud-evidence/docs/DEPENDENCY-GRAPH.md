@@ -1,19 +1,26 @@
-# Dependency Graph — every slice across LOOP-A through LOOP-S (+ CIRCIA overlays)
+# Dependency Graph — every slice across LOOP-A through LOOP-W (+ CIRCIA + SEC 8-K overlays)
 
 > Single source of truth for slice ordering. Derived from the `depends_on`
 > and `blocks` frontmatter in every per-slice doc under `docs/slices/X/X.XN.md`.
 > Read this when planning what to work on next, what can be parallelised,
 > and what cannot start yet.
 >
-> **Scope:** 83 enumerated slices (LOOP-A complete; LOOP-B through LOOP-S
-> pending) + 2 CIRCIA-extension overlay slices (G.G2.CIRCIA, M.M4.CIRCIA).
+> **Scope:** 92 enumerated slices (LOOP-A complete; LOOP-B through LOOP-W
+> pending) + 3 overlay slices (G.G2.CIRCIA, M.M4.CIRCIA, G.G2-SEC-8K).
 > LOOP-L through LOOP-Q were ratified 2026-06-07 (see
 > `ADDITIONAL-LOOPS-AUDIT.md` + `SECOND-PASS-AUDIT.md`). LOOP-R + LOOP-S +
 > CIRCIA extensions were ratified 2026-06-07 (see `THIRD-PASS-AUDIT.md`).
+> LOOP-T (Continuous Authorization Telemetry) and LOOP-W (Supply Chain
+> Transparency / SBOM Attestation) were ratified 2026-06-07 (see
+> `FOURTH-PASS-AUDIT.md`). The SEC 8-K Item 1.05 overlay on G.G2 was
+> ratified 2026-06-07 (publicly-traded CSPs only).
 > LOOP-M (Privacy/SORN/DPIA) and LOOP-O (AI/ML Governance) are confirmed
 > applicable. LOOP-R (PQC) is mandatory for all CSPs (federal mandate);
 > LOOP-S (DFARS 7012) is conditional on DoD-prime customers; CIRCIA
-> extensions are HIGH PRIORITY (May 2026 effective date).
+> extensions are HIGH PRIORITY (May 2026 effective date); LOOP-T is
+> recommended for any CSP pursuing 20x Phase Two; LOOP-W is mandatory
+> per EO 14028 + OMB M-22-18 + M-23-16; SEC 8-K overlay is conditional
+> on publicly-traded CSP status.
 
 ---
 
@@ -478,6 +485,88 @@ graph TD
   G.G2.CIRCIA -.-> M.M4.CIRCIA
 
   %% =========================================================
+  %% SEC 8-K Item 1.05 extension (overlay on G.G2; publicly-traded CSPs)
+  %% =========================================================
+  G.G2 -.-> G.G2.SEC8K[G.G2-SEC-8K Item 1.05 four-business-day disclosure]
+  G.G2.CIRCIA -.-> G.G2.SEC8K
+
+  %% =========================================================
+  %% LOOP-W Supply Chain Transparency / SBOM Attestation
+  %% =========================================================
+  W.W1[W.W1 SBOM attestation foundation]
+  W.W1 --> W.W2[W.W2 SBOM ingest + subprocessor cross-walk]
+  E2SBOM --> W.W2
+  J.J3 --> W.W2
+  SUBSHEET --> W.W2
+  W.W2 --> W.W3[W.W3 Vendor attestation registry]
+  A.A4 --> W.W3
+  A.A5 --> W.W3
+  W.W2 --> W.W4[W.W4 Signed SBOM publication envelope]
+  A.A5 --> W.W4
+
+  %% =========================================================
+  %% LOOP-T Continuous Authorization Telemetry
+  %% =========================================================
+  T.T1[T.T1 Telemetry foundation]
+  T.T1 --> T.T2[T.T2 KSI-envelope telemetry pipeline]
+  B.B1 -.-> T.T2
+  B.B2 -.-> T.T2
+  B.B3 -.-> T.T2
+  B.B4 -.-> T.T2
+  B.B5 -.-> T.T2
+  C.C1 -.-> T.T2
+  C.C2 -.-> T.T2
+  C.C3 -.-> T.T2
+  C.C4 -.-> T.T2
+  C.C5 -.-> T.T2
+  C.C6 -.-> T.T2
+  C.C7 -.-> T.T2
+  C.C8 -.-> T.T2
+  C.C9 -.-> T.T2
+  D.D1 -.-> T.T2
+  D.D2 -.-> T.T2
+  D.D3 -.-> T.T2
+  E.E1 -.-> T.T2
+  E.E2 -.-> T.T2
+  E.E3 -.-> T.T2
+  E.E4 -.-> T.T2
+  E.E5 -.-> T.T2
+  E.E6 -.-> T.T2
+  E.E7 -.-> T.T2
+  F.F1 -.-> T.T2
+  F.F2 -.-> T.T2
+  F.F3 -.-> T.T2
+  F.F4 -.-> T.T2
+  F.F5 -.-> T.T2
+  F.F6 -.-> T.T2
+  F.F7 -.-> T.T2
+  G.G1 -.-> T.T2
+  G.G2 -.-> T.T2
+  G.G3 -.-> T.T2
+  G.G4 -.-> T.T2
+  G.G5 -.-> T.T2
+  G.G6 -.-> T.T2
+  H.H1 -.-> T.T2
+  H.H2 -.-> T.T2
+  H.H3 -.-> T.T2
+  I.I1 -.-> T.T2
+  I.I2 -.-> T.T2
+  I.I3 -.-> T.T2
+  I.I4 -.-> T.T2
+  J.J1 -.-> T.T2
+  J.J2 -.-> T.T2
+  J.J3 -.-> T.T2
+  K.K1 -.-> T.T2
+  K.K2 -.-> T.T2
+  T.T1 --> T.T3[T.T3 Posture-delta aggregator]
+  T.T2 --> T.T3
+  T.T3 --> T.T4[T.T4 Continuous-ATO event log + tracker integration]
+  A.A4 --> T.T4
+  T.T1 --> T.T5[T.T5 Telemetry consumer + AI-eval feedback]
+  T.T2 --> T.T5
+  O.O5 --> T.T5
+
+  %% =========================================================
   %% Pre-flight wiring
   %% =========================================================
   REO0 --> A.A1
@@ -593,6 +682,16 @@ underlying expansion is documented in the corresponding per-slice doc.
 | **S.S3** | S.S1, S.S2, A.A4, L.L1 | (terminal — DFARS 7012 attestation package) |
 | **G.G2.CIRCIA** *(overlay)* | G.G2, C.C3 | M.M4.CIRCIA |
 | **M.M4.CIRCIA** *(overlay)* | M.M4, G.G2.CIRCIA | (terminal — CIRCIA + Privacy Act harmonization) |
+| **G.G2-SEC-8K** *(overlay)* | G.G2 *(extends)*, G.G2.CIRCIA *(sibling overlay)* | (terminal — SEC Item 1.05 Form 8-K four-business-day disclosure; conditional on publicly-traded CSP) |
+| **W.W1** | (foundation — no enumerated slice predecessors) | W.W2, W.W3, W.W4 |
+| **W.W2** | W.W1, E.2 SBOM, J.J3, subprocessors-sheet | W.W3, W.W4 |
+| **W.W3** | W.W2, A.A4 (tracker DB), A.A5 (signing) | (terminal — vendor attestation registry) |
+| **W.W4** | W.W2, A.A5 (signing) | (terminal — signed SBOM publication envelope) |
+| **T.T1** | (foundation — no enumerated slice predecessors) | T.T2, T.T3, T.T5 |
+| **T.T2** | T.T1, KSI envelopes (B–K family) | T.T3, T.T5 |
+| **T.T3** | T.T1, T.T2 | T.T4 |
+| **T.T4** | T.T3, A.A4 | (terminal — continuous-ATO event log + tracker integration) |
+| **T.T5** | T.T1, T.T2, O.O5 | (terminal — telemetry consumer + AI-eval feedback) |
 
 Cycle notes (self-referential pairs in the table above):
 - **E.E3 ↔ E.E4** — E.E4 depends on E.E3 for the annual harness; E.E3

@@ -753,3 +753,210 @@ npm run check:reo      # G1+G2+G3 must all be green
 ```
 
 Then commit + push.
+
+---
+
+## Added loops W + T + SEC 8-K (2026-06-07)
+
+### Why this section exists
+
+A **third-pass audit** (recorded in `docs/THIRD-PASS-AUDIT.md` plus the
+forthcoming `docs/FOURTH-PASS-AUDIT.md`) surfaced FIVE distinct statutory
+or regulatory drivers that prior passes (`ADDITIONAL-LOOPS-AUDIT.md` ->
+`SECOND-PASS-AUDIT.md` -> `THIRD-PASS-AUDIT.md`) had under-scoped or
+mis-classified. Each driver carries its own enforcement clock, its own
+reporting form, its own audience, and its own evidentiary chain — none
+fully covered by the LOOP-A through LOOP-S corpus as previously committed.
+The five drivers are:
+
+1. **FAR 52.204-25** — "Prohibition on Contracting for Certain
+   Telecommunications and Video Surveillance Services or Equipment"
+   (Section 889 of the FY2019 NDAA, Public Law 115-232). 1-business-day
+   reporting clock on discovery of covered equipment. Distinct from CIRCIA
+   72-hour because (a) the audience is the contracting officer, not CISA,
+   (b) the trigger is mere *discovery during contract performance*, not a
+   cyber incident, and (c) the form is the 52.204-26 representation /
+   52.204-25 disclosure, not the CISA Common Form. This drives **LOOP-W**.
+
+2. **NDAA Section 1634** (FY2018, Public Law 115-91) and the cascade of
+   FAR + DFARS supply-chain prohibitions on Kaspersky Lab products /
+   services. Supply-chain procurement gate, distinct from the engineering
+   attestations in `J.J3.b` (FOCI / personnel + privileged-access).
+   This drives **LOOP-T**.
+
+3. **OMB M-22-18** ("Enhancing the Security of the Software Supply Chain
+   through Secure Software Development Practices", Sept 14 2022) and its
+   M-23-16 update. Requires the CSP, for any software delivered to a
+   federal agency, to obtain a self-attestation conforming to the CISA
+   Common Form (Form 3201-NEW). This is a procurement gate distinct from
+   LOOP-J SBOM emission. Folds into **LOOP-T**.
+
+4. **CISA Common Form (Secure Software Development Attestation Form,
+   OMB control number 1670-0052)**. The actual artifact required by
+   M-22-18 / M-23-16. Drives the schema for one of the LOOP-T slices.
+
+5. **SEC Final Rule 33-11216 / 34-97989** ("Cybersecurity Risk Management,
+   Strategy, Governance, and Incident Disclosure by Public Companies",
+   effective Dec 18 2023). Item 1.05 of Form 8-K requires disclosure of
+   material cybersecurity incidents within four business days of the
+   materiality determination. Previously assumed out-of-scope; this
+   audit re-classifies it as **in-scope for publicly-traded CSPs** as a
+   conditional overlay on G.G2 — drives the
+   `G.G2-SEC-8K-EXTENSION.md` document.
+
+### LOOP-W — FAR 52.204-25 / Section 889 Covered Equipment Discovery + 1-BD Notification
+
+- **4 slices.**
+- **HIGHEST priority** in the new-loop set. The 1-business-day reporting
+  clock is *sharper* than CIRCIA's 72-hour clock; CSPs serving federal
+  customers can violate FAR 52.204-25 simply by failing to *notify on
+  discovery* even when no incident occurred.
+- Slices:
+  - **W.W1** — Section 889 covered-equipment registry + cloud inventory
+    scanner. Loads the published prohibited-vendor list (Huawei, ZTE,
+    Hytera, Hangzhou Hikvision Digital Technology Co., Dahua, plus their
+    affiliates and subsidiaries as enumerated in the FAR rule and the
+    Section 889 Part B coverage determinations). Cross-references against
+    cloud inventory (asset metadata) + procurement-system feed (operator-
+    supplied SBOM + vendor list).
+  - **W.W2** — Discovery event emitter. Whenever scanner finds a covered
+    asset, emit a discovery-event JSON envelope (signed, timestamped) and
+    start the 1-business-day clock.
+  - **W.W3** — Contracting-officer notification packet generator. Emits
+    a structured notification artifact matching FAR 52.204-25(d)(1) and
+    the 52.204-26 representation. .docx + canonical JSON.
+  - **W.W4** — 1-BD clock dashboard + escalation. Integrates with
+    LOOP-I dashboards. Hard escalation if the clock passes 6 business
+    hours without operator acknowledgement.
+- Reusable primitives from: A.A1 (signing), G.G2 (incident envelope
+  pattern), I.I1 (clock dashboard widget), J.J2 (SBOM ingestion).
+
+### LOOP-T — Supply-Chain Procurement Gate (NDAA §1634 + OMB M-22-18 + CISA Common Form)
+
+- **5 slices.**
+- Procurement gate **distinct** from J.J3.b engineering attestations.
+  LOOP-J is about *engineering* attestations (FOCI / personnel /
+  privileged access on the build system); LOOP-T is about *procurement*
+  attestations on every piece of third-party software the CSP ships to
+  a federal customer.
+- Slices:
+  - **T.T1** — Prohibited-vendor registry (Kaspersky + others enumerated
+    in the supply-chain prohibition cascade). Distinct registry from W.W1
+    (which is hardware / telecom equipment).
+  - **T.T2** — CISA Common Form (Form 3201-NEW) self-attestation ingestion.
+    Operator-supplied per-software-product attestations, signed +
+    versioned + cross-referenced to the SBOM.
+  - **T.T3** — Attestation-coverage report. Per-component coverage report
+    showing which third-party packages have a Common Form on file and
+    which do not.
+  - **T.T4** — Procurement-gate enforcement hook. CI/CD gate that fails
+    a build if any newly-introduced third-party package lacks a Common
+    Form attestation.
+  - **T.T5** — POA&M auto-creation when a Common Form attestation
+    expires or is withdrawn.
+- Reusable primitives from: J.J2 (SBOM ingestion), B.B1 (POA&M engine),
+  E.E2 (ConMon expiry watcher).
+
+### G.G2-SEC-8K-EXTENSION — Conditional Overlay for Publicly-Traded CSPs
+
+- **1 overlay** document — `docs/slices/G/G.G2-SEC-8K-EXTENSION.md`.
+- Re-classifies SEC Form 8-K Item 1.05 as **in-scope** for publicly-
+  traded CSPs.
+- Extension pattern (like `G.G2-CIRCIA-EXTENSION.md`): sibling document
+  to the parent G.G2 slice. When G.G2 ships, the SEC 8-K extension MUST
+  ship in the same commit OR be tracked as an explicit follow-up in
+  STATUS.md.
+- 4-business-day clock from the materiality determination. Operator-
+  supplied flag: `org_profile.publicly_traded == true`.
+- Cross-reference: CIRCIA's 72-hour clock applies in parallel; SEC's
+  4-BD clock starts from the *materiality determination* (which itself
+  may post-date the incident discovery), so the two clocks can fire
+  asynchronously.
+
+### CIRCIA-WORKFLOW.md §9.1 correction
+
+The third-pass audit further surfaced that **CIRCIA-WORKFLOW.md §9.1**
+previously over-narrowed the "Covered Cyber Incident" definition by
+omitting the CIRCIA Final Rule's explicit inclusion of *substantial loss
+of confidentiality, integrity, or availability of an information system
+or network* that *does not* involve unauthorized access. §9.1 has been
+corrected; the per-loop dependency graph in `docs/DEPENDENCY-GRAPH.md`
+remains valid because the addition narrows scope on the workflow side
+only (more incidents must be reported; none are removed).
+
+### New corpus totals
+
+- **98 slices total** = 97 base slices + 1 overlay (the SEC 8-K
+  extension is counted as overlay, not base; CIRCIA G.G2 + M.M4
+  extensions are also overlays and already counted under loops G and M).
+- **21 loops** (was 19): adds LOOP-W and LOOP-T.
+- The previously published "55-slice plan" baseline is now considered a
+  historical snapshot; current canonical count is in `docs/STATUS.md`.
+
+### Updated next-priority order
+
+The previously published priority order (LOOP-B through LOOP-K) is
+**pre-empted** for the new audit-surfaced loops because:
+
+- LOOP-W's 1-business-day clock is the sharpest enforcement window in
+  the whole corpus.
+- LOOP-T's CI/CD procurement gate (T.T4) blocks all software shipped
+  to federal customers, so deferring it means shipping non-compliant
+  builds.
+- The SEC 8-K extension is a one-document overlay; trivial to land
+  alongside the next G.G2 work.
+
+New order:
+
+1. **W.W1** — Section 889 covered-equipment registry + scanner
+2. **W.W2** — Discovery event emitter + 1-BD clock start
+3. **W.W3** — Contracting-officer notification packet
+4. **W.W4** — Clock dashboard + escalation
+5. **T.T1** — Prohibited-vendor registry (Kaspersky cascade)
+6. **T.T2** — CISA Common Form ingestion
+7. **T.T3** — Attestation-coverage report
+8. **T.T4** — Procurement-gate enforcement hook
+9. **T.T5** — POA&M auto-creation on attestation expiry
+10. **G.G2-SEC-8K-EXTENSION** (lands alongside next G.G2 work; out of
+    band if G.G2 is not yet started)
+11. **LOOP-B.B1** — risk engine (the previously top-priority slice)
+12. Continue with the prior LOOP-B..K order from there.
+
+### Pointer to FOURTH-PASS-AUDIT.md
+
+A fourth-pass audit pass is queued (file: `docs/FOURTH-PASS-AUDIT.md`,
+to be authored). Any *further* statutory / regulatory gaps surfaced by
+that pass will arrive in their own appended section to this execution
+plan, following the same pattern as this one. The fourth-pass audit
+will explicitly examine:
+
+- EU AI Act extraterritorial reach for U.S. CSPs serving EU subprocessors
+- HHS HIPAA Security Rule NPRM 2025 (proposed encryption-at-rest
+  mandates) for CSPs with healthcare customers
+- DoE CMMC 2.0 Level 3 deltas vs the LOOP-S DFARS 252.204-7012 cloud
+  equivalency mapping
+- State-level data-breach notification statutes that may run alongside
+  CIRCIA + SEC 8-K (notably California Civil Code §1798.82 and Texas
+  Business & Commerce Code §521.053)
+
+### Slice-completion + push directive (MANDATORY for every new slice)
+
+Every W.* and T.* slice, plus the SEC 8-K overlay, MUST follow the
+9-step procedure already codified in `cloud-evidence/CLAUDE.md`:
+
+1. Pass typecheck + tests + check:reo (atomic — green before commit)
+2. Update `docs/STATUS.md` (slice row + Overall section)
+3. Update the loop's spec doc (`docs/loops/LOOP-W-SPEC.md` /
+   `docs/loops/LOOP-T-SPEC.md`) — slice's status row
+4. Update the per-slice doc's YAML frontmatter (`status: done`,
+   `commit: <hash>`, `completed_date: <ISO>`, `last_updated: <ISO>`)
+5. Append the final Implementation log entry to the per-slice doc
+6. Add any newly-discovered risks to the loop's RISKS register
+7. Add a `CHANGELOG.md` "Unreleased" entry
+8. Commit with the slice ID in the message + Co-Authored-By trailer
+9. **Push to origin/main**
+
+NO slice is "closed" until step 9 completes. The push step is what
+makes the slice visible to other sessions and to the published GitHub
+state; skipping it leaves the on-disk source of truth in disagreement
+with the public truth, which is itself a REO violation.

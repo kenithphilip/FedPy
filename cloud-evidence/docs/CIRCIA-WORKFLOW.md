@@ -795,12 +795,14 @@ ratifies, the CSP must submit redundant reports.
 | **CIRCIA ransom payment** | Ransom payment made | 24h | CISA CIRCIA portal | LOOP-G.G2.CIRCIA |
 | **DFARS 252.204-7012** | Cyber incident on CDI/CUI in DoD contract | 72h | https://dibnet.dod.mil/ | LOOP-S.S3 |
 | **HIPAA Breach Notification** | PHI breach | 60d to individuals, 60d to HHS (or sooner) | HHS portal + individuals | not in scope (LOOP-M overlay for partner-handled PHI) |
-| **SEC 8-K Item 1.05** | Material cybersecurity incident (public co.) | 4 business days from materiality determination | EDGAR | not in scope (CSP is rarely public co. directly) |
+| **SEC 8-K Item 1.05** | Material cybersecurity incident (public co.) | 4 business days from materiality determination | EDGAR | in scope for any CSP that is publicly traded, a wholly-owned subsidiary of a publicly-traded parent, or pre-IPO with cyber-disclosure obligations to investors. See docs/slices/G/G.G2-SEC-8K-EXTENSION.md |
 | **FCC Section 4(j) Breach Reporting** | CPNI breach | 7 business days | FCC + Secret Service / FBI | not in scope |
 | **NCUA Cyber Incident Notification** | Credit-union cyber incident | 72h | NCUA portal | not in scope (CSP customers may carry this duty) |
 | **GLBA Safeguards Rule §314.4(j)** | Customer-info breach affecting ≥500 customers | 30d to FTC | FTC portal | not in scope (financial-services customers carry this) |
 | **EU NIS2 Article 23** | Significant incident (EU-customer-facing CSP) | 24h early warning + 72h notification + 1m final | per-Member-State CSIRT | not in scope (US-focused at MVP) |
 | **OMB M-17-12 (privacy breach)** | PII breach at FCEB agency | 1h to CISA US-CERT; 60d individuals; 7d Congress (major) | varies | LOOP-M.M4 |
+
+> **Reclassification (2026-06-07):** SEC Form 8-K Item 1.05 was originally classified as "not in scope" on the assumption that the CSP is rarely a publicly-traded company directly. This is incorrect for CSPs that are publicly traded, are wholly-owned subsidiaries of publicly-traded parents, or are pre-IPO with cyber-disclosure obligations to investors. SEC Final Rule 33-11216 (Jul 26, 2023) imposes a 4-business-day disclosure clock from materiality determination on any registrant that experiences a material cybersecurity incident. The full extension specification is in [docs/slices/G/G.G2-SEC-8K-EXTENSION.md](slices/G/G.G2-SEC-8K-EXTENSION.md), which integrates the SEC 8-K clock with the CIRCIA 72-hour clock and DFARS 7012 72-hour clock as a multi-disclosure coordination sequence.
 
 ### 9.2 Harmonization status (§681e)
 

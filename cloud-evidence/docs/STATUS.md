@@ -5,11 +5,11 @@
 > When a slice completes: update its row + commit + push (atomic with the slice's own commit).
 
 ## Overall
-- Total slices: 88 (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending + 6 LOOP-R+S pending + 2 CIRCIA-extension slices pending) + 4 pre-loop research (R1-R4 done) + REO-0 (done)
-- Loops total: 19 (A-S) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA)
-- Loops complete: 1 of 19 (LOOP-A)
+- Total slices: 97 base (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending + 6 LOOP-R+S pending + 4 LOOP-W pending + 5 LOOP-T pending + 2 CIRCIA-extension slices pending) + 1 SEC 8-K overlay (G.G2-SEC-8K) = 98 total counting the overlay; + 4 pre-loop research (R1-R4 done) + REO-0 (done)
+- Loops total: 21 (A-S + T + W) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
+- Loops complete: 1 of 21 (LOOP-A)
 - Last shipped: LOOP-A.A5 (commit `469049f`)
-- Next priority: LOOP-B.B1 (per-finding CVSS+EPSS scoring) — LOOP-L through LOOP-Q queued behind B.B1; LOOP-R, LOOP-S, and CIRCIA extensions queued behind LOOP-L–Q
+- Next priority: **LOOP-W (Prohibited Vendors) — HIGHEST PRIORITY per `docs/THIRD-PASS-AUDIT.md`** (FY2025 NDAA §1634 + EO 14117 + BIS ICTS Final Rule are statutorily binding and gate the submission package). Then **LOOP-T (NIST SSDF + CISA Common Form)** — required by OMB M-22-18 / M-23-16 for any CSP supplying software to the federal government. Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring remains the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1; LOOP-R, LOOP-S, and CIRCIA extensions queued behind LOOP-L–Q.
 
 > **Note on LOOP-L through LOOP-Q (2026-06-07):** `ADDITIONAL-LOOPS-AUDIT.md`
 > (2026-06-06) surfaced 6 net-new loops (L–Q). The human has ratified the
@@ -210,11 +210,29 @@
 | S.S2 | Cyber Incident Reporting per DFARS 252.204-7012(c) | pending | — | — | `docs/loops/LOOP-S-SPEC.md` | `docs/slices/S/S.S2.md` |
 | S.S3 | Cloud Equivalency Attestation Package | pending | — | — | `docs/loops/LOOP-S-SPEC.md` | `docs/slices/S/S.S3.md` |
 
-## CIRCIA Extensions (HIGH PRIORITY — May 2026 effective)
+## LOOP-W — Prohibited Vendors (HIGHEST PRIORITY — statutorily gates submission package)
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|---|
+| W.W1 | Prohibited-vendor list ingest (NDAA §1634 + EO 14117 + BIS ICTS Final Rule + GSA/FAR Subpart 4.21) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W1.md` | — | 2026-06-07 |
+| W.W2 | Subprocessor + supplier inventory crosscheck against prohibited-vendor list | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W2.md` | W.W1, J.J2 | 2026-06-07 |
+| W.W3 | SBOM + dependency-graph crosscheck against prohibited-vendor list (transitive supplier check) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W3.md` | W.W1, J.J3 | 2026-06-07 |
+| W.W4 | Prohibited-vendor compliance attestation emitter (signed, blocks submission on hit) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W4.md` | W.W1, W.W2, W.W3 | 2026-06-07 |
+
+## LOOP-T — NIST SSDF + CISA Secure Software Development Attestation Common Form
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|---|
+| T.T1 | NIST SSDF (SP 800-218) practice inventory + control mapping | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T1.md` | — | 2026-06-07 |
+| T.T2 | SSDF evidence collector (CI/CD pipeline, build provenance, SBOM, signing) | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T2.md` | T.T1, J.J3 | 2026-06-07 |
+| T.T3 | CISA Secure Software Development Attestation Common Form emitter (OMB M-22-18 / M-23-16) | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T3.md` | T.T1, T.T2 | 2026-06-07 |
+| T.T4 | Third-party software components attestation appendix | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T4.md` | T.T3 | 2026-06-07 |
+| T.T5 | CISA RSAA portal submission package + repository signed-envelope | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T5.md` | T.T3, T.T4 | 2026-06-07 |
+
+## CIRCIA Extensions + Overlays (HIGH PRIORITY — May 2026 effective for CIRCIA; SEC 8-K is in force today)
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
 |---|---|---|---|---|---|---|
 | G.G2.CIRCIA | CIRCIA 72-hour incident reporting extension | pending | — | — | `docs/CIRCIA-WORKFLOW.md` | `docs/slices/G/G.G2-CIRCIA-EXTENSION.md` |
 | M.M4.CIRCIA | CIRCIA + Privacy Act incident harmonization | pending | — | — | `docs/CIRCIA-WORKFLOW.md` | `docs/slices/M/M.M4-CIRCIA-EXTENSION.md` |
+| G.G2-SEC-8K | SEC Item 1.05 Form 8-K cyber-incident disclosure overlay (four-business-day clock; applies when CSP is an SEC-registrant or subsidiary thereof) | proposed | TBD | — | `docs/loops/LOOP-G-SPEC.md` | `docs/slices/G/G.G2-SEC-8K-EXTENSION.md` |
 
 ## Per-loop risks registers
 Each loop has a dedicated risks register listing implementation,
