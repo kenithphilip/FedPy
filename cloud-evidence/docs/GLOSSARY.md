@@ -10,12 +10,18 @@
 >   captures the operational meaning that the spec docs presume.)
 > - **Authoritative source URL** when applicable.
 >
-> 120+ terms. Indexed alphabetically. If you add a term during slice
+> 150+ terms. Indexed alphabetically. If you add a term during slice
 > implementation, add it here too — the per-slice docs presume the
 > glossary is current. 2026-06-07: 30+ new entries added covering
 > LOOP-L (CRM/Inheritance), LOOP-M (Privacy/SORN/DPIA), LOOP-N (Threat
 > Modeling), LOOP-O (AI/ML Governance), LOOP-P (Insider Threat + PS),
-> and LOOP-Q (Marketplace + Post-ATO).
+> and LOOP-Q (Marketplace + Post-ATO). 2026-06-07 (third pass): 25+
+> new entries added covering LOOP-R (Post-Quantum Cryptography: PQC,
+> FIPS 203/204/205, NIST IR 8547, OMB M-23-02, NSM-10, CNSA 2.0, Crypto
+> Agility, Hybrid TLS), LOOP-S (DFARS 252.204-7012/-7019/-7020, NIST
+> 800-171 Rev 3, CDI, DC3, DoD Cloud Computing SRG, Cloud Equivalency),
+> and CIRCIA extensions (CIRCIA, Covered Entity, Covered Cyber
+> Incident, Ransom Payment Report, 6 USC §681b, PPD-21 sectors).
 
 ---
 
@@ -179,6 +185,61 @@ Proposed LOOP-L.L1 in ADDITIONAL-LOOPS-AUDIT.md §2.
 feed for threat indicators. Proposed extension under
 ADDITIONAL-LOOPS-AUDIT.md §3.9.
 
+**CIRCIA (Cyber Incident Reporting for Critical Infrastructure Act)** —
+*Federal statute, 6 USC §681b.* Enacted March 2022; CISA published the
+Final Rule in early 2026 with an effective date of May 2026. Requires
+Covered Entities in PPD-21 critical-infrastructure sectors to report
+Covered Cyber Incidents to CISA within 72 hours and ransom payments
+within 24 hours. Implemented as overlay extensions to G.G2 (AFR-ICP)
+and M.M4 (Privacy incident response) — see
+`docs/CIRCIA-WORKFLOW.md` and `docs/slices/G/G.G2-CIRCIA-EXTENSION.md` +
+`docs/slices/M/M.M4-CIRCIA-EXTENSION.md`. HIGH PRIORITY due to May 2026
+effective date.
+https://www.cisa.gov/topics/cyber-threats-and-advisories/information-sharing/cyber-incident-reporting-critical-infrastructure-act-2022-circia
+
+**Cloud Equivalency** — *DoD CIO Memo (DFARS supplement).* The DoD
+policy that lets a FedRAMP-Moderate CSO satisfy NIST 800-171 protection
+for CDI on DoD-prime contracts, provided the CSO also implements the
+DFARS 252.204-7012(c) incident reporting flow + a delta crosswalk
+showing every 800-171 Rev 3 control is mapped to the corresponding
+800-53 Rev 5 baseline control. Implemented by LOOP-S.
+
+**Cloud Computing SRG (Security Requirements Guide)** — *DoD CIO /
+DISA.* The DoD Cloud Computing SRG defines IL2/IL4/IL5/IL6 cloud
+impact levels. LOOP-S references the IL4/IL5 alignment with FedRAMP
+Moderate/High for DoD-prime customer scenarios.
+https://public.cyber.mil/dccs/dccs-documents/
+
+**CNSA 2.0 (Commercial National Security Algorithm Suite 2.0)** — *NSA.*
+The NSA-published successor to CNSA 1.0; mandates PQC-safe primitives
+(ML-KEM, ML-DSA, SHA-2-384/512, AES-256) for National Security Systems.
+Federal civilian systems align via NSM-10. Consumed by LOOP-R.
+https://media.defense.gov/2022/Sep/07/2003071834/-1/-1/0/CSA_CNSA_2.0_ALGORITHMS_.PDF
+
+**Covered Cyber Incident** — *CIRCIA / 6 USC §681b(c)(2)(C).* A
+substantial cyber incident at a Covered Entity that meets one of the
+CIRCIA Final Rule thresholds (loss of confidentiality/integrity/
+availability of information systems, disruption of operations,
+unauthorized access via supply chain compromise). Triggers the
+72-hour reporting deadline.
+
+**Covered Defense Information (CDI)** — *DFARS 252.204-7012(a).*
+Unclassified controlled technical information or other information
+identified in the contract that requires safeguarding. Triggers DFARS
+7012 compliance + 800-171 control set. Routed through LOOP-S
+data-classification tagging.
+
+**Covered Entity** — *CIRCIA / 6 USC §681b(c)(2)(B).* An entity in one
+of the 16 PPD-21 critical-infrastructure sectors that meets CISA's
+size + role thresholds. CSPs processing critical-infrastructure
+workloads are Covered Entities. Determines CIRCIA reporting obligation.
+
+**Crypto Agility** — *NIST IR 8547 / OMB M-23-02.* The system property
+of being able to swap cryptographic algorithms (or algorithm
+parameters) without re-architecting the application. Crypto-agile
+designs are a precondition for the PQC migration path. Tracked by
+LOOP-R.R1 + LOOP-R.R2.
+
 **check:provenance** — *Internal CI guardrail G3.* Fails the build when
 a new emit-field lacks a `provenance` entry or `coverage_source` registry
 entry.
@@ -249,6 +310,29 @@ https://www.first.org/cvss/v3.1/specification-document
 **Data classification** — *Internal tag.* `inventory.assets[].data_classification`
 ∈ {public, internal, confidential, cui, pii}. Set via cloud tag
 `fedramp_data_classification`. Drives LOOP-B.B1 criticality.
+
+**DC3 (DoD Cyber Crime Center)** — *DoD.* The DoD organization that
+receives DFARS 252.204-7012(c) cyber incident reports via the DIB Net
+portal (https://dibnet.dod.mil/). LOOP-S.S2 emits the DC3 submission
+record and tracks the 72-hour deadline.
+
+**DFARS 252.204-7012 (Safeguarding Covered Defense Information +
+Cyber Incident Reporting)** — *DFARS / 48 CFR §252.204-7012.* The DoD
+clause that requires contractors handling CDI to implement NIST
+800-171 safeguards + report cyber incidents to DC3 within 72 hours of
+discovery. Cloud-equivalency path lets a FedRAMP-Moderate CSO satisfy
+the safeguarding clause. Implemented by LOOP-S.
+https://www.acq.osd.mil/dpap/dars/dfars/html/current/252204.htm#252.204-7012
+
+**DFARS 252.204-7019 (Notice of NIST SP 800-171 DoD Assessment
+Requirements)** — *DFARS / 48 CFR §252.204-7019.* The clause requiring
+contractors to post a current SPRS score before contract award. Cited
+in LOOP-S.S3 for the attestation package's SPRS coverage.
+
+**DFARS 252.204-7020 (NIST SP 800-171 DoD Assessment Requirements)** —
+*DFARS / 48 CFR §252.204-7020.* The DoD-self / 3PAO assessment regime
+underpinning -7019. Cited in LOOP-S.S3 as the trail that the
+equivalency attestation aligns to.
 
 **Datasheet for Datasets** — *Gebru et al. 2018; NIST AI RMF MAP.*
 Structured document for training-data provenance: collection process,
@@ -325,6 +409,24 @@ opinionated validation of KSIs for Moderate.
 **FIPS 140-3** — *NIST CMVP.* Cryptographic module certification
 standard. SSP Appendix Q crypto table cites FIPS validation numbers.
 
+**FIPS 203 (ML-KEM)** — *NIST FIPS 203 (August 2024).* Module-Lattice-
+Based Key-Encapsulation Mechanism Standard. The NIST-standardised PQC-
+safe key-encapsulation primitive (derived from CRYSTALS-Kyber). Tracked
+by LOOP-R.R1 cryptographic inventory + R.R2 migration plan.
+https://csrc.nist.gov/pubs/fips/203/final
+
+**FIPS 204 (ML-DSA)** — *NIST FIPS 204 (August 2024).* Module-Lattice-
+Based Digital Signature Standard. NIST-standardised PQC-safe digital
+signature primitive (derived from CRYSTALS-Dilithium). Tracked by
+LOOP-R.R1 inventory + R.R2 migration plan.
+https://csrc.nist.gov/pubs/fips/204/final
+
+**FIPS 205 (SLH-DSA)** — *NIST FIPS 205 (August 2024).* Stateless Hash-
+Based Digital Signature Standard. NIST-standardised PQC-safe signature
+primitive (derived from SPHINCS+) intended for long-lived signing keys.
+Tracked by LOOP-R.R1 inventory + R.R2 migration plan.
+https://csrc.nist.gov/pubs/fips/205/final
+
 **FIPS 199** — *NIST.* Federal Information Processing Standard for
 categorization. Worksheet emitted by LOOP-C.C5.
 
@@ -349,6 +451,14 @@ in `.github/workflows/ci.yml`.
 
 **HMAC-SHA256** — *Cryptographic primitive.* Used in LOOP-G.G1 webhook
 auth + generic-webhook adapter (Phase F.4).
+
+**Hybrid TLS** — *NIST SP 800-227 (draft) / IETF TLS WG.* A TLS
+configuration that runs a classical key-exchange primitive (e.g.
+ECDH-P256) in parallel with a PQC-safe key-encapsulation mechanism
+(e.g. ML-KEM-768) and combines the shared secrets via a KDF, so the
+session is forward-secure even if one primitive is later broken.
+LOOP-R.R2 migration plan recommends Hybrid TLS as the staged migration
+target before PQC-only deployments.
 
 **Hybrid Control** — *FedRAMP / SSP Appendix J.* CRM responsibility
 bucket where the CSP implements one portion of the control and the
@@ -463,6 +573,28 @@ Emitted per inference endpoint by LOOP-O.O5.
 **NIST AI RMF 1.0** — *NIST AI 100-1.* Drives LOOP-O.
 https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.100-1.pdf
 
+**NIST SP 800-171 Rev 3** — *NIST SP 800-171 Revision 3 (May 2024).*
+Protecting CUI in Nonfederal Systems and Organizations. The 110-control
+set DoD-prime contractors must satisfy under DFARS 252.204-7012.
+LOOP-S.S1 emits the Rev 3 → FedRAMP Moderate (800-53B) crosswalk that
+underpins the cloud-equivalency claim.
+https://csrc.nist.gov/pubs/sp/800/171/r3/final
+
+**NIST IR 8547 (Transition to Post-Quantum Cryptography Standards)** —
+*NIST internal report (initial public draft November 2024).*
+Establishes the federal PQC migration timeline + algorithm-deprecation
+schedule + per-algorithm guidance for inventorying + replacing
+classical primitives with ML-KEM / ML-DSA / SLH-DSA. Primary technical
+authority for LOOP-R.
+https://csrc.nist.gov/pubs/ir/8547/ipd
+
+**NSM-10 (National Security Memorandum 10)** — *White House NSM-10
+(May 2022).* "Promoting US Leadership in Quantum Computing While
+Mitigating Risks to Vulnerable Cryptographic Systems." Mandates that
+federal agencies inventory cryptographic systems by 2026 and submit
+annual PQC migration progress reports. Drives LOOP-R.R1 + R.R3.
+https://www.whitehouse.gov/briefing-room/statements-releases/2022/05/04/national-security-memorandum-on-promoting-united-states-leadership-in-quantum-computing-while-mitigating-risks-to-vulnerable-cryptographic-systems/
+
 **NIST SP 800-122** — *Guide to Protecting the Confidentiality of PII.*
 Drives the PT-family inventory (LOOP-M.M3) + privacy incident response
 (LOOP-M.M4).
@@ -515,6 +647,14 @@ LOOP-C.C4 PIA + LOOP-M (SORN, DPIA).
 PII. Drives privacy-incident response procedures in LOOP-M.M4.
 https://www.whitehouse.gov/wp-content/uploads/legacy_drupal_files/omb/memoranda/2017/m-17-12_0.pdf
 
+**OMB M-23-02** — *OMB (November 2022).* "Migrating to Post-Quantum
+Cryptography." Operationalises NSM-10 for federal agencies: requires
+each agency to compile a cryptographic inventory, assess migration
+costs, prioritise High-Value Asset systems, and submit annual progress
+reports to OMB through 2035. Drives the LOOP-R.R3 annual PQC report
+format.
+https://www.whitehouse.gov/wp-content/uploads/2022/11/M-23-02-M-Memo-on-Migrating-to-Post-Quantum-Cryptography.pdf
+
 **OMB M-24-10** — Advancing AI use cases at federal agencies. Drives
 LOOP-O (AI/ML Governance).
 
@@ -556,6 +696,25 @@ the LOOP-N.N3 red-team adversarial test framework.
 **Post-ATO ConMon** — *FedRAMP.* Monthly evidence + POA&M delta
 delivery to the FedRAMP secure repository after ATO is issued.
 Implemented by LOOP-Q.Q2; ConMon strategy in LOOP-C.C6 + LOOP-E.
+
+**Post-Quantum Cryptography (PQC)** — *NIST / industry.* Cryptographic
+primitives believed to remain secure against attacks executed on a
+cryptographically-relevant quantum computer. NIST standardised the
+first PQC primitives in FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), and
+FIPS 205 (SLH-DSA), all published August 2024. The federal PQC
+migration is mandated by NSM-10 + OMB M-23-02 + NIST IR 8547 + NSA
+CNSA 2.0. Implemented by LOOP-R.
+
+**PPD-21 (Presidential Policy Directive 21)** — *White House (February
+2013).* "Critical Infrastructure Security and Resilience." Establishes
+the 16 critical-infrastructure sectors that determine CIRCIA Covered
+Entity scope: Chemical, Commercial Facilities, Communications,
+Critical Manufacturing, Dams, Defense Industrial Base, Emergency
+Services, Energy, Financial Services, Food and Agriculture, Government
+Facilities, Healthcare and Public Health, Information Technology,
+Nuclear, Transportation Systems, Water and Wastewater. LOOP-G.G2.CIRCIA
++ LOOP-M.M4.CIRCIA scope CSP applicability against this list.
+https://obamawhitehouse.archives.gov/the-press-office/2013/02/12/presidential-policy-directive-critical-infrastructure-security-and-resil
 
 **Privacy Act §552a** — *5 U.S.C. §552a (Privacy Act of 1974).* Sets
 SORN publication + Records-Management obligations for any federal
@@ -632,6 +791,13 @@ Underlies the VDR pipeline + BOD 23-01 cadence.
 
 **RBAC (Role-Based Access Control)** — *Standard.* Tracker UI roles +
 domain assignments shipped in Phase D.4.
+
+**Ransom Payment Report** — *CIRCIA / 6 USC §681b(a)(2).* A separate
+mandatory report (in addition to the Covered Cyber Incident report)
+that a Covered Entity must submit to CISA within 24 hours of making a
+ransom payment. Distinct schema + faster deadline than the 72-hour
+Covered Cyber Incident report. Emitted by LOOP-G.G2.CIRCIA when the
+operator records a ransom payment in the tracker.
 
 **Read-only guardrail** — *Internal.* `core/readonly-guardrail-*.ts`
 wraps cloud SDKs; throws on any non-read API call.
@@ -860,3 +1026,15 @@ emitter primitive for .docx and .xlsx OOXML containers.
 - IETF RFC 5321 (SMTP) — https://datatracker.ietf.org/doc/html/rfc5321
 - IETF RFC 6376 (DKIM) — https://datatracker.ietf.org/doc/html/rfc6376
 - IETF RFC 9116 (security.txt) — https://www.rfc-editor.org/rfc/rfc9116
+- NIST FIPS 203 (ML-KEM) — https://csrc.nist.gov/pubs/fips/203/final
+- NIST FIPS 204 (ML-DSA) — https://csrc.nist.gov/pubs/fips/204/final
+- NIST FIPS 205 (SLH-DSA) — https://csrc.nist.gov/pubs/fips/205/final
+- NIST SP 800-171 Rev 3 — https://csrc.nist.gov/pubs/sp/800/171/r3/final
+- NIST IR 8547 — https://csrc.nist.gov/pubs/ir/8547/ipd
+- NSM-10 — https://www.whitehouse.gov/briefing-room/statements-releases/2022/05/04/national-security-memorandum-on-promoting-united-states-leadership-in-quantum-computing-while-mitigating-risks-to-vulnerable-cryptographic-systems/
+- OMB M-23-02 — https://www.whitehouse.gov/wp-content/uploads/2022/11/M-23-02-M-Memo-on-Migrating-to-Post-Quantum-Cryptography.pdf
+- NSA CNSA 2.0 — https://media.defense.gov/2022/Sep/07/2003071834/-1/-1/0/CSA_CNSA_2.0_ALGORITHMS_.PDF
+- DFARS 252.204-7012 — https://www.acq.osd.mil/dpap/dars/dfars/html/current/252204.htm#252.204-7012
+- DoD Cloud Computing SRG — https://public.cyber.mil/dccs/dccs-documents/
+- CIRCIA (6 USC §681b) — https://www.cisa.gov/topics/cyber-threats-and-advisories/information-sharing/cyber-incident-reporting-critical-infrastructure-act-2022-circia
+- PPD-21 — https://obamawhitehouse.archives.gov/the-press-office/2013/02/12/presidential-policy-directive-critical-infrastructure-security-and-resil

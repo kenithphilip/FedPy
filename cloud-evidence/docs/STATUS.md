@@ -5,11 +5,11 @@
 > When a slice completes: update its row + commit + push (atomic with the slice's own commit).
 
 ## Overall
-- Total slices: 80 (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending) + 4 pre-loop research (R1-R4 done) + REO-0 (done)
-- Loops total: 17 (A-Q)
-- Loops complete: 1 of 17 (LOOP-A)
+- Total slices: 88 (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending + 6 LOOP-R+S pending + 2 CIRCIA-extension slices pending) + 4 pre-loop research (R1-R4 done) + REO-0 (done)
+- Loops total: 19 (A-S) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA)
+- Loops complete: 1 of 19 (LOOP-A)
 - Last shipped: LOOP-A.A5 (commit `469049f`)
-- Next priority: LOOP-B.B1 (per-finding CVSS+EPSS scoring) — LOOP-L through LOOP-Q queued behind B.B1
+- Next priority: LOOP-B.B1 (per-finding CVSS+EPSS scoring) — LOOP-L through LOOP-Q queued behind B.B1; LOOP-R, LOOP-S, and CIRCIA extensions queued behind LOOP-L–Q
 
 > **Note on LOOP-L through LOOP-Q (2026-06-07):** `ADDITIONAL-LOOPS-AUDIT.md`
 > (2026-06-06) surfaced 6 net-new loops (L–Q). The human has ratified the
@@ -21,6 +21,24 @@
 > enabling slice for I, F, E, and (now) N + O. LOOP-L.L1 is queued
 > immediately behind B.B1. A second-pass audit (`docs/SECOND-PASS-AUDIT.md`)
 > ran after L-Q specification to confirm nothing else is still missing.
+
+> **Note on LOOP-R, LOOP-S, CIRCIA extensions (2026-06-07):** A third-pass
+> audit (`docs/THIRD-PASS-AUDIT.md`) surfaced three additional bodies of
+> work that the second-pass audit missed: (a) Post-Quantum Cryptography
+> migration per NIST IR 8547 + OMB M-23-02 + NSM-10 + NSA CNSA 2.0
+> (LOOP-R, 3 slices, applicable to all CSPs because PQC migration is
+> federally mandated), (b) DFARS 252.204-7012 Cloud Equivalency for
+> DoD-prime customers (LOOP-S, 3 slices, **conditional** — only required
+> when the CSP has or pursues DoD-prime customers running Covered Defense
+> Information workloads on the CSO), and (c) **CIRCIA Final Rule 72-hour
+> incident reporting** extensions to G.G2 (Incident Communications
+> Procedures) and M.M4 (Privacy incident response) — these are
+> **HIGH-PRIORITY** because CIRCIA's effective date is May 2026 and any
+> CSP processing critical-infrastructure-related workloads is a Covered
+> Entity. CIRCIA extensions are tracked as overlay slices that MUST ship
+> in the same commit as the parent slice (G.G2 / M.M4) or be explicitly
+> tracked as a follow-up. The human may elevate CIRCIA extensions above
+> LOOP-B.B1 once basic CSP operations need to be CIRCIA-compliant.
 
 ## Pre-flight
 | ID | Title | Status | Commit | Date |
@@ -178,6 +196,26 @@
 | Q.Q2 | Post-ATO ConMon publication (monthly delivery to FedRAMP secure repository) | pending | — | — | `docs/loops/LOOP-Q-SPEC.md` | `docs/slices/Q/Q.Q2.md` |
 | Q.Q3 | Agency authorization tracking (who is using the CSO + their authorization documents) | pending | — | — | `docs/loops/LOOP-Q-SPEC.md` | `docs/slices/Q/Q.Q3.md` |
 
+## LOOP-R — Post-Quantum Cryptography Migration
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| R.R1 | Cryptographic Inventory Collector | pending | — | — | `docs/loops/LOOP-R-SPEC.md` | `docs/slices/R/R.R1.md` |
+| R.R2 | Migration Plan Emitter | pending | — | — | `docs/loops/LOOP-R-SPEC.md` | `docs/slices/R/R.R2.md` |
+| R.R3 | Annual PQC Report Emitter | pending | — | — | `docs/loops/LOOP-R-SPEC.md` | `docs/slices/R/R.R3.md` |
+
+## LOOP-S — DFARS 252.204-7012 Cloud Equivalency (conditional: DoD-prime customers)
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| S.S1 | NIST 800-171 Rev 3 → FedRAMP Moderate Crosswalk | pending | — | — | `docs/loops/LOOP-S-SPEC.md` | `docs/slices/S/S.S1.md` |
+| S.S2 | Cyber Incident Reporting per DFARS 252.204-7012(c) | pending | — | — | `docs/loops/LOOP-S-SPEC.md` | `docs/slices/S/S.S2.md` |
+| S.S3 | Cloud Equivalency Attestation Package | pending | — | — | `docs/loops/LOOP-S-SPEC.md` | `docs/slices/S/S.S3.md` |
+
+## CIRCIA Extensions (HIGH PRIORITY — May 2026 effective)
+| Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
+|---|---|---|---|---|---|---|
+| G.G2.CIRCIA | CIRCIA 72-hour incident reporting extension | pending | — | — | `docs/CIRCIA-WORKFLOW.md` | `docs/slices/G/G.G2-CIRCIA-EXTENSION.md` |
+| M.M4.CIRCIA | CIRCIA + Privacy Act incident harmonization | pending | — | — | `docs/CIRCIA-WORKFLOW.md` | `docs/slices/M/M.M4-CIRCIA-EXTENSION.md` |
+
 ## Per-loop risks registers
 Each loop has a dedicated risks register listing implementation,
 schedule, dependency, and external risks discovered during planning +
@@ -202,6 +240,8 @@ risk (per the Strong-Directive in `cloud-evidence/CLAUDE.md`).
 | LOOP-O risks | AI/ML Governance | `docs/loops/LOOP-O-RISKS.md` |
 | LOOP-P risks | Insider Threat + PS-family | `docs/loops/LOOP-P-RISKS.md` |
 | LOOP-Q risks | Marketplace + Post-ATO Publication | `docs/loops/LOOP-Q-RISKS.md` |
+| LOOP-R risks | Post-Quantum Cryptography Migration | `docs/loops/LOOP-R-RISKS.md` |
+| LOOP-S risks | DFARS 252.204-7012 Cloud Equivalency | `docs/loops/LOOP-S-RISKS.md` |
 
 ## Cross-cutting references
 Reference docs that span every loop. Read these whenever planning

@@ -166,6 +166,9 @@ npm run check:coverage-regression
    - `docs/loops/LOOP-O-SPEC.md` — AI/ML Governance per NIST AI RMF + OMB M-24-10 (5 slices)
    - `docs/loops/LOOP-P-SPEC.md` — Insider Threat + PS-family Workforce Security (5 slices)
    - `docs/loops/LOOP-Q-SPEC.md` — Marketplace + Post-ATO Publication (3 slices)
+   - `docs/loops/LOOP-R-SPEC.md` — Post-Quantum Cryptography Migration (3 slices)
+   - `docs/loops/LOOP-S-SPEC.md` — DFARS 252.204-7012 Cloud Equivalency (3 conditional slices)
+   - `docs/CIRCIA-WORKFLOW.md` — CIRCIA Final Rule extensions to G.G2 + M.M4 (May 2026 effective; HIGH PRIORITY)
 6. **`docs/slices/X/X.XN.md`** — per-slice deep-context docs (one per pending slice, 49 total). Each carries:
    - YAML frontmatter (`slice_id`, `status`, `commit`, `completed_date`, `depends_on`, `blocks`, `estimated_effort`, `last_updated`)
    - TL;DR, why-this-slice-exists, authoritative sources (verbatim quotes), files to create/extend, schemas, build steps, REQUIRES-OPERATOR-INPUT table, test specifications, REO compliance notes, verification commands, known risks, open questions, **Implementation log** running journal, completion checklist, resume-from-fresh-session checklist.
@@ -176,6 +179,8 @@ npm run check:coverage-regression
 10. **`docs/IMPLEMENTATION-LOG-TEMPLATE.md`** — format + cadence for the per-slice Implementation log. Required reading before you start implementing a slice.
 11. **`docs/ADDITIONAL-LOOPS-AUDIT.md`** — audit (2026-06-06) surfacing 6 new loops (L–Q) + 12 extensions. RATIFIED 2026-06-07; loops L–Q now have full SPEC + per-slice docs + risks registers. M and O are confirmed applicable. Implementation queued behind LOOP-B.B1.
 12. **`docs/SECOND-PASS-AUDIT.md`** — post-LOOP-L..Q audit (2026-06-07) confirming nothing else is still missing after L-Q specification. Read alongside `ADDITIONAL-LOOPS-AUDIT.md` when assessing roadmap completeness.
+12a. **`docs/THIRD-PASS-AUDIT.md`** — post-second-pass audit (2026-06-07) surfacing LOOP-R (PQC), LOOP-S (DFARS 252.204-7012 Cloud Equivalency), and the CIRCIA Final Rule extensions to G.G2 + M.M4. All three are now fully specified (LOOP-R + LOOP-S SPEC + 6 per-slice docs + 2 risks registers; CIRCIA-WORKFLOW.md + 2 CIRCIA-extension per-slice docs). CIRCIA is **HIGH PRIORITY** (May 2026 effective date).
+12b. **`docs/CIRCIA-WORKFLOW.md`** — CIRCIA Final Rule 72-hour incident reporting workflow. Extends G.G2 (Incident Communications Procedures) and M.M4 (Privacy incident response). Defines Covered Entity / Covered Cyber Incident scoping, 72-hour reporting deadline, 24-hour ransom-payment deadline, CISA submission paths, and harmonization with FedRAMP IR-6 + Privacy Act §552a(e)(10) + OMB M-17-12.
 13. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
     - `docs/sections/SECTION-A.md` — Submission package artifacts
     - `docs/sections/SECTION-B.md` — 3PAO assessment workflow
@@ -242,3 +247,5 @@ NO EXCEPTIONS. The 7-step procedure is what keeps STATUS.md, the spec docs, the 
 See `docs/IMPLEMENTATION-LOG-TEMPLATE.md` §3 for the full update cadence + §4 for example entries.
 
 **Failure to follow this procedure is a REO violation.** The slice is not "done" until all 9 steps execute. Future sessions WILL see the inconsistency and reject it. The per-slice doc + risks register are the on-disk archaeological record of the slice; if they are not kept current with the code, a 3PAO reviewing the trail will find the gap.
+
+**For CIRCIA-extension slices (G.G2.CIRCIA, M.M4.CIRCIA): when the parent slice (G.G2 or M.M4) ships, the CIRCIA extension MUST ship in the same commit OR be explicitly tracked as a follow-up in STATUS.md.** CIRCIA's May 2026 effective date means any G.G2/M.M4 implementation that omits CIRCIA is incomplete by federal regulation. The CIRCIA-extension docs (`docs/slices/G/G.G2-CIRCIA-EXTENSION.md`, `docs/slices/M/M.M4-CIRCIA-EXTENSION.md`) live alongside the parent slice docs precisely so this co-shipping requirement is impossible to miss — they are siblings on the filesystem, not nested or hidden.

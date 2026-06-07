@@ -88,6 +88,46 @@ Detailed per-slice specs:
 
 ---
 
+## Added loops R + S + CIRCIA (2026-06-07)
+
+A third-pass audit (`docs/THIRD-PASS-AUDIT.md`) surfaced three
+additional bodies of work that the L–Q ratification did not cover:
+Post-Quantum Cryptography migration (LOOP-R), DFARS 252.204-7012 Cloud
+Equivalency (LOOP-S, conditional), and CIRCIA Final Rule extensions to
+the existing G.G2 (AFR-ICP) + M.M4 (Privacy incident response) slices.
+The human ratified the audit on 2026-06-07 and all three bodies of work
+are now fully specified:
+- LOOP-R: `docs/loops/LOOP-R-SPEC.md` + `docs/loops/LOOP-R-RISKS.md` + 3 per-slice docs in `docs/slices/R/`.
+- LOOP-S: `docs/loops/LOOP-S-SPEC.md` + `docs/loops/LOOP-S-RISKS.md` + 3 per-slice docs in `docs/slices/S/`.
+- CIRCIA: `docs/CIRCIA-WORKFLOW.md` + 2 overlay per-slice docs (`docs/slices/G/G.G2-CIRCIA-EXTENSION.md` + `docs/slices/M/M.M4-CIRCIA-EXTENSION.md`).
+
+| Loop | Title | Slices | Effort | Dependencies | Applicability |
+|---|---|---|---|---|---|
+| **R** | Post-Quantum Cryptography Migration | 3 | 3 weeks | AFR-UCM (providers/{aws,gcp,azure}/crypto.ts), control-benchmark.ts, G.G5, B.B1, B.B2, A.A1, E.E3, A.A4 | REQUIRED (federal mandate per NSM-10 + OMB M-23-02 + NIST IR 8547 + NSA CNSA 2.0) |
+| **S** | DFARS 252.204-7012 Cloud Equivalency | 3 | 3 weeks | control-benchmark.ts, G.G2, M.M4, C.C3, A.A4, L.L1 | CONDITIONAL — only when CSP has or pursues DoD-prime customers running CDI workloads |
+| **G.G2.CIRCIA** | CIRCIA 72-hour incident reporting overlay | 1 overlay | co-ship with G.G2 | G.G2 + C.C3 | HIGH PRIORITY — May 2026 effective |
+| **M.M4.CIRCIA** | CIRCIA + Privacy Act incident harmonization overlay | 1 overlay | co-ship with M.M4 | M.M4 + G.G2.CIRCIA | HIGH PRIORITY — May 2026 effective |
+| **TOTAL** | | **6 + 2 overlays = 8** | **6 weeks (overlays absorbed)** | | |
+
+Combined roadmap: LOOP-A (5 done) + LOOP-B..K (50) + LOOP-L..Q (25) +
+LOOP-R..S (6) + CIRCIA overlays (2) = **88 slices, 19 loops + 2 CIRCIA
+overlays**. Implementation priority remains LOOP-B.B1 first. LOOP-R is
+mandatory and can layer in once B.B1 + B.B2 ship (R.R2 consumes risk
+scoring). LOOP-S is gated by G.G2 + M.M4 + C.C3 + L.L1. CIRCIA overlays
+ship co-resident with their parent G.G2 / M.M4 commits per the strong
+directive in `cloud-evidence/CLAUDE.md`. The human may elevate CIRCIA
+overlays above LOOP-B.B1 once basic CSP operations need to be
+CIRCIA-compliant.
+
+Detailed per-slice specs:
+- `docs/loops/LOOP-R-SPEC.md` — Cryptographic Inventory Collector (R.R1), Migration Plan Emitter (R.R2), Annual PQC Report Emitter (R.R3)
+- `docs/loops/LOOP-S-SPEC.md` — NIST 800-171 Rev 3 → FedRAMP Moderate Crosswalk (S.S1), Cyber Incident Reporting per DFARS 252.204-7012(c) (S.S2), Cloud Equivalency Attestation Package (S.S3)
+- `docs/CIRCIA-WORKFLOW.md` — CIRCIA Final Rule 72-hour reporting workflow; covers Covered Entity / Covered Cyber Incident scoping, 72-hour deadline, 24-hour ransom-payment deadline, CISA submission, harmonization with IR-6 + Privacy Act §552a(e)(10) + OMB M-17-12.
+- `docs/slices/G/G.G2-CIRCIA-EXTENSION.md` — overlay extending G.G2 (AFR-ICP) with CIRCIA 72-hour incident submission to CISA + 24-hour ransom-payment report.
+- `docs/slices/M/M.M4-CIRCIA-EXTENSION.md` — overlay extending M.M4 (Privacy incident response) with CIRCIA + Privacy Act §552a(e)(10) + OMB M-17-12 harmonization.
+
+---
+
 # LOOP-B — Risk + Remediation Engine
 
 **Why:** LOOP-A.A1 POA&M emits FedRAMP-baseline deadlines per severity

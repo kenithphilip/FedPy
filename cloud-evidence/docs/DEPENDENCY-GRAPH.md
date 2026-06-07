@@ -1,15 +1,19 @@
-# Dependency Graph — every slice across LOOP-A through LOOP-Q
+# Dependency Graph — every slice across LOOP-A through LOOP-S (+ CIRCIA overlays)
 
 > Single source of truth for slice ordering. Derived from the `depends_on`
 > and `blocks` frontmatter in every per-slice doc under `docs/slices/X/X.XN.md`.
 > Read this when planning what to work on next, what can be parallelised,
 > and what cannot start yet.
 >
-> **Scope:** 74 enumerated slices (LOOP-A complete; LOOP-B through LOOP-Q
-> pending). LOOP-L through LOOP-Q were ratified 2026-06-07 (see
-> `ADDITIONAL-LOOPS-AUDIT.md` + `SECOND-PASS-AUDIT.md`) and are now
-> first-class nodes in §1 and §2 below. LOOP-M (Privacy/SORN/DPIA) and
-> LOOP-O (AI/ML Governance) are confirmed applicable.
+> **Scope:** 83 enumerated slices (LOOP-A complete; LOOP-B through LOOP-S
+> pending) + 2 CIRCIA-extension overlay slices (G.G2.CIRCIA, M.M4.CIRCIA).
+> LOOP-L through LOOP-Q were ratified 2026-06-07 (see
+> `ADDITIONAL-LOOPS-AUDIT.md` + `SECOND-PASS-AUDIT.md`). LOOP-R + LOOP-S +
+> CIRCIA extensions were ratified 2026-06-07 (see `THIRD-PASS-AUDIT.md`).
+> LOOP-M (Privacy/SORN/DPIA) and LOOP-O (AI/ML Governance) are confirmed
+> applicable. LOOP-R (PQC) is mandatory for all CSPs (federal mandate);
+> LOOP-S (DFARS 7012) is conditional on DoD-prime customers; CIRCIA
+> extensions are HIGH PRIORITY (May 2026 effective date).
 
 ---
 
@@ -436,6 +440,44 @@ graph TD
   F.F6 --> Q.Q3
 
   %% =========================================================
+  %% LOOP-R Post-Quantum Cryptography Migration
+  %% =========================================================
+  AFRUCM[AFR-UCM crypto.ts AWS/GCP/AZ]
+  AFRUCM --> R.R1[R.R1 Cryptographic Inventory Collector]
+  CTRLBENCH[control-benchmark.ts]
+  CTRLBENCH --> R.R1
+  G.G5 --> R.R1
+  R.R1 --> R.R2[R.R2 Migration Plan Emitter]
+  B.B1 --> R.R2
+  B.B2 --> R.R2
+  A.A1 --> R.R2
+  R.R2 --> R.R3[R.R3 Annual PQC Report Emitter]
+  R.R1 --> R.R3
+  E.E3 --> R.R3
+  A.A4 --> R.R3
+
+  %% =========================================================
+  %% LOOP-S DFARS 252.204-7012 Cloud Equivalency (conditional)
+  %% =========================================================
+  CTRLBENCH --> S.S1[S.S1 NIST 800-171 Rev3 Moderate crosswalk]
+  S.S1 --> S.S2[S.S2 DFARS 252.204-7012(c) incident reporting]
+  G.G2 --> S.S2
+  M.M4 --> S.S2
+  C.C3 --> S.S2
+  S.S1 --> S.S3[S.S3 Cloud Equivalency Attestation Package]
+  S.S2 --> S.S3
+  A.A4 --> S.S3
+  L.L1 --> S.S3
+
+  %% =========================================================
+  %% CIRCIA extensions (overlays on G.G2 + M.M4)
+  %% =========================================================
+  G.G2 -.-> G.G2.CIRCIA[G.G2.CIRCIA 72-hour incident reporting]
+  C.C3 -.-> G.G2.CIRCIA
+  M.M4 -.-> M.M4.CIRCIA[M.M4.CIRCIA CIRCIA + Privacy Act harmonization]
+  G.G2.CIRCIA -.-> M.M4.CIRCIA
+
+  %% =========================================================
   %% Pre-flight wiring
   %% =========================================================
   REO0 --> A.A1
@@ -543,6 +585,14 @@ underlying expansion is documented in the corresponding per-slice doc.
 | **Q.Q1** | A.A4, F.F6 | Q.Q3 |
 | **Q.Q2** | E.E1, A.A4 | (terminal — monthly publication to FedRAMP repo) |
 | **Q.Q3** | Q.Q1, F.F6 | (terminal — agency authorization tracking) |
+| **R.R1** | AFR-UCM (providers/{aws,gcp,azure}/crypto.ts), control-benchmark.ts, G.G5 | R.R2, R.R3 |
+| **R.R2** | R.R1, B.B1, B.B2, A.A1 | R.R3 |
+| **R.R3** | R.R1, R.R2, E.E3, A.A4 | (terminal — annual PQC report to OMB / agency) |
+| **S.S1** | control-benchmark.ts | S.S2, S.S3 |
+| **S.S2** | S.S1, G.G2, M.M4, C.C3 | S.S3 |
+| **S.S3** | S.S1, S.S2, A.A4, L.L1 | (terminal — DFARS 7012 attestation package) |
+| **G.G2.CIRCIA** *(overlay)* | G.G2, C.C3 | M.M4.CIRCIA |
+| **M.M4.CIRCIA** *(overlay)* | M.M4, G.G2.CIRCIA | (terminal — CIRCIA + Privacy Act harmonization) |
 
 Cycle notes (self-referential pairs in the table above):
 - **E.E3 ↔ E.E4** — E.E4 depends on E.E3 for the annual harness; E.E3
@@ -617,6 +667,23 @@ LOOP-B + LOOP-C.C7 + LOOP-F.F7): **12 nodes** post-REO-0.
 
 These chains run **in parallel** with the LOOP-B → LOOP-F.F7 critical path and
 do not extend the SAR-completion gate.
+
+**LOOP-R + LOOP-S + CIRCIA-extension critical chains (added 2026-06-07):**
+
+- `AFR-UCM → R.R1 → R.R2 → R.R3` (crypto.ts collectors → PQC inventory → migration plan → annual report; 4 hops)
+- `control-benchmark.ts → S.S1 → S.S2 → S.S3` (800-53 benchmark → 800-171 Rev3 crosswalk → DFARS incident reporting → attestation pkg; 4 hops)
+- `G.G2 → G.G2.CIRCIA` (incident-comms parent → CIRCIA overlay; co-ship in same commit per CLAUDE.md directive)
+- `M.M4 → M.M4.CIRCIA` (privacy-incident parent → CIRCIA + Privacy Act overlay; co-ship in same commit)
+
+R.R3 has a hard dependency on E.E3 (Annual Assessment package), so the
+LOOP-R critical chain effectively becomes
+`B.B1 → B.B2 → E.E1 → E.E3 → R.R3` for the annual PQC report.
+S.S2 has hard dependencies on G.G2 + M.M4 + C.C3 (incident harmonization)
+and S.S3 additionally on L.L1 (CRM workbook embedding the equivalency
+attestation), so the LOOP-S critical chain effectively becomes
+`C.C3 → G.G2 → M.M4 → S.S1 → S.S2 → S.S3` (and S.S3 also waits on L.L1).
+CIRCIA overlays do not extend the critical path because they ship in
+the same commit as their parent slice (G.G2 / M.M4).
 
 ---
 
@@ -743,6 +810,33 @@ If all overlays staffed concurrently with the base 3-stream plan,
 overall delivery extends from ~19 weeks to ~24 weeks (gated by Overlay O
 + Overlay P each at 5 weeks plus the existing 19-week base).
 
+### 4.5 LOOP-R + LOOP-S + CIRCIA overlays (ratified 2026-06-07)
+
+LOOP-R + LOOP-S add 6 more slices and ~6 weeks of single-thread effort.
+CIRCIA-extension overlays add 2 overlay slices that ship co-resident with
+their parent G.G2 / M.M4 commits. None of these extend the LOOP-F.F7
+critical path.
+
+| Overlay Stream | Path | Estimated weeks | Gate | Applicability |
+|---|---|---|---|---|
+| Overlay R | R.R1 → R.R2 → R.R3 | 3 | AFR-UCM + control-benchmark.ts + G.G5 + B.B1 + B.B2 + A.A1 + E.E3 + A.A4 | Mandatory (federal PQC mandate) |
+| Overlay S | S.S1 → S.S2 → S.S3 | 3 | control-benchmark.ts + G.G2 + M.M4 + C.C3 + A.A4 + L.L1 | Conditional on DoD-prime customers |
+| CIRCIA G.G2 | G.G2.CIRCIA (overlay) | co-ships with G.G2 | G.G2 + C.C3 | High priority — May 2026 effective |
+| CIRCIA M.M4 | M.M4.CIRCIA (overlay) | co-ships with M.M4 | M.M4 + G.G2.CIRCIA | High priority — May 2026 effective |
+
+Overlay R is independent of S and most overlays — it can run in parallel
+with B.B1/B.B2 once they ship (R.R2 + R.R3 consume the risk scoring
+chain). Overlay S is gated by G.G2 + M.M4 + C.C3 + L.L1, so it cannot
+start until the Privacy + AFR + CRM streams have closed those slices.
+CIRCIA overlays cost ~0.5 week each (they reuse G.G2 / M.M4
+infrastructure) and the cost is folded into the parent slice's estimate
+when CIRCIA co-ships.
+
+If all overlays (L through R + S + CIRCIA) staffed concurrently with the
+base 3-stream plan, overall delivery extends from ~24 weeks (post-L–Q
+overlay) to ~27 weeks (gated by Overlay R + Overlay S layered behind
+their respective base-stream gates).
+
 ---
 
 ## 5. LOOP-L through LOOP-Q — ratified 2026-06-07
@@ -764,6 +858,46 @@ shared dependency for N.N3 and O.O3). LOOP-L.L1 is queued immediately
 behind B.B1.
 
 Per-loop risks: see `docs/loops/LOOP-{L,M,N,O,P,Q}-RISKS.md`.
+
+---
+
+## 5a. LOOP-R + LOOP-S + CIRCIA extensions — ratified 2026-06-07
+
+LOOP-R (Post-Quantum Cryptography Migration), LOOP-S (DFARS 252.204-7012
+Cloud Equivalency), and the CIRCIA Final Rule extensions to G.G2 + M.M4
+were surfaced by `docs/THIRD-PASS-AUDIT.md` (2026-06-07) and **ratified
+by the human on 2026-06-07**. All 6 LOOP-R/S slices + 2 CIRCIA-extension
+overlay slices are now first-class nodes in §1 (Mermaid graph) and §2
+(tabular dependencies) above.
+
+Applicability:
+
+- **LOOP-R (PQC)** — **mandatory** for all CSPs. NIST IR 8547 +
+  OMB M-23-02 + NSM-10 + NSA CNSA 2.0 jointly require federal systems
+  to inventory cryptographic algorithms, plan migration to PQC-safe
+  algorithms (ML-KEM/ML-DSA/SLH-DSA), and report progress annually.
+  The CSP role obliges us to surface this inventory + plan to agency
+  consumers.
+- **LOOP-S (DFARS 7012 Cloud Equivalency)** — **conditional**. Only
+  required when the CSP has or pursues DoD-prime customers running
+  Covered Defense Information (CDI) workloads on the CSO. Skipped
+  otherwise.
+- **CIRCIA extensions** — **HIGH PRIORITY**. CIRCIA Final Rule effective
+  date is May 2026. Any CSP processing critical-infrastructure-related
+  workloads (PPD-21 sectors) is a Covered Entity and must report
+  covered cyber incidents to CISA within 72 hours and ransom payments
+  within 24 hours. G.G2.CIRCIA + M.M4.CIRCIA overlays MUST ship in the
+  same commit as their parent slice (G.G2 / M.M4) or be explicitly
+  tracked as a follow-up in STATUS.md.
+
+Implementation priority: LOOP-B.B1 remains the highest-priority next
+slice. LOOP-R, LOOP-S, and CIRCIA extensions queue behind LOOP-L–Q in
+the default order. The human may elevate CIRCIA extensions above
+LOOP-B.B1 once basic CSP operations need to be CIRCIA-compliant.
+
+Per-loop risks: see `docs/loops/LOOP-R-RISKS.md` and
+`docs/loops/LOOP-S-RISKS.md`. CIRCIA-extension risks are folded into
+G.G2 and M.M4 per-slice docs.
 
 ---
 

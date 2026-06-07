@@ -1,5 +1,25 @@
 # Second-Pass Audit (after LOOP-L through LOOP-Q added)
 
+> **Status update (2026-06-07):** LOOP-R (Post-Quantum Cryptography
+> Migration), LOOP-S (DFARS 252.204-7012 Cloud Equivalency, conditional),
+> and the CIRCIA Final Rule extensions to G.G2 + M.M4 — the three items
+> this second-pass audit flagged as "still missing" — are now **fully
+> specified per the human's 2026-06-07 ratification decision**. Spec
+> docs, per-slice docs, risks registers, and CIRCIA workflow doc are on
+> disk:
+>
+> - `docs/loops/LOOP-R-SPEC.md` + `docs/loops/LOOP-R-RISKS.md` + `docs/slices/R/R.R{1,2,3}.md`
+> - `docs/loops/LOOP-S-SPEC.md` + `docs/loops/LOOP-S-RISKS.md` + `docs/slices/S/S.S{1,2,3}.md`
+> - `docs/CIRCIA-WORKFLOW.md` + `docs/slices/G/G.G2-CIRCIA-EXTENSION.md` + `docs/slices/M/M.M4-CIRCIA-EXTENSION.md`
+> - `docs/THIRD-PASS-AUDIT.md` — the third-pass audit that surfaced the above
+>
+> STATUS.md, CLAUDE.md reading list, DEPENDENCY-GRAPH.md, GLOSSARY.md,
+> and EXECUTION-PLAN.md have all been updated to reference these new
+> loops + overlays. Implementation priority remains LOOP-B.B1 first;
+> LOOP-R is mandatory (federal PQC mandate), LOOP-S is conditional
+> (DoD-prime customers only), and CIRCIA overlays are HIGH PRIORITY
+> (May 2026 effective date — human may elevate above LOOP-B.B1).
+
 > Date: 2026-06-07. Author: automated audit pass. Status: PROPOSED — not yet adopted in STATUS.md.
 >
 > Authority: governed by `cloud-evidence/CLAUDE.md` Real-Evidence-Only (REO)
