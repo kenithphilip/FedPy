@@ -1,0 +1,51 @@
+{
+  "_comment": "Verbatim covered-entity constants from FAR 52.204-25(a) and NDAA FY2019 (Pub. L. 115-232) §889(f)(3). These are FAR/Public-Law constants (allowed-list constants like NIST control IDs per cloud-evidence/CLAUDE.md REO Rule 3), NOT discretionary catalog data. The named telecommunications/video-surveillance entities are enumerated by statute and only change through FAR Council rulemaking. Generated/refreshed by scripts/extract-prohibited-vendors.mjs.",
+  "authority_citation": "FAR 52.204-25(a); Pub. L. 115-232, Div. A, Title VIII, §889(f)(3)",
+  "source_url": "https://www.acquisition.gov/far/52.204-25",
+  "last_reviewed": "2026-06-07",
+  "covered_foreign_country": "The People's Republic of China",
+  "entities": [
+    {
+      "slug": "huawei-technologies-company",
+      "name_verbatim": "Huawei Technologies Company",
+      "statute_paragraph": "FAR 52.204-25(a)(1) / §889(f)(3)(A)",
+      "category": "telecommunications-equipment",
+      "note": "Includes any subsidiary or affiliate of such entity."
+    },
+    {
+      "slug": "zte-corporation",
+      "name_verbatim": "ZTE Corporation",
+      "statute_paragraph": "FAR 52.204-25(a)(1) / §889(f)(3)(A)",
+      "category": "telecommunications-equipment",
+      "note": "Includes any subsidiary or affiliate of such entity."
+    },
+    {
+      "slug": "hytera-communications-corporation",
+      "name_verbatim": "Hytera Communications Corporation",
+      "statute_paragraph": "FAR 52.204-25(a)(2) / §889(f)(3)(B)",
+      "category": "video-surveillance-and-telecommunications-equipment",
+      "note": "Covered for public-safety, security-of-Government-facilities, physical-security-surveillance-of-critical-infrastructure, and other national-security purposes. Includes any subsidiary or affiliate."
+    },
+    {
+      "slug": "hangzhou-hikvision-digital-technology-company",
+      "name_verbatim": "Hangzhou Hikvision Digital Technology Company",
+      "statute_paragraph": "FAR 52.204-25(a)(2) / §889(f)(3)(B)",
+      "category": "video-surveillance-and-telecommunications-equipment",
+      "note": "Covered for the national-security purposes enumerated in §889(f)(3)(B). Includes any subsidiary or affiliate."
+    },
+    {
+      "slug": "dahua-technology-company",
+      "name_verbatim": "Dahua Technology Company",
+      "statute_paragraph": "FAR 52.204-25(a)(2) / §889(f)(3)(B)",
+      "category": "video-surveillance-and-telecommunications-equipment",
+      "note": "Covered for the national-security purposes enumerated in §889(f)(3)(B). Includes any subsidiary or affiliate."
+    }
+  ],
+  "catch_all": {
+    "slug": "prc-government-owned-or-controlled-entity",
+    "name_verbatim": "Entities owned or controlled by the government of the People's Republic of China",
+    "statute_paragraph": "FAR 52.204-25(a)(4) / §889(f)(3)(D)",
+    "category": "catch-all-government-connected",
+    "note": "Telecommunications or video-surveillance equipment or services produced or provided by an entity that the Secretary of Defense, in consultation with the Director of National Intelligence or the Director of the Federal Bureau of Investigation, reasonably believes to be owned or controlled by, or otherwise connected to, the government of a covered foreign country. Expansion to specific exemplar entities is a legal judgement out of scope for the catalog substrate (see W.W1 §10 Q3)."
+  }
+}

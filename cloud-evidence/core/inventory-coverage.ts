@@ -344,4 +344,25 @@ export interface CoverageReport {
   columns: ColumnCoverage[];
   /** Roll-up: count of cells filled per provider across all 25 columns × assets. */
   totals: Record<Provider, { assets: number; filled_cells: number; total_cells: number; fill_rate: number }>;
+  /** Prohibited-vendor catalog contribution (LOOP-W.W1), present only when that emitter ran. */
+  prohibited_vendors_catalog_entity_count?: number;
+  prohibited_vendors_catalog_source_count?: number;
+}
+
+/**
+ * Augment an inventory-coverage report (or any object) with the LOOP-W.W1
+ * prohibited-vendor catalog counts as sibling top-level fields. These are NOT
+ * Appendix-M `columns[].fillRate` cells — the coverage-regression guardrail (G2)
+ * only compares fillRate, so adding these siblings can never trigger a
+ * regression. Pure function: returns a new object, does not mutate the input.
+ */
+export function augmentCoverageWithProhibitedVendors<T extends Record<string, unknown>>(
+  report: T,
+  counts: { entityCount: number; sourceCount: number },
+): T & { prohibited_vendors_catalog_entity_count: number; prohibited_vendors_catalog_source_count: number } {
+  return {
+    ...report,
+    prohibited_vendors_catalog_entity_count: counts.entityCount,
+    prohibited_vendors_catalog_source_count: counts.sourceCount,
+  };
 }

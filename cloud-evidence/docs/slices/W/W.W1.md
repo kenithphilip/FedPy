@@ -2,13 +2,13 @@
 slice_id: W.W1
 title: Prohibited-vendor catalog ingester + canonical-JSON emitter
 loop: W
-status: proposed
-commit: TBD
-completed_date: —
+status: done
+commit: TBD-step6
+completed_date: 2026-06-08
 depends_on: []
 blocks: [W.W2, W.W3, W.W4]
 estimated_effort: medium
-last_updated: 2026-06-07
+last_updated: 2026-06-08
 applicable_conditional: any CSP selling to federal agencies (FAR 52.204-25 applies broadly across all federal acquisition since Aug 13, 2020)
 ---
 
@@ -447,7 +447,57 @@ data/
 
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
-| _empty — implementing session fills_ | | | | |
+| 2026-06-08 | impl-w-w1 | Shipped end to end per spec. Created `core/prohibited-vendors-{catalog,parsers,config}.ts`, `scripts/extract-prohibited-vendors.mjs`, committed `data/{far-52-204-25,ndaa-1634}-named-entities.json` + `data/fascsa-orders.json`, `prohibited-vendors-config.example.yaml`, and `tests/core/prohibited-vendors-{catalog,parsers}.test.ts` (29 tests). Added `signDetached`/`verifyDetached` to `core/sign.ts`; `augmentCoverageWithProhibitedVendors` to `core/inventory-coverage.ts`; `--prohibited-vendors-catalog` flag + `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` env to the orchestrator; WELL_KNOWN bundle role to `core/submission-bundle.ts`. typecheck clean, 903/903 tests pass (+29), check:reo (G1+G2+G3) green. | `TBD-step6` | See divergence + open-question notes below. |
+
+### Implementation notes — spec divergences (recorded per anti-pattern #2)
+
+The spec was authored before implementation and referenced several primitives
+that do not exist in the current tree. Real, REO-compliant adaptations:
+
+1. **Test directory.** The repo uses `tests/` (with `tests/core/` + `tests/fixtures/`),
+   not `test/` as §7 states. Tests live at `tests/core/prohibited-vendors-{catalog,parsers}.test.ts`;
+   fixtures at `tests/fixtures/prohibited-vendors/`.
+2. **No `core/http-client.ts`.** The repo is offline-first (cf. `core/kev-feed.ts`
+   + the `scripts/extract-*.mjs` pattern): the core ingester reads a snapshot
+   directory; the network arm lives in `scripts/extract-prohibited-vendors.mjs`
+   (global `fetch` + the existing `core/retry.ts` `withRetry`). A thin injectable
+   `fetcher` seam in the core exercises the fetch-error/config paths (T17/T19).
+   New risk **W.W1-21** filed (corp-proxy handling for these public-feed GETs).
+3. **No `core/pdf-table-extract.ts`** (it is introduced by the unshipped LOOP-C.C3).
+   Live FASCSA-order PDF auto-extraction is therefore deferred; FASCSA entities are
+   sourced from the operator-maintained, PR-reviewed register `data/fascsa-orders.json`
+   (the §11 manual-overrides route). New risk **W.W1-19** filed.
+4. **Provenance keys are camelCase** (`emitter`, `emittedAt`, `sourceCalls`,
+   `signingKeyId`) to satisfy the G3 `check-provenance` guardrail, which requires
+   those exact keys — not the snake_case shown in §5.1. New risk **W.W1-20** filed.
+5. **Signing.** The spec referenced `signEnvelope()`, which does not exist. Added
+   `signDetached()` / `verifyDetached()` to `core/sign.ts` (composing the same key
+   material as `signRun()`); the catalog carries a self-contained detached Ed25519
+   signature in `provenance` + a `.sig` sidecar, and is additionally covered by the
+   run manifest when emitted through the orchestrator (runs before `signRun`).
+6. **inventory-coverage.** Added the pure `augmentCoverageWithProhibitedVendors()`
+   helper to `core/inventory-coverage.ts` (the module §7.2 names). The two counts are
+   sibling top-level fields, NOT `columns[].fillRate` cells, so the G2 coverage-regression
+   guardrail can never trip on them.
+7. **Source ids.** Implemented all 7 `source_id`s in the §5.1 enum. `far-52-204-25`
+   emits the 5 named entities + the §889(f)(3)(D) catch-all (6); `ndaa-889` emits the
+   5 named telecom entities; both read the single committed `far-52-204-25-named-entities.json`.
+
+### Open questions (§10) — resolutions
+
+- **Q1** (non-SDN OFAC consolidated lists): deferred to a follow-up W slice, per the
+  §10 recommendation. W.W1 ingests OFAC SDN only; the bundle description string is explicit.
+- **Q2** (eCFR HTML concordance for BIS): the consolidated screening list CSV is the
+  machine-readable primary source; the eCFR HTML forensic backup is optional and not
+  fetched by the core (the extract script may stage it). Followed the recommendation.
+- **Q3** (§889(f)(3)(D) catch-all): emitted as a single catalog entity row (legal
+  expansion is out of scope). Followed.
+- **Q4** (EAR Verified End-User entries): out of scope; the BIS parser filters strictly
+  to `source == "Entity List (EL) - Bureau of Industry and Security"`. Followed.
+- **Q5** (non-Latin name variants): aliases preserved verbatim (NFKC-normalized, not
+  transliterated); transliteration is a future slice. Followed.
+- **Q6** (§889(f)(3)(C) "services" clause): out of scope for the W.W1 catalog substrate;
+  W.W2 may layer a "uses covered equipment" attestation. Followed.
 
 ## 13. Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
 

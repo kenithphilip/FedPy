@@ -6,6 +6,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-W.W1: Prohibited-vendor catalog ingester + canonical-JSON emitter
+First slice of LOOP-W (Prohibited-Vendor Screening + Section 889 Reporting).
+Builds the single, canonical, Ed25519-signed prohibited-vendor catalog that
+every downstream W slice reads (W.W2 subprocessor screen, W.W3 1-business-day
+reporter, W.W4 FAR 52.204-26 annual representation). It merges seven
+authoritative federal sources into one deterministic, deduplicated, normalized
+JSON file (`out/prohibited-vendors-catalog.json`) with a provenance block
+pinning per-source SHA-256 digests and a detached Ed25519 signature over the
+canonical (signature-blanked) bytes. No interpretation, no inference — the
+catalog is the raw substrate; matching logic lives in the downstream slices.
+
+Real-evidence path: the offline-first ingester reads the committed statutory
+constants under `data/` (`far-52-204-25-named-entities.json`,
+`ndaa-1634-named-entities.json`, `fascsa-orders.json`) plus a snapshot
+directory of the live OFAC SDN / BIS Entity List / SAM Exclusions feeds staged
+by `scripts/extract-prohibited-vendors.mjs` (one-shot `fetch` + `core/retry.ts`
+`withRetry`, then SHA-256-digested into a `MANIFEST.json`). Per-source parsers
+normalize names (NFKC + uppercase + whitespace collapse), join OFAC aliases and
+addresses on `ent_num`, filter the trade.gov consolidated screening list to BIS
+Entity List rows, flatten paginated SAM exclusion pages, and emit the FAR/NDAA
+named entities as statutory constants. Malformed rows are kept and flagged with
+`requires_operator_input` rather than silently dropped (REO Rule 1.5); terminal
+network failures throw typed `OfacFetchError` / `BisFetchError` /
+`SamFetchError` / `ConfigError` rather than emitting a stale or partial catalog.
+
+Statutory & regulatory drivers (verbatim citations, accessed 2026-06-07; see
+`docs/slices/W/W.W1.md` §2): FAR 52.204-25 — Prohibition on Contracting for
+Certain Telecommunications and Video Surveillance Services or Equipment
+(https://www.acquisition.gov/far/52.204-25); FAR 52.204-26 — Covered
+Telecommunications Equipment or Services — Representation; FAR 52.204-23 —
+Prohibition on Contracting for Hardware, Software, and Services Developed or
+Provided by Kaspersky Lab Covered Entities; Pub. L. 115-91, Div. A, Title XVI,
+§1634, Dec. 12, 2017, 131 Stat. 1738 (NDAA FY2018 Kaspersky prohibition);
+Pub. L. 115-232, Div. A, Title VIII, §889, Aug. 13, 2018, 132 Stat. 1917 (NDAA
+FY2019 §889); OFAC Specially Designated Nationals and Blocked Persons List
+(IEEPA, 50 U.S.C. §§1701-1707; TWEA, 50 U.S.C. App. §§1-44); BIS Entity List,
+15 CFR Part 744, Supplement No. 4 (EAR; 15 CFR §744.16); SAM.gov Exclusions,
+FAR Subpart 9.4 / 48 CFR §9.404; and the Federal Acquisition Supply Chain
+Security Act (FASCSA), 41 U.S.C. §1323, FAR Subpart 4.23, 41 CFR Part 201-1.
+NIST SP 800-161 Rev 1 (May 2022) is the C-SCRM cross-reference.
+
+New files: `core/prohibited-vendors-catalog.ts` (builder + signer + disk
+emitter + typed loader + injectable fetch seam), `core/prohibited-vendors-parsers.ts`
+(seven per-source parsers + RFC-4180 CSV parser + name normalization + schema-
+drift detection), `core/prohibited-vendors-config.ts` (typed YAML loader +
+validator), `scripts/extract-prohibited-vendors.mjs` (offline snapshot fetcher),
+`data/{far-52-204-25,ndaa-1634}-named-entities.json` + `data/fascsa-orders.json`
+(committed statutory constants), `prohibited-vendors-config.example.yaml`, and
+`tests/core/prohibited-vendors-{catalog,parsers}.test.ts` (+ 6 fixtures).
+Modified: `core/sign.ts` (added `signDetached`/`verifyDetached` detached-Ed25519
+helpers), `core/inventory-coverage.ts` (added the pure
+`augmentCoverageWithProhibitedVendors` merge — sibling counts, no fillRate
+regression), `core/submission-bundle.ts` (WELL_KNOWN `prohibited-vendors-catalog`
+role), and `core/orchestrator.ts` (`--prohibited-vendors-catalog` flag +
+`CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` env; the catalog emits before
+signing so it is covered by the run manifest).
+
+Verification: `npm run typecheck` clean; `npm test` 903/903 passing (+29 new
+tests across the two suites, ≥20 per the slice contract); `npm run check:reo`
+returns 0 (G1 lint:no-stubs, G2 check:coverage-regression, G3 check:provenance
+all green). REO compliance: the emitted catalog carries a top-level camelCase
+`provenance` block (`emitter`, `emittedAt`, `sourceCalls`, `signingKeyId`)
+satisfying G3, plus a self-verifying detached Ed25519 signature; FAR/NDAA named
+entities are statutory constants (REO Rule 3, like NIST control IDs); FASCSA is
+operator-supplied real data (REO Rule 4) via the PR-reviewed register because
+live PDF auto-extraction awaits `core/pdf-table-extract.ts` (LOOP-C.C3). Three
+implementation-discovered risks (W.W1-19/20/21) were filed in
+`docs/loops/LOOP-W-RISKS.md`.
+
 ### Added — LOOP-A.A5: Rules of Engagement template seed (closes LOOP-A)
 Fifth and final slice of LOOP-A. Produces a Word .docx Rules of Engagement
 template pre-filled with system identity, authorization-boundary narrative,

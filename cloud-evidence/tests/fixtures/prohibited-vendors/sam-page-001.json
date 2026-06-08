@@ -1,0 +1,12 @@
+{
+  "totalRecords": 10,
+  "entityData": [
+    { "ueiSAM": "UEI0000000001", "legalBusinessName": "Excluded Vendor One LLC", "exclusionTypeDesc": "Ineligible (Proceedings Pending)", "excludingAgencyName": "GSA", "activeDate": "2024-01-01", "terminationDate": "Indefinite", "crossReference": "" },
+    { "ueiSAM": "UEI0000000002", "legalBusinessName": "Excluded Vendor Two Inc", "exclusionTypeDesc": "Prohibition/Restriction", "excludingAgencyName": "DOD", "activeDate": "2023-06-15", "terminationDate": "2026-06-15", "crossReference": "Parent Corp" },
+    { "ueiSAM": "UEI0000000003", "legalBusinessName": "Excluded Vendor Three", "exclusionTypeDesc": "Voluntary Exclusion", "excludingAgencyName": "EPA", "activeDate": "2022-03-10", "terminationDate": "Indefinite", "crossReference": "" },
+    { "ueiSAM": "UEI0000000004", "legalBusinessName": "Excluded Vendor Four Co.", "exclusionTypeDesc": "Ineligible (Proceedings Completed)", "excludingAgencyName": "HHS", "activeDate": "2024-09-01", "terminationDate": "2027-09-01", "crossReference": "" },
+    { "ueiSAM": "UEI0000000005", "legalBusinessName": "Excluded Vendor Five", "exclusionTypeDesc": "Prohibition/Restriction", "excludingAgencyName": "GSA", "activeDate": "2021-11-20", "terminationDate": "Indefinite", "crossReference": "" },
+    { "ueiSAM": "UEI0000000006", "legalBusinessName": "Excluded Vendor Six Ltd.", "exclusionTypeDesc": "Ineligible (Proceedings Pending)", "excludingAgencyName": "DOI", "activeDate": "2025-02-14", "terminationDate": "2028-02-14", "crossReference": "" },
+    { "ueiSAM": "UEI0000000007", "legalBusinessName": "Excluded Vendor Seven", "exclusionTypeDesc": "Voluntary Exclusion", "excludingAgencyName": "USDA", "activeDate": "2023-08-05", "terminationDate": "Indefinite", "crossReference": "" }
+  ]
+}

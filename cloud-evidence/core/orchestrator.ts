@@ -66,6 +66,7 @@ import { emitOscalPoam } from './oscal-poam.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
+import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -199,6 +200,14 @@ interface Args {
   siemUrl: string | null;
   /** Generic webhook URL. */
   webhookUrl: string | null;
+  /**
+   * When true (LOOP-W.W1), emit the signed prohibited-vendor catalog
+   * (out/prohibited-vendors-catalog.json) merged from OFAC SDN + BIS Entity
+   * List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA.
+   * Runs BEFORE signing so the catalog is covered by the run manifest, and
+   * BEFORE the (future) W.W2 subprocessor screen that consumes it.
+   */
+  prohibitedVendorsCatalog: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -253,6 +262,7 @@ function parseArgs(argv: string[]): Args {
     ticketProvider: (process.env.CLOUD_EVIDENCE_TICKET_PROVIDER as Args['ticketProvider']) ?? null,
     siemUrl: process.env.CLOUD_EVIDENCE_SIEM_URL ?? null,
     webhookUrl: process.env.CLOUD_EVIDENCE_WEBHOOK_URL ?? null,
+    prohibitedVendorsCatalog: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG === '1',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -359,6 +369,10 @@ function parseArgs(argv: string[]): Args {
       case '--roe':
         // LOOP-A.A5: emit Rules of Engagement Word template seed.
         args.roe = true;
+        break;
+      case '--prohibited-vendors-catalog':
+        // LOOP-W.W1: emit the signed prohibited-vendor catalog.
+        args.prohibitedVendorsCatalog = true;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -1913,6 +1927,40 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL POA&M emission failed: ${e.message}`);
       log.error({ event: 'oscal_poam.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Prohibited-vendor catalog (LOOP-W.W1) — merge OFAC SDN + BIS Entity
+  // List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA
+  // into one signed canonical-JSON catalog. Runs BEFORE signing so the catalog
+  // is covered by the run manifest, and is the substrate the (future) W.W2
+  // subprocessor screen reads. Network feeds are staged offline by
+  // scripts/extract-prohibited-vendors.mjs; this pass ingests the snapshot +
+  // the committed statutory constants (the offline-first path). ----
+  if (args.prohibitedVendorsCatalog) {
+    try {
+      const cat = await emitProhibitedVendorsCatalog({
+        outDir: args.outDir,
+        configPath: existsSync(resolve(process.cwd(), 'prohibited-vendors-config.yaml'))
+          ? resolve(process.cwd(), 'prohibited-vendors-config.yaml')
+          : undefined,
+      });
+      const stats = cat.statistics;
+      console.log(
+        `Prohibited-vendor catalog: ${cat.catalog_path} (${cat.entity_count} entities from ${cat.source_count} source(s); ` +
+        `${stats.duplicates_collapsed} dup(s) collapsed, ${stats.requires_operator_input_count} requires-operator-input` +
+        `${cat.ephemeral_key ? '; ephemeral signing key' : ''})`
+      );
+      ledger.record('prohibited_vendors.emit', {
+        status: 'info',
+        entity_count: cat.entity_count,
+        source_count: cat.source_count,
+        duplicates_collapsed: stats.duplicates_collapsed,
+        requires_operator_input_count: stats.requires_operator_input_count,
+      });
+    } catch (e: any) {
+      console.error(`Prohibited-vendor catalog emission failed: ${e.message}`);
+      log.error({ event: 'prohibited_vendors.fail', err_message: e?.message });
     }
   }
 

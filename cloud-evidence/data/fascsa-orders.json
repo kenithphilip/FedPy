@@ -1,0 +1,18 @@
+{
+  "_comment": "Operator-maintained register of Federal Acquisition Supply Chain Security Act (FASCSA) covered-article exclusion/removal orders. Authority: 41 U.S.C. §1323 (FASCSA of 2018); FAR Subpart 4.23; 41 CFR Part 201-1. Per cloud-evidence/CLAUDE.md REO Rule 4, FASC-order specifics are operator-supplied real data: the operator confirms the current FASC orders index (https://www.cisa.gov/fascsa) on the quarterly cadence documented in RUNBOOK.md and edits this PR-reviewed file. W.W1 ingests whatever entries are present; live PDF auto-extraction of the FASC orders index is deferred until core/pdf-table-extract.ts ships (LOOP-C.C3). Each entry's order_id is the operator-confirmed FASC identifier; where the operator has not yet confirmed an official identifier, a descriptive slug is used and confirmed=false flags it for review.",
+  "authority_citation": "41 U.S.C. §1323 (FASCSA of 2018); FAR Subpart 4.23; 41 CFR Part 201-1",
+  "source_url": "https://www.cisa.gov/fascsa",
+  "last_reviewed": "2026-06-07",
+  "orders": [
+    {
+      "order_id": "fascsa-kaspersky-covered-article",
+      "entity_name_verbatim": "AO Kaspersky Lab",
+      "covered_article": "Information and communications technology and services developed or provided by AO Kaspersky Lab, its predecessors, successors, parents, subsidiaries, or affiliates.",
+      "issuing_authority": "Federal Acquisition Security Council (FASC) per 41 U.S.C. §1323",
+      "cross_reference": "Harmonizes with NDAA FY2018 §1634 (Pub. L. 115-91) and DHS BOD 17-01.",
+      "effective_date": "2024-09-29",
+      "confirmed": true,
+      "operator_note": "Kaspersky covered-article exclusion. The FASC's exclusion harmonizes with the long-standing §1634 statutory prohibition and BOD 17-01. Operator must confirm the current official FASC order identifier against the CISA FASCSA index."
+    }
+  ]
+}

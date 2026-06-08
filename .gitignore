@@ -19,8 +19,18 @@ coverage-report.json
 pva-run-summary.json
 summaries/
 
-# tracker SQLite database + WAL sidecars + backups
+# tracker SQLite database + WAL sidecars + backups, and dated evidence
+# snapshot directories (data/prohibited-vendors-snapshot-YYYYMMDD/, etc.).
 data/
+# ...but the committed LOOP-W.W1 statutory-constant catalogs under
+# cloud-evidence/data/ ARE version-controlled reference data, not runtime state.
+# (Re-include the directory first so the specific files below can be un-ignored;
+# the wildcard keeps the tracker DB + snapshot dirs ignored.)
+!cloud-evidence/data/
+cloud-evidence/data/*
+!cloud-evidence/data/far-52-204-25-named-entities.json
+!cloud-evidence/data/ndaa-1634-named-entities.json
+!cloud-evidence/data/fascsa-orders.json
 *.db
 *.db-journal
 *.db-wal

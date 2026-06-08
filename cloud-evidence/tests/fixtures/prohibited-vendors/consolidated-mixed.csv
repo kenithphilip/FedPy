@@ -1,0 +1,11 @@
+source,entity_number,name,type,programs,addresses,alt_names
+"Entity List (EL) - Bureau of Industry and Security","EL-001","Huawei Technologies Co., Ltd.","Company","EAR Entity List","Bantian, Shenzhen, China","Huawei;Huawei Tech"
+"Specially Designated Nationals (SDN) - Treasury Department","SDN-1","Some SDN Entity","Individual","SDGT","Moscow, Russia",""
+"Entity List (EL) - Bureau of Industry and Security","EL-002","Hangzhou Hikvision Digital Technology Co., Ltd.","Company","EAR Entity List","Hangzhou, China","Hikvision"
+"Denied Persons List (DPL) - Bureau of Industry and Security","DPL-1","Denied Person One","Individual","Denied Persons","Houston, Texas, USA",""
+"Entity List (EL) - Bureau of Industry and Security","EL-003","Semiconductor Manufacturing International Corporation","Company","EAR Entity List","Shanghai, China","SMIC"
+"Nonproliferation Sanctions (ISN) - State Department","ISN-1","ISN Entity","Company","ISN","Tehran, Iran",""
+"Entity List (EL) - Bureau of Industry and Security","EL-004","Dahua Technology Co., Ltd.","Company","EAR Entity List","Hangzhou, China","Dahua"
+"Sectoral Sanctions Identifications List (SSI) - Treasury Department","SSI-1","SSI Entity","Company","SSI","Moscow, Russia",""
+"Entity List (EL) - Bureau of Industry and Security","EL-005","Hytera Communications Corporation Limited","Company","EAR Entity List","Shenzhen, China","Hytera"
+"Foreign Sanctions Evaders (FSE) - Treasury Department","FSE-1","FSE Entity","Individual","FSE","Damascus, Syria",""

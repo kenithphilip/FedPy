@@ -93,7 +93,8 @@ type Role =
   | 'scn-classification'
   | 'scn-notice-draft'
   | 'pva-summary'
-  | 'oscal-validation-report';
+  | 'oscal-validation-report'
+  | 'prohibited-vendors-catalog';
 
 interface WellKnownArtifact {
   role: Role;
@@ -128,6 +129,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'scn-notice-draft', filename: 'scn-notice-draft.md', description: 'Draft SCN notice Markdown (operator review)' },
   { role: 'pva-summary', filename: 'pva-run-summary.json', description: 'Persistent Validation & Assessment run summary' },
   { role: 'oscal-validation-report', filename: 'oscal-validation-report.json', description: 'ajv validation report for emitted OSCAL artifacts' },
+  { role: 'prohibited-vendors-catalog', filename: 'prohibited-vendors-catalog.json', description: 'Prohibited-vendor catalog merged from OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA (LOOP-W.W1)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

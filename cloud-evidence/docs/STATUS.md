@@ -18,15 +18,15 @@ and not on the implementation queue.
   - 50 LOOP-B-K pending
   - 25 LOOP-L-Q pending
   - 6 LOOP-R+S pending
-  - 4 LOOP-W pending
+  - 1 LOOP-W done, 3 LOOP-W pending
   - 5 LOOP-T pending
   - 5 LOOP-X pending
   - 2 CIRCIA-extension slices pending
   - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
 - Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
-- Loops complete: 1 of 22 (LOOP-A)
-- Last shipped: LOOP-A.A5 (commit `469049f`)
-- Next priority: **LOOP-W.W1 (Prohibited-vendor list ingest) — HIGHEST PRIORITY per `docs/THIRD-PASS-AUDIT.md`** (FAR 52.204-25 Section 889 Part B is statutorily binding on every federal acquisition and is the 1-business-day reporting gate). Then **LOOP-W.W2/W3/W4** to close out Section 889 reporting end-to-end. Then **LOOP-T.T1-T.T5** (NIST SSDF + CISA Self-Attestation Common Form — OMB M-22-18 / M-23-16 procurement gate for federal software awards). Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring is the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
+- Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (1 of 4 slices done)
+- Last shipped: LOOP-W.W1 (commit `TBD-step6`)
+- Next priority: **LOOP-W.W2 (Subprocessor + supplier inventory crosscheck against the prohibited-vendor catalog)** — reads the W.W1 signed catalog and screens the subprocessor/supplier inventory; depends on W.W1 (done) + J.J2. Then **LOOP-W.W3/W4** to close out Section 889 reporting end-to-end (W.W3 the 1-business-day reporter, W.W4 the FAR 52.204-26 annual representation). Then **LOOP-T.T1-T.T5** (NIST SSDF + CISA Self-Attestation Common Form — OMB M-22-18 / M-23-16 procurement gate for federal software awards). Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring is the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
 
 ## Out-of-Core / Roadmap (NOT on the implementation queue)
 Parallel compliance regimes; preserved as research material under
@@ -243,7 +243,7 @@ rationale.
 ## LOOP-W — Prohibited Vendors (HIGHEST PRIORITY — statutorily gates submission package)
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc | Dependencies | Last updated |
 |---|---|---|---|---|---|---|---|---|
-| W.W1 | Prohibited-vendor list ingest (NDAA §1634 + EO 14117 + BIS ICTS Final Rule + GSA/FAR Subpart 4.21) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W1.md` | — | 2026-06-07 |
+| W.W1 | Prohibited-vendor catalog ingester + canonical-JSON emitter (OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA) | done | `TBD-step6` | 2026-06-08 | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W1.md` | — | 2026-06-08 |
 | W.W2 | Subprocessor + supplier inventory crosscheck against prohibited-vendor list | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W2.md` | W.W1, J.J2 | 2026-06-07 |
 | W.W3 | SBOM + dependency-graph crosscheck against prohibited-vendor list (transitive supplier check) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W3.md` | W.W1, J.J3 | 2026-06-07 |
 | W.W4 | Prohibited-vendor compliance attestation emitter (signed, blocks submission on hit) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W4.md` | W.W1, W.W2, W.W3 | 2026-06-07 |

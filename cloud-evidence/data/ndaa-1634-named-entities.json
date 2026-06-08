@@ -1,0 +1,37 @@
+{
+  "_comment": "Verbatim Kaspersky-Lab covered-entity classes from NDAA FY2018 (Pub. L. 115-91) §1634 and its implementing clause FAR 52.204-23(a). These are Public-Law constants (allowed-list constants like NIST control IDs per cloud-evidence/CLAUDE.md REO Rule 3), NOT discretionary catalog data. Generated/refreshed by scripts/extract-prohibited-vendors.mjs.",
+  "authority_citation": "Pub. L. 115-91, Div. A, Title XVI, §1634, Dec. 12, 2017, 131 Stat. 1738; FAR 52.204-23(a)",
+  "source_url": "https://www.govinfo.gov/content/pkg/PLAW-115publ91/html/PLAW-115publ91.htm",
+  "last_reviewed": "2026-06-07",
+  "prohibition_effective_date": "2018-10-01",
+  "entities": [
+    {
+      "slug": "kaspersky-lab",
+      "name_verbatim": "Kaspersky Lab",
+      "covered_entity_class": "named",
+      "statute_paragraph": "§1634(1) / FAR 52.204-23(a)(1)",
+      "note": "Kaspersky Lab itself."
+    },
+    {
+      "slug": "kaspersky-lab-successor-entity",
+      "name_verbatim": "Any successor entity to Kaspersky Lab",
+      "covered_entity_class": "successor",
+      "statute_paragraph": "§1634(1) / FAR 52.204-23(a)(2)",
+      "note": "Any successor entity to Kaspersky Lab."
+    },
+    {
+      "slug": "kaspersky-lab-common-control-entity",
+      "name_verbatim": "Any entity that controls, is controlled by, or is under common control with Kaspersky Lab",
+      "covered_entity_class": "common-control",
+      "statute_paragraph": "§1634(2) / FAR 52.204-23(a)(3)",
+      "note": "Any entity that controls, is controlled by, or is under common control with Kaspersky Lab."
+    },
+    {
+      "slug": "kaspersky-lab-majority-owned-entity",
+      "name_verbatim": "Any entity of which Kaspersky Lab has majority ownership",
+      "covered_entity_class": "majority-owned",
+      "statute_paragraph": "§1634(3) / FAR 52.204-23(a)(4)",
+      "note": "Any entity of which Kaspersky Lab has a majority ownership."
+    }
+  ]
+}

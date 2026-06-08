@@ -1,0 +1,40 @@
+# prohibited-vendors-config.yaml — operator configuration for LOOP-W.W1
+# Prohibited-vendor catalog ingester. Copy to prohibited-vendors-config.yaml
+# and fill in. ${ENV_VAR} and ${ENV_VAR:-fallback} references resolve against
+# the environment at load time. All values shown are defaults unless noted.
+
+sam_gov:
+  # REQUIRED only when fetching SAM Exclusions over the network (the extract
+  # script / --fetch path). Obtain at https://sam.gov/data-services. The
+  # offline/snapshot path (the default orchestrator pass) does NOT need it.
+  api_key: "${SAM_GOV_API_KEY}"
+  rate_limit_qps: 5                # SAM API default; raise only with a paid key
+
+ofac:
+  feed_choice: "csv"               # one of: csv | xml | xml_advanced
+  fetch_timeout_seconds: 60
+
+bis:
+  source: "consolidated_csv"       # one of: consolidated_csv | ecfr_html
+
+fascsa:
+  orders_index_url: "https://www.cisa.gov/fascsa"
+  # Operator-supplied local FASC order PDFs for air-gapped environments.
+  # Live PDF auto-extraction is deferred until core/pdf-table-extract.ts ships
+  # (LOOP-C.C3); until then FASCSA entities are sourced from the committed,
+  # PR-reviewed register at data/fascsa-orders.json.
+  manual_pdf_paths: []
+
+# Where dated snapshot directories are written
+# (<snapshot_dir>/prohibited-vendors-snapshot-YYYYMMDD/).
+snapshot_dir: "data"
+
+proxy:
+  https_proxy: "${HTTPS_PROXY:-}"  # honour a corporate proxy when set
+
+signing:
+  # OPTIONAL. When set, the emitter validates that the actual Ed25519 signing
+  # key (from EVIDENCE_SIGNING_KEY_PATH, or an ephemeral dev key) has this
+  # fingerprint and throws ConfigError on mismatch. Leave empty to record
+  # whatever key the run signs with.
+  key_id: "${PROHIBITED_VENDORS_SIGNING_KEY_ID:-}"

@@ -333,6 +333,61 @@ export function verifyRun(outDir: string, expectedPublicKeyPath?: string): Verif
   };
 }
 
+// ─── Detached single-artifact signing (Ed25519) ──────────────────────────────
+//
+// signRun() above signs an entire output directory via a manifest. Some
+// emitters (e.g. the LOOP-W.W1 prohibited-vendor catalog) also want a
+// self-contained, independently-verifiable Ed25519 signature embedded in the
+// artifact's own provenance block, so a downstream consumer can verify the
+// single file without the run manifest. signDetached() composes the SAME key
+// material as signRun (EVIDENCE_SIGNING_KEY_PATH, or an ephemeral keypair
+// persisted to outDir) — it never invents a separate signing identity.
+
+export interface DetachedSignature {
+  algorithm: 'ed25519';
+  /** SHA-256 fingerprint (first 16 hex chars) of the signer's SPKI public-key PEM. */
+  keyId: string;
+  /** PEM-encoded Ed25519 public key, so a verifier needs nothing else. */
+  publicKeyPem: string;
+  /** Base64 Ed25519 signature over the exact bytes passed in. */
+  signatureBase64: string;
+  /** True when the keypair was generated ad hoc (no EVIDENCE_SIGNING_KEY_PATH). */
+  ephemeralKey: boolean;
+}
+
+/** Stable signer key id: SHA-256 of the SPKI PEM, first 16 hex chars. */
+export function publicKeyFingerprint(publicKeyPem: string): string {
+  return sha256Hex(Buffer.from(publicKeyPem)).slice(0, 16);
+}
+
+/**
+ * Produce a detached Ed25519 signature over `bytes` using the run's signing key.
+ * `outDir` is where an ephemeral keypair is persisted when EVIDENCE_SIGNING_KEY_PATH
+ * is not set (identical behaviour to signRun).
+ */
+export function signDetached(bytes: Buffer, outDir: string): DetachedSignature {
+  const { privateKey, publicKey, ephemeral } = loadOrGenerateKeyPair(outDir);
+  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
+  const sig = cryptoSign(null, bytes, privateKey);
+  return {
+    algorithm: 'ed25519',
+    keyId: publicKeyFingerprint(publicKeyPem),
+    publicKeyPem,
+    signatureBase64: sig.toString('base64'),
+    ephemeralKey: ephemeral,
+  };
+}
+
+/** Verify a detached signature produced by signDetached() against `bytes`. */
+export function verifyDetached(bytes: Buffer, sig: { publicKeyPem: string; signatureBase64: string }): boolean {
+  try {
+    const publicKey = createPublicKey(sig.publicKeyPem);
+    return cryptoVerify(null, bytes, publicKey, Buffer.from(sig.signatureBase64, 'base64'));
+  } catch {
+    return false;
+  }
+}
+
 /** Re-export the file names so the orchestrator/CLI can reference them. */
 export const SIGNED_MANIFEST_FILE = MANIFEST_NAME;
 export const SIGNATURE_FILE = SIGNATURE_NAME;

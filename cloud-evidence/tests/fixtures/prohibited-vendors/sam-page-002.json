@@ -1,0 +1,8 @@
+{
+  "totalRecords": 10,
+  "entityData": [
+    { "ueiSAM": "UEI0000000008", "legalBusinessName": "Excluded Vendor Eight", "exclusionTypeDesc": "Prohibition/Restriction", "excludingAgencyName": "DOE", "activeDate": "2024-04-22", "terminationDate": "Indefinite", "crossReference": "" },
+    { "ueiSAM": "UEI0000000009", "legalBusinessName": "Excluded Vendor Nine Corporation", "exclusionTypeDesc": "Ineligible (Proceedings Pending)", "excludingAgencyName": "GSA", "activeDate": "2025-01-10", "terminationDate": "2028-01-10", "crossReference": "Subsidiary Of Eight" },
+    { "ueiSAM": "UEI0000000010", "legalBusinessName": "Excluded Vendor Ten", "exclusionTypeDesc": "Voluntary Exclusion", "excludingAgencyName": "DHS", "activeDate": "2023-12-31", "terminationDate": "Indefinite", "crossReference": "" }
+  ]
+}

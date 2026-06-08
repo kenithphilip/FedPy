@@ -238,6 +238,7 @@ are set.
 | `--inventory-workbook` | `out/inventory.json` + `inventory-workbook.{csv,xlsx}` + `inventory-oscal.json` + `inventory-cmdb.json` + `inventory-diff.json` + `inventory-cost.json` | Enumerate cloud assets (generic discovery backbone + per-service depth, all regions); emits FedRAMP Appendix M Integrated Inventory Workbook. |
 | `--inventory-only` | (above) only | Fast inventory-focused run that skips KSI/process evidence. |
 | `--reference-arch` | `out/AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | FedRAMP reference-architecture hardening audit (Coalfire-RAMPpak-derived; clean-room). |
+| `--prohibited-vendors-catalog` | `out/prohibited-vendors-catalog.json` (+ `.sig`) + `data/prohibited-vendors-snapshot-YYYYMMDD/MANIFEST.json` | LOOP-W.W1. Emit the signed prohibited-vendor catalog merged from OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA. Offline-first: ingests a snapshot staged by `scripts/extract-prohibited-vendors.mjs` plus the committed statutory constants under `data/`. Runs before signing (catalog is covered by the run manifest) and is the substrate W.W2/W.W3/W.W4 read. Optional `prohibited-vendors-config.yaml` (see `prohibited-vendors-config.example.yaml`). |
 
 ### 3.5 Multi-account / fan-out flags (AWS Organizations)
 
@@ -346,6 +347,9 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_MAS_DISCOVERED_PATH` | (auto) | Discovered identifiers for MAS reconciliation. |
 | `CLOUD_EVIDENCE_SCG_GUIDE_PATH` | (none) | Path to Secure Configuration Guide JSON. |
 | `CLOUD_EVIDENCE_SCG_OBSERVED_PATH` | (none) | Observed config map for SCG comparator. |
+| `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` | `0` | Emit the LOOP-W.W1 prohibited-vendor catalog (equivalent to `--prohibited-vendors-catalog`). |
+| `SAM_GOV_API_KEY` | (none) | SAM.gov Entity Management API key; required only on the network fetch path (`scripts/extract-prohibited-vendors.mjs`). Obtain at https://sam.gov/data-services. |
+| `PROHIBITED_VENDORS_SIGNING_KEY_ID` | (none) | Optional expected Ed25519 key fingerprint for the prohibited-vendor catalog; validated against the actual signing key when set. |
 
 ### 4.4 Multi-account fan-out
 
@@ -548,6 +552,7 @@ Files emitted depend on the flags you pass.
 | `anomaly-report.json` | No | `--anomaly` | JSON | — |
 | `scn-classification.json` + `scn-notice-draft.md` | No | `--scn` | JSON + markdown | yes |
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
+| `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 
 The bundle catalogue (LOOP-A.A4) is the authoritative index of what's
 in a submission bundle for a given run.
