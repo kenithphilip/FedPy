@@ -169,7 +169,12 @@ npm run check:coverage-regression
    - `docs/loops/LOOP-R-SPEC.md` — Post-Quantum Cryptography Migration (3 slices)
    - `docs/loops/LOOP-S-SPEC.md` — DFARS 252.204-7012 Cloud Equivalency (3 conditional slices)
    - `docs/loops/LOOP-T-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
+   - `docs/loops/LOOP-U-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
+   - `docs/loops/LOOP-V-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
    - `docs/loops/LOOP-W-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
+   - `docs/loops/LOOP-X-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
+   - `docs/loops/LOOP-Y-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
+   - `docs/loops/LOOP-Z-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
    - `docs/CIRCIA-WORKFLOW.md` — CIRCIA Final Rule extensions to G.G2 + M.M4 (May 2026 effective; HIGH PRIORITY)
    - `docs/slices/G/G.G2-SEC-8K-EXTENSION.md` — SEC Item 1.05 Form 8-K cyber-incident disclosure extension to G.G2 (co-ship requirement; see file for trigger criteria + four-business-day clock)
 6. **`docs/slices/X/X.XN.md`** — per-slice deep-context docs (one per pending slice, 49 total). Each carries:
@@ -184,6 +189,7 @@ npm run check:coverage-regression
 12. **`docs/SECOND-PASS-AUDIT.md`** — post-LOOP-L..Q audit (2026-06-07) confirming nothing else is still missing after L-Q specification. Read alongside `ADDITIONAL-LOOPS-AUDIT.md` when assessing roadmap completeness.
 12a. **`docs/THIRD-PASS-AUDIT.md`** — post-second-pass audit (2026-06-07) surfacing LOOP-R (PQC), LOOP-S (DFARS 252.204-7012 Cloud Equivalency), and the CIRCIA Final Rule extensions to G.G2 + M.M4. All three are now fully specified (LOOP-R + LOOP-S SPEC + 6 per-slice docs + 2 risks registers; CIRCIA-WORKFLOW.md + 2 CIRCIA-extension per-slice docs). CIRCIA is **HIGH PRIORITY** (May 2026 effective date).
 12c. **`docs/FOURTH-PASS-AUDIT.md`** — post-third-pass audit (2026-06-07) surfacing LOOP-W, LOOP-T, and the SEC Form 8-K Item 1.05 extension to G.G2. Read this alongside `THIRD-PASS-AUDIT.md` when assessing roadmap completeness. The audit ratifies LOOP-T + LOOP-W as in-scope and confirms G.G2-SEC-8K-EXTENSION as a co-ship requirement for any G.G2 implementation that touches a registrant subject to SEC reporting.
+12d. **`docs/FIFTH-PASS-AUDIT.md`** — post-fourth-pass audit (2026-06-08) surfacing LOOP-U, LOOP-V, LOOP-X, LOOP-Y, LOOP-Z. All five are now fully specified (LOOP SPECs + per-slice docs + risks registers) via the gap-fill workflow. Read this alongside `FOURTH-PASS-AUDIT.md` when assessing roadmap completeness.
 12b. **`docs/CIRCIA-WORKFLOW.md`** — CIRCIA Final Rule 72-hour incident reporting workflow. Extends G.G2 (Incident Communications Procedures) and M.M4 (Privacy incident response). Defines Covered Entity / Covered Cyber Incident scoping, 72-hour reporting deadline, 24-hour ransom-payment deadline, CISA submission paths, and harmonization with FedRAMP IR-6 + Privacy Act §552a(e)(10) + OMB M-17-12.
 13. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
     - `docs/sections/SECTION-A.md` — Submission package artifacts

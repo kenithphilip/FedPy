@@ -5,11 +5,11 @@
 > When a slice completes: update its row + commit + push (atomic with the slice's own commit).
 
 ## Overall
-- Total slices: 97 base (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending + 6 LOOP-R+S pending + 4 LOOP-W pending + 5 LOOP-T pending + 2 CIRCIA-extension slices pending) + 1 SEC 8-K overlay (G.G2-SEC-8K) = 98 total counting the overlay; + 4 pre-loop research (R1-R4 done) + REO-0 (done)
-- Loops total: 21 (A-S + T + W) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
-- Loops complete: 1 of 21 (LOOP-A)
+- Total slices: 121 base (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending + 6 LOOP-R+S pending + 4 LOOP-W pending + 5 LOOP-T pending + 5 LOOP-U pending + 5 LOOP-V pending + 5 LOOP-X pending + 4 LOOP-Y pending + 5 LOOP-Z pending + 2 CIRCIA-extension slices pending) + 1 SEC 8-K overlay (G.G2-SEC-8K) = 122 total counting the overlay; + 4 pre-loop research (R1-R4 done) + REO-0 (done)
+- Loops total: 26 (A-S + T + U + V + W + X + Y + Z) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
+- Loops complete: 1 of 26 (LOOP-A)
 - Last shipped: LOOP-A.A5 (commit `469049f`)
-- Next priority: **LOOP-W (Prohibited Vendors) — HIGHEST PRIORITY per `docs/THIRD-PASS-AUDIT.md`** (FY2025 NDAA §1634 + EO 14117 + BIS ICTS Final Rule are statutorily binding and gate the submission package). Then **LOOP-T (NIST SSDF + CISA Common Form)** — required by OMB M-22-18 / M-23-16 for any CSP supplying software to the federal government. Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring remains the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1; LOOP-R, LOOP-S, and CIRCIA extensions queued behind LOOP-L–Q.
+- Next priority: **LOOP-W.W1 (Prohibited-vendor list ingest) — HIGHEST PRIORITY per `docs/THIRD-PASS-AUDIT.md`** (FY2025 NDAA §1634 + EO 14117 + BIS ICTS Final Rule are statutorily binding and gate the submission package). The newly-specified LOOP-U / LOOP-V / LOOP-X / LOOP-Y / LOOP-Z (24 slices total, authored via gap-fill workflow on 2026-06-08) queue **after** the foundational base implementation (LOOP-W → LOOP-T → LOOP-B.B1) lands. Then **LOOP-T (NIST SSDF + CISA Common Form)** — required by OMB M-22-18 / M-23-16 for any CSP supplying software to the federal government. Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring remains the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1; LOOP-R, LOOP-S, CIRCIA extensions, and the newly-authored LOOP-U/V/X/Y/Z queued behind LOOP-L–Q.
 
 > **Note on LOOP-L through LOOP-Q (2026-06-07):** `ADDITIONAL-LOOPS-AUDIT.md`
 > (2026-06-06) surfaced 6 net-new loops (L–Q). The human has ratified the
@@ -226,6 +226,50 @@
 | T.T3 | CISA Secure Software Development Attestation Common Form emitter (OMB M-22-18 / M-23-16) | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T3.md` | T.T1, T.T2 | 2026-06-07 |
 | T.T4 | Third-party software components attestation appendix | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T4.md` | T.T3 | 2026-06-07 |
 | T.T5 | CISA RSAA portal submission package + repository signed-envelope | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T5.md` | T.T3, T.T4 | 2026-06-07 |
+
+## LOOP-U — (newly authored 2026-06-08 via gap-fill workflow)
+| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|
+| U.U1 | LOOP-U slice U.U1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U1.md` | — | 2026-06-08 |
+| U.U2 | LOOP-U slice U.U2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U2.md` | — | 2026-06-08 |
+| U.U3 | LOOP-U slice U.U3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U3.md` | — | 2026-06-08 |
+| U.U4 | LOOP-U slice U.U4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U4.md` | — | 2026-06-08 |
+| U.U5 | LOOP-U slice U.U5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U5.md` | — | 2026-06-08 |
+
+## LOOP-V — (newly authored 2026-06-08 via gap-fill workflow)
+| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|
+| V.V1 | LOOP-V slice V.V1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V1.md` | — | 2026-06-08 |
+| V.V2 | LOOP-V slice V.V2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V2.md` | — | 2026-06-08 |
+| V.V3 | LOOP-V slice V.V3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V3.md` | — | 2026-06-08 |
+| V.V4 | LOOP-V slice V.V4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V4.md` | — | 2026-06-08 |
+| V.V5 | LOOP-V slice V.V5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V5.md` | — | 2026-06-08 |
+
+## LOOP-X — (newly authored 2026-06-08 via gap-fill workflow)
+| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|
+| X.X1 | LOOP-X slice X.X1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X1.md` | — | 2026-06-08 |
+| X.X2 | LOOP-X slice X.X2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X2.md` | — | 2026-06-08 |
+| X.X3 | LOOP-X slice X.X3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X3.md` | — | 2026-06-08 |
+| X.X4 | LOOP-X slice X.X4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X4.md` | — | 2026-06-08 |
+| X.X5 | LOOP-X slice X.X5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X5.md` | — | 2026-06-08 |
+
+## LOOP-Y — (newly authored 2026-06-08 via gap-fill workflow)
+| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|
+| Y.Y1 | LOOP-Y slice Y.Y1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y1.md` | — | 2026-06-08 |
+| Y.Y2 | LOOP-Y slice Y.Y2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y2.md` | — | 2026-06-08 |
+| Y.Y3 | LOOP-Y slice Y.Y3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y3.md` | — | 2026-06-08 |
+| Y.Y4 | LOOP-Y slice Y.Y4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y4.md` | — | 2026-06-08 |
+
+## LOOP-Z — (newly authored 2026-06-08 via gap-fill workflow)
+| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
+|---|---|---|---|---|---|---|---|
+| Z.Z1 | LOOP-Z slice Z.Z1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z1.md` | — | 2026-06-08 |
+| Z.Z2 | LOOP-Z slice Z.Z2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z2.md` | — | 2026-06-08 |
+| Z.Z3 | LOOP-Z slice Z.Z3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z3.md` | — | 2026-06-08 |
+| Z.Z4 | LOOP-Z slice Z.Z4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z4.md` | — | 2026-06-08 |
+| Z.Z5 | LOOP-Z slice Z.Z5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z5.md` | — | 2026-06-08 |
 
 ## CIRCIA Extensions + Overlays (HIGH PRIORITY — May 2026 effective for CIRCIA; SEC 8-K is in force today)
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc |

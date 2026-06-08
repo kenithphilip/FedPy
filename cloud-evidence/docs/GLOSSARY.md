@@ -34,7 +34,20 @@
 > Form 8-K Item 1.05, Material Cybersecurity Incident, Materiality /
 > TSC v. Northway, 4-Business-Day Cyber Disclosure, Smaller Reporting
 > Company, Wholly-Owned Subsidiary, iXBRL Inline Tagging, EDGAR
-> CIK / CCC / Password / PMAC, EO 14028 §4).
+> CIK / CCC / Password / PMAC, EO 14028 §4). 2026-06-08 (fifth pass):
+> 30+ new entries added covering LOOP-U (Privacy Frameworks Crosswalk:
+> CCPA/CPRA, COPPA, FERPA, GLBA Safeguards Rule, GDPR Article 33, DSAR),
+> LOOP-V (Healthcare Overlay: 45 CFR §164 Subparts C/D, BAA, Breach
+> (HIPAA), PHI, NIST SP 800-66 Rev 2, HITRUST CSF v11.2.0, 21st Century
+> Cures Act Information Blocking Rule), LOOP-X (Zero Trust: OMB M-22-09,
+> NIST SP 800-207, NIST SP 800-207A, ZTMM v2.0, Zero Trust Pillar,
+> PDP / PEP / PA, NIST OLIR), LOOP-Y (Sector Overlays: CJIS Security
+> Policy v5.9.5, CJI, Advanced Authentication, CSO (CJIS Systems
+> Officer), IRS Publication 1075, FTI, SCSEM, SSR), and LOOP-Z
+> (International Equivalence: ISO/IEC 27001:2022, ISO/IEC 27017:2015,
+> ISO/IEC 27018:2019, ISO/IEC 27701:2019, Annex A, SoA, PIMS, PII
+> Processor, ENISA EUCS Candidate Scheme, EU Standard Contractual
+> Clauses 2021/914, Schrems II, Transfer Impact Assessment).
 
 ---
 
@@ -45,6 +58,30 @@ organization accredited by A2LA to perform FedRAMP assessments of CSOs.
 The 3PAO produces the SAR + signs the recommendation letter that
 accompanies the authorization package.
 https://www.fedramp.gov/3pao-requirements/
+
+**21st Century Cures Act Information Blocking Rule** — *45 CFR Part 171
+(ONC Final Rule, effective April 2021).* Federal rule under §4004 of the
+21st Century Cures Act prohibiting healthcare actors (providers, health
+IT developers, HINs/HIEs) from practices likely to interfere with the
+access, exchange, or use of electronic health information. Triggers
+LOOP-X applicability when a CSP processes EHI on behalf of healthcare
+covered entities and surfaces alongside the HIPAA stack.
+https://www.healthit.gov/topic/information-blocking
+
+**45 CFR §164 Subpart C (HIPAA Security Rule)** — *HHS.* The HIPAA
+Security Rule covering administrative, physical, and technical
+safeguards for electronic Protected Health Information (ePHI).
+Implemented by LOOP-X.X1 control crosswalk to NIST 800-53 Rev 5 via
+NIST SP 800-66 Rev 2.
+https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-C
+
+**45 CFR §164 Subpart D (HIPAA Breach Notification Rule)** — *HHS.* The
+HIPAA breach notification regime: notify affected individuals within 60
+days of discovery, notify HHS (immediately for breaches ≥500
+individuals, annually otherwise), notify prominent media for large
+breaches in a state/jurisdiction. Implemented by LOOP-X.X2 breach
+notification workflow + harmonized with CIRCIA + state breach laws.
+https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-D
 
 **4-Business-Day Cyber Disclosure (SEC)** — *SEC Final Rule 33-11216
 (July 2023).* The four-business-day deadline by which an SEC-registered
@@ -103,6 +140,22 @@ periodic recertification cadence (AC-6(7)).
 **ADC (Application Default Credentials)** — *GCP.* The default
 credential-resolution chain for Google Cloud SDKs. The
 `cloud-evidence/` GCP read-only guardrail wraps ADC.
+
+**Advanced Authentication (CJIS §5.6.2.2.1)** — *FBI CJIS Security Policy
+v5.9.5 §5.6.2.2.1.* The CJIS-mandated multi-factor authentication
+requirement for access to Criminal Justice Information (CJI) from
+non-trusted networks. Defines acceptable factor types (biometric,
+hardware token, PKI cert, soft token, OTP) and explicitly excludes
+knowledge-based answers. Implemented by LOOP-Y CJIS overlay; cross-
+mapped to NIST IA-2(1)/(2).
+https://le.fbi.gov/cjis-division/cjis-security-policy-resource-center
+
+**Annex A (ISO 27001:2022)** — *ISO/IEC 27001:2022.* The normative
+annex of ISO 27001:2022 enumerating the 93 controls (reorganized from
+the 114 of the 2013 edition) grouped into 4 themes: Organizational,
+People, Physical, Technological. Statement of Applicability (SoA)
+declares which Annex A controls apply + the implementation status.
+Cross-walked to NIST 800-53 by LOOP-V.V1.
 
 **AFR (Authorized FedRAMP Requirement)** — *FRMR.* A FedRAMP-specific
 requirement (not 800-53). Ten AFR families exist; all are REQUIRED at
@@ -202,10 +255,27 @@ https://attack.mitre.org/
 
 ## B
 
+**BAA (Business Associate Agreement)** — *HIPAA / 45 CFR §164.504(e).*
+The contract a HIPAA Covered Entity must execute with any Business
+Associate (e.g. a CSP processing ePHI) that pins the BA's compliance
+with the HIPAA Security Rule (Subpart C), Breach Notification Rule
+(Subpart D), and Privacy Rule (Subpart E) obligations. LOOP-X.X1
+attestation pack includes the BAA template + signed-BAA register.
+https://www.hhs.gov/hipaa/for-professionals/covered-entities/sample-business-associate-agreement-provisions/index.html
+
 **Baseline (control baseline)** — *NIST SP 800-53B.* The published low /
 moderate / high control-set per impact level. FedRAMP Moderate baseline
 has ~325 controls + enhancements. Catalog at
 `docs/nist-r5-baselines.generated.json`.
+
+**Breach (HIPAA)** — *45 CFR §164.402.* The HIPAA-specific definition
+of "breach": an acquisition, access, use, or disclosure of PHI in a
+manner not permitted under the Privacy Rule that compromises the
+security or privacy of the PHI. Subject to a 4-factor risk assessment
+(nature/extent of PHI, recipient identity, whether PHI was actually
+acquired/viewed, mitigation extent). Distinct from generic "incident";
+LOOP-X.X2 implements the 4-factor assessment + Subpart D notification.
+https://www.ecfr.gov/current/title-45/section-164.402
 
 **BIS Entity List (15 CFR Part 744 Supp. 4)** — *U.S. Department of
 Commerce Bureau of Industry and Security (BIS).* The list of foreign
@@ -230,6 +300,41 @@ Diagrammed in LOOP-D.D1.
 
 **CA-7 (Continuous Monitoring)** — *NIST SP 800-53 Rev 5 control.*
 Foundation of LOOP-C.C6 ConMon Strategy + LOOP-E.
+
+**CCPA/CPRA** — *California Consumer Privacy Act of 2018 (Cal. Civ.
+Code §1798.100 et seq.), as amended by the California Privacy Rights
+Act of 2020.* California's consumer-privacy regime granting California
+residents rights of access, deletion, correction, opt-out of sale/
+sharing, and limit-use of sensitive personal information. Enforced by
+the California Privacy Protection Agency. LOOP-U.U2 implements
+DSAR-handling crosswalk against CCPA/CPRA + GDPR.
+https://cppa.ca.gov/regulations/
+
+**CJI (Criminal Justice Information)** — *FBI CJIS Security Policy.*
+Data provided by or for FBI CJIS systems used for criminal justice
+purposes (CHRI, biometric, identity history, biographic data,
+property data, case/incident history, etc.). Triggers CJIS Security
+Policy applicability + Advanced Authentication requirement.
+Inventoried by LOOP-Y.Y1.
+
+**CJIS Security Policy v5.9.5** — *FBI Criminal Justice Information
+Services Division (December 2024).* The federal policy enumerating
+the security controls a CSP must satisfy to host Criminal Justice
+Information (CJI) on behalf of a Criminal Justice Agency. Defines 13
+policy areas (access control, awareness training, audit/accountability,
+incident response, physical protection, advanced authentication,
+encryption, etc.) and a CJIS Systems Officer (CSO) governance role.
+Implemented by LOOP-Y.
+https://le.fbi.gov/cjis-division/cjis-security-policy-resource-center
+
+**COPPA (Children's Online Privacy Protection Act)** — *15 USC §6501 et
+seq.; 16 CFR Part 312 (FTC Rule).* The U.S. federal statute + FTC rule
+restricting collection of personal information from children under 13
+without verifiable parental consent. Triggers LOOP-U applicability when
+CSP processes child-directed content or has actual knowledge of
+under-13 users. Carries strict FTC enforcement (per-violation civil
+penalties).
+https://www.ftc.gov/legal-library/browse/rules/childrens-online-privacy-protection-rule-coppa
 
 **Canonical JSON** — *Internal.* Sorted-keys + LF-only line ending +
 no extra whitespace JSON format used for signed manifests so signatures
@@ -397,6 +502,13 @@ https://www.first.org/cvss/v3.1/specification-document
 ∈ {public, internal, confidential, cui, pii}. Set via cloud tag
 `fedramp_data_classification`. Drives LOOP-B.B1 criticality.
 
+**Data Subject Access Request (DSAR)** — *GDPR Articles 15-22; CCPA/CPRA
+§1798.100-130.* A formal request by a data subject (or California
+consumer) to exercise rights of access, rectification, erasure,
+portability, restriction, objection, or opt-out. LOOP-U.U2 emits the
+DSAR-handling workflow + per-jurisdiction response deadlines (GDPR: 1
+month; CCPA: 45 days, extendable +45) + the audit trail evidence pack.
+
 **DC3 (DoD Cyber Crime Center)** — *DoD.* The DoD organization that
 receives DFARS 252.204-7012(c) cyber incident reports via the DIB Net
 portal (https://dibnet.dod.mil/). LOOP-S.S2 emits the DC3 submission
@@ -458,6 +570,15 @@ LOOP-E.E5.
 
 **Ed25519** — *Cryptographic signature algorithm.* Used by `core/sign.ts`
 for all evidence envelopes. REO Rule 1.6.
+
+**ENISA EUCS Candidate Scheme** — *European Union Agency for
+Cybersecurity (ENISA).* The European Cybersecurity Certification Scheme
+for Cloud Services — a candidate certification scheme under the EU
+Cybersecurity Act (Regulation (EU) 2019/881) defining three assurance
+levels (Basic / Substantial / High) for cloud service providers. Once
+finalized, becomes the EU-wide equivalent of FedRAMP. LOOP-Z.Z2 emits
+a FedRAMP-Moderate → EUCS-Substantial mapping.
+https://www.enisa.europa.eu/publications/eucs-cloud-service-scheme
 
 **EDGAR CIK / CCC / Password / PMAC** — *SEC EDGAR filer-credential set.*
 The four credentials the SEC EDGAR filing system uses to authenticate a
@@ -539,6 +660,20 @@ https://www.acquisition.gov/far/52.204-26
 US-government CSP authorization program.
 https://www.fedramp.gov/
 
+**FERPA (Family Educational Rights and Privacy Act)** — *20 USC §1232g;
+34 CFR Part 99.* Federal statute + DoE rule protecting the privacy of
+student education records. Applies to educational agencies / institutions
+receiving DoE funds and (by contract) to school-service-provider CSPs
+that process student records as a "school official" with a legitimate
+educational interest. LOOP-U.U3 implements the FERPA evidence pack.
+https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html
+
+**FTI (Federal Tax Information)** — *26 USC §6103 / IRS Publication 1075.*
+Federal tax return / return-information data covered by the
+confidentiality protections of 26 USC §6103. Triggers IRS Publication
+1075 applicability when a CSP receives, processes, stores, or transmits
+FTI on behalf of a federal/state/local agency. Inventoried by LOOP-Y.Y2.
+
 **FedRAMP 20x** — *Program revision.* Authorization framework
 modernization, Phase Two specifies automated/opinionated KSI validation.
 https://www.fedramp.gov/20x/
@@ -596,11 +731,38 @@ a single requirement statement (e.g. FRR-FSI-09).
 
 ## G
 
+**GDPR Article 33** — *Regulation (EU) 2016/679, Article 33.* The
+GDPR "Notification of a personal data breach to the supervisory
+authority" requirement: a controller must notify the competent
+supervisory authority without undue delay and, where feasible, within
+72 hours of becoming aware of a personal data breach. Processors must
+notify controllers without undue delay. Harmonized with CIRCIA 72-hour
+clock + HIPAA Subpart D + state laws by LOOP-U.U1.
+https://gdpr-info.eu/art-33-gdpr/
+
+**GLBA Safeguards Rule** — *Gramm-Leach-Bliley Act §501(b); 16 CFR Part
+314 (FTC).* The FTC rule (revised 2021, full compliance 2023) requiring
+financial institutions to develop, implement, and maintain a written
+information-security program with administrative, technical, and
+physical safeguards. Includes specific elements: qualified individual,
+risk assessment, access controls, encryption, MFA, incident response
+plan. Triggers LOOP-U applicability for CSPs serving GLBA-covered
+financial institutions.
+https://www.ftc.gov/legal-library/browse/rules/safeguards-rule
+
 **Guardrail (G1, G2, G3)** — *Internal CI.* G1 = lint:no-stubs;
 G2 = check:coverage-regression; G3 = check:provenance. Required checks
 in `.github/workflows/ci.yml`.
 
 ## H
+
+**HITRUST CSF v11.2.0** — *HITRUST Alliance.* A prescriptive, certifiable
+security + privacy framework that crosswalks 60+ source authorities
+(HIPAA, NIST 800-53, ISO 27001, PCI-DSS, GDPR, AI RMF, etc.) into a
+unified control set with three assessment tiers: e1, i1, r2. HITRUST
+CSF v11.2.0 (April 2024) added AI risk-management requirements. LOOP-V.V3
+emits the HITRUST → FedRAMP Moderate crosswalk for healthcare CSPs.
+https://hitrustalliance.net/product-tool/hitrust-csf/
 
 **HMAC-SHA256** — *Cryptographic primitive.* Used in LOOP-G.G1 webhook
 auth + generic-webhook adapter (Phase F.4).
@@ -666,6 +828,46 @@ Drives LOOP-C.C3.
 
 **IRP (Incident Response Plan)** — *FedRAMP template.* The Word doc
 emitted by LOOP-C.C3.
+
+**IRS Publication 1075** — *IRS Publication 1075 (Tax Information
+Security Guidelines for Federal, State and Local Agencies),
+Rev. November 2021.* The IRS-published security guideline (and SCSEM
+testing checklists) that agencies receiving FTI must implement. Builds
+on NIST 800-53 Moderate with FTI-specific overlays (mandatory state
+disclosure, contractor employee fingerprinting, dedicated facility
+inspection). LOOP-Y.Y2 emits the IRS Pub 1075 attestation pack.
+https://www.irs.gov/pub/irs-pdf/p1075.pdf
+
+**ISO/IEC 27001:2022** — *ISO/IEC.* The international standard for
+Information Security Management Systems (ISMS). Defines the
+risk-based ISMS lifecycle (clauses 4-10) + Annex A control catalog (93
+controls in 4 themes, reorganised from the 114-control / 14-domain
+structure in the 2013 edition). LOOP-Z.Z1 emits the ISO 27001:2022 →
+FedRAMP Moderate crosswalk + Statement of Applicability template.
+https://www.iso.org/standard/27001
+
+**ISO/IEC 27017:2015** — *ISO/IEC.* The international standard giving
+cloud-specific guidance on top of ISO 27001/27002. Adds CLD.* controls
+covering customer/provider role separation, virtual environment
+segmentation, virtual machine hardening, administrator operational
+security. LOOP-Z.Z1 includes 27017 in the ISO crosswalk pack.
+https://www.iso.org/standard/43757.html
+
+**ISO/IEC 27018:2019** — *ISO/IEC.* The international code of practice
+for protection of PII in public clouds acting as PII Processors.
+Extends 27002 + 27017 with PII-processor-specific controls (purpose
+limitation, consent, transparency, data-subject rights, secure deletion,
+sub-processor disclosure). LOOP-Z.Z1 includes 27018 alongside 27701
+when the CSP processes PII.
+https://www.iso.org/standard/76559.html
+
+**ISO/IEC 27701:2019** — *ISO/IEC.* The international standard extending
+ISO 27001 + 27002 to a Privacy Information Management System (PIMS) for
+PII Controllers and PII Processors. Adds privacy-specific clauses + two
+new Annexes (A for controllers, B for processors) crosswalked to GDPR.
+LOOP-Z.Z2 emits the 27701 PIMS evidence pack alongside the ISO 27001
+ISMS pack.
+https://www.iso.org/standard/71670.html
 
 **ISCP (Information System Contingency Plan)** — *FedRAMP template.*
 Emitted by LOOP-C.C2.
@@ -768,6 +970,39 @@ https://www.congress.gov/115/plaws/publ91/PLAW-115publ91.pdf
 **NIST AI RMF 1.0** — *NIST AI 100-1.* Drives LOOP-O.
 https://nvlpubs.nist.gov/nistpubs/ai/nist.ai.100-1.pdf
 
+**NIST OLIR (Online Informative References Program)** — *NIST.* The NIST
+program that publishes machine-readable mappings ("Informative
+References") between cybersecurity / privacy reference documents (e.g.
+NIST 800-53, ISO 27001, HIPAA Security Rule, CSF). OLIRs are the
+canonical mechanism used by LOOP-V.V1, LOOP-X.X1, LOOP-Z.Z1, and other
+crosswalk emitters to ground claimed control mappings in NIST-published
+references.
+https://csrc.nist.gov/projects/olir
+
+**NIST SP 800-66 Rev 2** — *NIST SP 800-66 Revision 2 (February 2024).*
+"Implementing the HIPAA Security Rule: A Cybersecurity Resource Guide."
+The current NIST guidance crosswalking the HIPAA Security Rule
+(45 CFR §164 Subpart C) standards + implementation specifications to
+NIST 800-53 Rev 5 controls + the NIST Cybersecurity Framework v2.0.
+Drives LOOP-V.V1 + LOOP-X.X1 healthcare control crosswalk.
+https://csrc.nist.gov/pubs/sp/800/66/r2/final
+
+**NIST SP 800-207** — *NIST SP 800-207 (August 2020).* "Zero Trust
+Architecture." Defines the core Zero Trust tenets, the logical
+components (Policy Engine / Policy Administrator / Policy Enforcement
+Point), and the trust algorithms underlying Zero Trust deployments.
+Foundational publication invoked by OMB M-22-09 + ZTMM v2.0.
+Implemented by LOOP-X.
+https://csrc.nist.gov/pubs/sp/800/207/final
+
+**NIST SP 800-207A** — *NIST SP 800-207A (September 2023).* "A Zero
+Trust Architecture Model for Access Control in Cloud-Native
+Applications in Multi-Location Environments." Extends 800-207 to the
+cloud-native + multi-cluster service-mesh case: per-service identity,
+service-to-service authorization, network/identity layered enforcement.
+Drives LOOP-X.X2 service-mesh evidence collection.
+https://csrc.nist.gov/pubs/sp/800/207/a/final
+
 **NIST SP 800-171 Rev 3** — *NIST SP 800-171 Revision 3 (May 2024).*
 Protecting CUI in Nonfederal Systems and Organizations. The 110-control
 set DoD-prime contractors must satisfy under DFARS 252.204-7012.
@@ -850,6 +1085,14 @@ The SDN list is published as XML / CSV and pulled by LOOP-T.T3 in
 addition to the BIS Entity List + SAM.gov Exclusions.
 https://ofac.treasury.gov/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists
 
+**OMB M-22-09** — *OMB (January 2022).* "Moving the U.S. Government
+Toward Zero Trust Cybersecurity Principles." Operationalizes EO 14028
+§3 by directing federal agencies (and their CSPs) to adopt a Zero
+Trust architecture aligned to NIST SP 800-207 + CISA ZTMM. Pins
+specific identity / device / network / app / data targets and a FY24
+implementation deadline. Drives LOOP-X.
+https://www.whitehouse.gov/wp-content/uploads/2022/01/M-22-09.pdf
+
 **OMB M-22-18** — *OMB (September 2022).* "Enhancing the Security of the
 Software Supply Chain through Secure Software Development Practices."
 Operationalises EO 14028 §4 by requiring federal agencies to obtain a
@@ -904,6 +1147,21 @@ run. LOOP-H.H1 archives the directory tree per run.
 Per-CSO unique identifier. Inherited-authorization PA-ids needed for
 LOOP-L.L2.
 
+**PDP / PEP / PA (Policy Decision Point / Policy Enforcement Point /
+Policy Administrator)** — *NIST SP 800-207 §3.* The three logical
+components of a Zero Trust Architecture per 800-207: the **Policy
+Decision Point (PDP)** is the brain that evaluates trust and renders an
+allow/deny decision (decomposed in 800-207 into the Policy Engine + the
+Policy Administrator); the **Policy Enforcement Point (PEP)** is the
+component (e.g. service-mesh proxy, application gateway, identity-aware
+proxy) that actually enforces the decision in the data path; the
+**Policy Administrator (PA)** sub-component conveys decisions to PEPs +
+manages session lifecycle. LOOP-X.X3 inventories PDP/PEP/PA placement
+across the CSO boundary.
+
+**Policy Decision Point / Policy Enforcement Point** — See **PDP / PEP /
+PA** entry above.
+
 **PAIN / IRV / LEV (deadline tiers)** — *FedRAMP VDR.* Vulnerability
 deadline classes consumed by LOOP-B.B2.
 
@@ -954,8 +1212,31 @@ pilot. Output bundle format pinned in LOOP-A.A4 as
 **PIA (Privacy Impact Assessment)** — *OMB M-03-22.* Emitted by
 LOOP-C.C4 when PII tags detected.
 
+**PHI (Protected Health Information)** — *HIPAA / 45 CFR §160.103.*
+Individually identifiable health information transmitted or maintained
+in any form by a Covered Entity or Business Associate, excluding
+employment records and education records covered by FERPA. ePHI =
+electronic PHI subject to the Security Rule (Subpart C). Inventoried by
+LOOP-V.V1 via `data_classification=phi` tag (extension to the existing
+classification enum).
+
 **PII (Personally Identifiable Information)** — *Standard.* Tagged on
 assets via `data_classification=pii`. Drives PIA emit + criticality.
+
+**PII Processor (ISO 27018)** — *ISO/IEC 27018:2019 + 27701:2019.* The
+ISO term for an entity that processes PII on behalf of (and under the
+instructions of) a PII Controller — directly equivalent to the GDPR
+"processor" role. ISO 27018 Annex A enumerates 25+ processor-specific
+controls. A CSP processing customer PII data is a PII Processor +
+inherits Annex A obligations. LOOP-Z.Z2 emits the PII Processor
+assertion.
+
+**PIMS (Privacy Information Management System)** — *ISO/IEC 27701:2019.*
+The ISO term for a Privacy Information Management System built as an
+extension of an ISO 27001 ISMS. Has separate clauses for PII
+Controllers + PII Processors, each cross-mapped to GDPR articles.
+LOOP-Z.Z2 emits the PIMS evidence pack alongside the ISO 27001 ISMS
+pack.
 
 **PM-9 (Risk Management Strategy)** — *NIST SP 800-53 Rev 5 control.*
 Drives LOOP-C.C7.
@@ -1085,6 +1366,16 @@ RPL-ARP. Existing backup-recovery-plan KSI collectors.
 **SA-9 (External System Services)** — *NIST SP 800-53 Rev 5 control.*
 Subprocessor inventory + risk-tier classification. LOOP-J.J2.
 
+**Schrems II (CJEU C-311/18)** — *Court of Justice of the European Union
+judgment in Data Protection Commissioner v. Facebook Ireland and
+Maximillian Schrems (July 16, 2020).* The CJEU decision that
+invalidated the EU-US Privacy Shield and tightened the conditions
+under which EU→US personal-data transfers may proceed under Standard
+Contractual Clauses, requiring a Transfer Impact Assessment + likely
+supplementary measures. Drives LOOP-Z.Z3 TIA workflow for EU customer
+data transfers.
+https://curia.europa.eu/juris/document/document.jsf?docid=228677
+
 **SAM.gov Exclusions** — *GSA / IAE (Integrated Award Environment).*
 The federal exclusions list published in SAM.gov enumerating entities
 debarred, suspended, proposed for debarment, or otherwise excluded from
@@ -1110,6 +1401,27 @@ Drives proposed §3.7 boundary flow-log ingestion.
 
 **SCN (Significant Change Notification)** — *FedRAMP CMP.* Classifier
 + doc emitter. SCN classifier exists; SCN doc emitter is LOOP-E.E6.
+
+**SCSEM (Safeguard Computer Security Evaluation Matrix)** — *IRS Office
+of Safeguards.* The IRS-published technical-test checklists used to
+verify FTI-handling agencies' compliance with IRS Publication 1075.
+Per-platform SCSEMs exist (Windows, Linux, Oracle DB, AWS, Azure, etc.).
+LOOP-Y.Y2 emits the populated SCSEM workbook + delta against IRS-
+published reference.
+https://www.irs.gov/privacy-disclosure/safeguards-program
+
+**SCC (Standard Contractual Clauses, EU SCCs 2021/914)** — *European
+Commission Decision (EU) 2021/914 (June 4, 2021).* The European
+Commission–approved standard contractual clauses governing transfers
+of personal data from the EU/EEA to third countries that lack an
+adequacy decision. Four modules (controller-controller,
+controller-processor, processor-processor, processor-controller).
+LOOP-Z.Z3 includes the SCC module-selector + Transfer Impact
+Assessment workflow.
+https://commission.europa.eu/law/law-topic/data-protection/international-dimension-data-protection/standard-contractual-clauses-scc_en
+
+**Standard Contractual Clauses (EU SCCs 2021/914)** — See **SCC** entry
+above.
 
 **SEC Final Rule 33-11216** — *U.S. Securities and Exchange Commission
 (July 26, 2023).* "Cybersecurity Risk Management, Strategy, Governance,
@@ -1150,6 +1462,13 @@ LOOP-B.B2 supersedes with KEV/PAIN/IRV/LEV math.
 **SLICE-COMPLETION-PROCEDURE.md** — *Internal.* The mandatory 7-step
 procedure executed atomically with every slice's final commit.
 
+**SoA (Statement of Applicability)** — *ISO/IEC 27001:2022 §6.1.3 d).*
+The mandatory ISMS document declaring which Annex A controls apply to
+the in-scope ISMS, the implementation status of each applicable
+control, and the justification for excluding any non-applicable
+controls. Audited at every ISO 27001 surveillance + recertification
+audit. Emitted by LOOP-Z.Z1.
+
 **Safety-Impacting AI** — *OMB M-24-10.* AI categorized as
 having the potential to directly affect the physical safety of
 individuals. Triggers enhanced pre-deployment + ongoing evaluation
@@ -1185,6 +1504,20 @@ Network + Data Flow). LOOP-D.
 
 **SSP Appendix Q** — *FedRAMP.* Cryptographic Modules Table. Proposed
 LOOP-C.C10.
+
+**SSR (IRS Safeguard Security Report)** — *IRS Publication 1075.* The
+annual report each FTI-receiving agency must file with the IRS Office
+of Safeguards documenting the state of FTI safeguards: organizational
+changes, system inventory, SCSEM results, POA&M, training records, and
+incident summary. LOOP-Y.Y2 emits the populated SSR template alongside
+the SCSEM evidence pack.
+
+**CSO (CJIS Systems Officer)** — *FBI CJIS Security Policy §3.2.2.* The
+designated official within a CJIS Systems Agency (or service provider)
+responsible for the administration of the CJIS network and the
+agency's compliance with the CJIS Security Policy. Distinct from
+"CSO" = Cloud Service Offering. LOOP-Y disambiguates with the term
+"CJIS Systems Officer" in artifact narratives.
 
 **SSDF (Secure Software Development Framework)** — *NIST SP 800-218.*
 
@@ -1227,6 +1560,15 @@ https://supreme.justia.com/cases/federal/us/426/438/
 **Tracker** — *Internal.* The local React + SQLite app under
 `cloud-evidence/tracker/`. Captures operator + 3PAO + AO actions with
 signed audit log.
+
+**Transfer Impact Assessment (TIA)** — *EDPB Recommendations 01/2020 +
+Schrems II.* The case-by-case assessment a data exporter must perform
+before transferring personal data to a third country under SCCs:
+evaluate the third-country law + practices for adequacy, identify gaps
+relative to EU standards, and define supplementary measures (technical:
+e.g. encryption with EU-held keys; contractual; organizational). LOOP-Z.Z3
+emits the TIA workbook + supplementary-measures register.
+https://www.edpb.europa.eu/our-work-tools/our-documents/recommendations/recommendations-012020-measures-supplement-transfer_en
 
 **Trust Center** — *AFR-ADS.* Public-facing CSP publication of
 authorization status + service list. LOOP-G.G3.
@@ -1276,6 +1618,22 @@ encodes this routing as an operator-config field.
 (no terms)
 
 ## Z
+
+**Zero Trust Pillar** — *CISA ZTMM v2.0.* The five top-level Zero
+Trust capability areas defined by the CISA Zero Trust Maturity Model
+v2.0: **Identity**, **Devices**, **Networks**, **Applications &
+Workloads**, **Data**, supported by 3 cross-cutting capabilities
+(Visibility & Analytics, Automation & Orchestration, Governance).
+LOOP-X.X4 emits per-pillar maturity assessments + per-capability target
+states.
+
+**ZTMM v2.0 (Zero Trust Maturity Model v2.0)** — *CISA (April 2023).*
+The CISA-published maturity model defining four maturity stages
+(Traditional, Initial, Advanced, Optimal) for each of the five Zero
+Trust Pillars + three cross-cutting capabilities. The federal companion
+to NIST SP 800-207 and OMB M-22-09. Drives LOOP-X.X4 maturity
+assessment + roadmap.
+https://www.cisa.gov/zero-trust-maturity-model
 
 **Zip (OOXML container)** — *ECMA-376.* `core/zip.ts` is the cross-
 emitter primitive for .docx and .xlsx OOXML containers.
@@ -1360,3 +1718,30 @@ emitter primitive for .docx and .xlsx OOXML containers.
 - BIS Entity List — https://www.bis.doc.gov/index.php/policy-guidance/lists-of-parties-of-concern/entity-list
 - OFAC SDN List — https://ofac.treasury.gov/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists
 - SAM.gov Exclusions — https://sam.gov/content/exclusions
+- 45 CFR §164 Subpart C (HIPAA Security Rule) — https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-C
+- 45 CFR §164 Subpart D (HIPAA Breach Notification Rule) — https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-D
+- HIPAA BAA Sample — https://www.hhs.gov/hipaa/for-professionals/covered-entities/sample-business-associate-agreement-provisions/index.html
+- 21st Century Cures Act Information Blocking — https://www.healthit.gov/topic/information-blocking
+- NIST SP 800-66 Rev 2 — https://csrc.nist.gov/pubs/sp/800/66/r2/final
+- HITRUST CSF — https://hitrustalliance.net/product-tool/hitrust-csf/
+- NIST SP 800-207 (Zero Trust) — https://csrc.nist.gov/pubs/sp/800/207/final
+- NIST SP 800-207A — https://csrc.nist.gov/pubs/sp/800/207/a/final
+- OMB M-22-09 (Zero Trust) — https://www.whitehouse.gov/wp-content/uploads/2022/01/M-22-09.pdf
+- CISA ZTMM v2.0 — https://www.cisa.gov/zero-trust-maturity-model
+- NIST OLIR — https://csrc.nist.gov/projects/olir
+- CCPA/CPRA (CPPA Regulations) — https://cppa.ca.gov/regulations/
+- COPPA (FTC Rule) — https://www.ftc.gov/legal-library/browse/rules/childrens-online-privacy-protection-rule-coppa
+- FERPA (DoE) — https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html
+- GLBA Safeguards Rule (FTC) — https://www.ftc.gov/legal-library/browse/rules/safeguards-rule
+- GDPR Article 33 — https://gdpr-info.eu/art-33-gdpr/
+- FBI CJIS Security Policy — https://le.fbi.gov/cjis-division/cjis-security-policy-resource-center
+- IRS Publication 1075 — https://www.irs.gov/pub/irs-pdf/p1075.pdf
+- IRS Safeguards Program (SCSEM) — https://www.irs.gov/privacy-disclosure/safeguards-program
+- ISO/IEC 27001:2022 — https://www.iso.org/standard/27001
+- ISO/IEC 27017:2015 — https://www.iso.org/standard/43757.html
+- ISO/IEC 27018:2019 — https://www.iso.org/standard/76559.html
+- ISO/IEC 27701:2019 — https://www.iso.org/standard/71670.html
+- ENISA EUCS — https://www.enisa.europa.eu/publications/eucs-cloud-service-scheme
+- EU Standard Contractual Clauses (2021/914) — https://commission.europa.eu/law/law-topic/data-protection/international-dimension-data-protection/standard-contractual-clauses-scc_en
+- Schrems II (CJEU C-311/18) — https://curia.europa.eu/juris/document/document.jsf?docid=228677
+- EDPB Recommendations 01/2020 (TIA) — https://www.edpb.europa.eu/our-work-tools/our-documents/recommendations/recommendations-012020-measures-supplement-transfer_en

@@ -1,4 +1,4 @@
-# Dependency Graph — every slice across LOOP-A through LOOP-W (+ CIRCIA + SEC 8-K overlays)
+# Dependency Graph — every slice across LOOP-A through LOOP-Z (+ CIRCIA + SEC 8-K overlays)
 
 > Single source of truth for slice ordering. Derived from the `depends_on`
 > and `blocks` frontmatter in every per-slice doc under `docs/slices/X/X.XN.md`.
@@ -567,6 +567,83 @@ graph TD
   O.O5 --> T.T5
 
   %% =========================================================
+  %% LOOP-U (gap-fill loop — see LOOP-U-SPEC.md for scope)
+  %% =========================================================
+  A.A5 --> U.U1[U.U1 foundation]
+  U.U1 --> U.U2[U.U2 collector / inventory bridge]
+  INVCHAIN --> U.U2
+  U.U2 --> U.U3[U.U3 emitter / tracker integration]
+  A.A4 --> U.U3
+  A.A5 --> U.U3
+  U.U2 --> U.U4[U.U4 reporting layer]
+  A.A5 --> U.U4
+  U.U2 --> U.U5[U.U5 cross-loop harmonization]
+  G.G2 --> U.U5
+  M.M4 --> U.U5
+  A.A5 --> U.U5
+
+  %% =========================================================
+  %% LOOP-V (gap-fill loop — see LOOP-V-SPEC.md for scope)
+  %% =========================================================
+  A.A5 --> V.V1[V.V1 foundation]
+  V.V1 --> V.V2[V.V2 collector / emitter]
+  A.A4 --> V.V2
+  A.A5 --> V.V2
+  V.V1 --> V.V3[V.V3 cross-loop integration]
+  V.V2 --> V.V3
+  G.G2 --> V.V3
+  M.M4 --> V.V3
+  A.A5 --> V.V3
+  V.V1 --> V.V4[V.V4 risk integration]
+  B.B1 --> V.V4
+  V.V1 --> V.V5[V.V5 risk reporting]
+  B.B1 --> V.V5
+
+  %% =========================================================
+  %% LOOP-X (gap-fill loop — see LOOP-X-SPEC.md for scope)
+  %% =========================================================
+  A.A5 --> X.X1[X.X1 foundation]
+  X.X1 --> X.X2[X.X2 collector / inventory bridge]
+  INVCHAIN --> X.X2
+  X.X2 --> X.X3[X.X3 SBOM + supply chain integration]
+  E2SBOM --> X.X3
+  J.J3 --> X.X3
+  X.X1 --> X.X4[X.X4 emitter / tracker integration]
+  X.X2 --> X.X4
+  X.X3 --> X.X4
+  A.A4 --> X.X4
+  A.A5 --> X.X4
+  X.X2 --> X.X5[X.X5 ongoing telemetry]
+  X.X3 --> X.X5
+
+  %% =========================================================
+  %% LOOP-Y (gap-fill loop — see LOOP-Y-SPEC.md for scope)
+  %% =========================================================
+  A.A5 --> Y.Y1[Y.Y1 foundation A]
+  Y.Y1 --> Y.Y2[Y.Y2 IAM-bridged collector]
+  IAMAAM --> Y.Y2
+  IAMELP --> Y.Y2
+  A.A5 --> Y.Y3[Y.Y3 foundation B]
+  Y.Y3 --> Y.Y4[Y.Y4 emitter / tracker integration]
+  A.A4 --> Y.Y4
+  A.A5 --> Y.Y4
+
+  %% =========================================================
+  %% LOOP-Z (gap-fill loop — see LOOP-Z-SPEC.md for scope)
+  %% =========================================================
+  A.A5 --> Z.Z1[Z.Z1 foundation]
+  Z.Z1 --> Z.Z2[Z.Z2 risk-bridged emitter]
+  B.B1 --> Z.Z2
+  A.A4 --> Z.Z2
+  A.A5 --> Z.Z2
+  Z.Z1 --> Z.Z3[Z.Z3 inventory-bridged collector]
+  Z.Z1 --> Z.Z4[Z.Z4 LOOP-U bridged stage]
+  U.U1 --> Z.Z4
+  U.U2 --> Z.Z4
+  Z.Z1 --> Z.Z5[Z.Z5 LOOP-U integrated terminal]
+  Z.Z4 --> Z.Z5
+
+  %% =========================================================
   %% Pre-flight wiring
   %% =========================================================
   REO0 --> A.A1
@@ -692,6 +769,30 @@ underlying expansion is documented in the corresponding per-slice doc.
 | **T.T3** | T.T1, T.T2 | T.T4 |
 | **T.T4** | T.T3, A.A4 | (terminal — continuous-ATO event log + tracker integration) |
 | **T.T5** | T.T1, T.T2, O.O5 | (terminal — telemetry consumer + AI-eval feedback) |
+| **U.U1** | A.A5 | U.U2, U.U3, U.U4, U.U5, Z.Z4, Z.Z5 |
+| **U.U2** | U.U1, INV-S | U.U3, U.U4, U.U5, Z.Z4 |
+| **U.U3** | U.U2, A.A4, A.A5, tracker | (terminal — emitter / tracker integration) |
+| **U.U4** | U.U2, A.A5 | (terminal — reporting layer) |
+| **U.U5** | U.U2, G.G2, M.M4, A.A5 | (terminal — cross-loop harmonization) |
+| **V.V1** | A.A5 | V.V2, V.V3, V.V4, V.V5 |
+| **V.V2** | V.V1, A.A4, A.A5 | V.V3 |
+| **V.V3** | V.V1, V.V2, G.G2, M.M4, A.A5 | (terminal — cross-loop integration) |
+| **V.V4** | V.V1, LOOP-B (B.B1) | (terminal — risk integration) |
+| **V.V5** | V.V1, LOOP-B (B.B1) | (terminal — risk reporting) |
+| **X.X1** | A.A5 | X.X2, X.X4, X.X5 |
+| **X.X2** | X.X1, INV-S | X.X3, X.X4, X.X5 |
+| **X.X3** | X.X2, E.2 SBOM, J.J3 | X.X4, X.X5 |
+| **X.X4** | X.X1, X.X2, X.X3, A.A4, A.A5 | (terminal — emitter / tracker integration) |
+| **X.X5** | X.X2, X.X3, INV-S | (terminal — ongoing telemetry) |
+| **Y.Y1** | A.A5 | Y.Y2 |
+| **Y.Y2** | Y.Y1, IAM (IAM-AAM + IAM-ELP) | (terminal — IAM-bridged collector) |
+| **Y.Y3** | A.A5 | Y.Y4 |
+| **Y.Y4** | Y.Y3, A.A4, A.A5 | (terminal — emitter / tracker integration) |
+| **Z.Z1** | A.A5 | Z.Z2, Z.Z3, Z.Z4, Z.Z5 |
+| **Z.Z2** | Z.Z1, LOOP-B (B.B1), A.A4, A.A5 | (terminal — risk-bridged emitter) |
+| **Z.Z3** | Z.Z1, INV-S | (terminal — inventory-bridged collector) |
+| **Z.Z4** | Z.Z1, U.U1, U.U2 | Z.Z5 |
+| **Z.Z5** | Z.Z1, Z.Z4, LOOP-U (U.U1, U.U2) | (terminal — LOOP-U integrated terminal) |
 
 Cycle notes (self-referential pairs in the table above):
 - **E.E3 ↔ E.E4** — E.E4 depends on E.E3 for the annual harness; E.E3

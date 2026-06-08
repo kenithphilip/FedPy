@@ -16,6 +16,14 @@ last_updated: 2026-06-07
 
 # FOURTH-PASS AUDIT — Post-LOOP-S / LOOP-W / LOOP-T / SEC 8-K sweep
 
+> **Status (2026-06-08):** All five fourth-pass loops SPECIFIED.
+> - LOOP-U (Privacy): SPEC + RISKS + 5 per-slice docs.
+> - LOOP-V (Healthcare / HIPAA): SPEC + RISKS + 5 per-slice docs.
+> - LOOP-X (Zero Trust): SPEC + RISKS + 5 per-slice docs.
+> - LOOP-Y (Sector — CJIS + IRS): SPEC + RISKS + 4 per-slice docs.
+> - LOOP-Z (International — ISO + EUCS): SPEC + RISKS + 5 per-slice docs.
+> Implementation status remains 'proposed' for all new slices. Fifth-pass audit in docs/FIFTH-PASS-AUDIT.md.
+
 > Ground-up rebuilt audit per the user directive of 2026-06-07: "Restart the
 > workflow from the ground up and do not be lazy or rely on previous work …
 > Be as thorough as possible and be even more precise … Do enough research

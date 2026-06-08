@@ -960,3 +960,234 @@ NO slice is "closed" until step 9 completes. The push step is what
 makes the slice visible to other sessions and to the published GitHub
 state; skipping it leaves the on-disk source of truth in disagreement
 with the public truth, which is itself a REO violation.
+
+---
+
+## Added loops U + V + X + Y + Z (2026-06-08)
+
+### Why this section exists
+
+A **fifth-pass audit** (recorded in the forthcoming
+`docs/FIFTH-PASS-AUDIT.md`) revisited the corpus after the FOURTH-PASS
+ratified LOOP-W (FAR 52.204-25 / Section 889) + LOOP-T (NDAA §1634 +
+OMB M-22-18 + CISA Common Form) + the SEC 8-K extension to G.G2. The
+fifth-pass exercise re-evaluated *five further* statutory, regulatory,
+and contractual drivers that prior passes had explicitly enumerated as
+"queued for the next audit" or had not surfaced at all:
+
+1. **EU AI Act (Regulation (EU) 2024/1689)** — extraterritorial reach
+   for U.S. CSPs that either provide AI systems whose output is used in
+   the EU or process EU residents' data on behalf of a deployer subject
+   to the Act. Transparency, risk-classification, and post-market
+   monitoring obligations apply on a different clock from OMB M-24-10.
+   Drives **LOOP-U**.
+
+2. **HHS HIPAA Security Rule NPRM (89 FR 101720, December 27 2024;
+   anticipated Final Rule 2026 Q2–Q3)** — proposed encryption-at-rest
+   mandates, mandatory MFA, written risk analysis cadence, network
+   segmentation requirements that materially increase the Business
+   Associate baseline for CSPs hosting Protected Health Information.
+   Drives **LOOP-V**.
+
+3. **DoD CMMC 2.0 Level 3 Final Rule (32 CFR Part 170; effective
+   December 16 2024; assessment-required dates phasing in 2025–2028)**
+   — delta over LOOP-S's DFARS 252.204-7012 cloud-equivalency mapping.
+   Level 3 adds 24 additional NIST SP 800-172 controls beyond the
+   Level 2 (NIST SP 800-171 Rev 2/Rev 3) baseline; conditional for CSPs
+   with DoD primes whose contracts handle Critical Unclassified
+   Information or High-Value Asset categories. Drives **LOOP-X**.
+
+4. **State data-breach notification statutes that run in parallel with
+   CIRCIA + SEC 8-K** — notably California Civil Code §§1798.29 /
+   1798.82 (the CCPA / CPRA breach-notification predecessor statutes,
+   not the consumer-rights provisions), Texas Business & Commerce Code
+   §521.053, New York General Business Law §899-aa, and Massachusetts
+   201 CMR 17.00 / Gen L c.93H. 50-state harmonization is non-trivial
+   because the trigger definitions, notice contents, and clocks differ
+   per state. Drives **LOOP-Y**.
+
+5. **FedRAMP Boundary + Subprocessor + Federal-Data Lifecycle —
+   end-of-life data destruction (MP-6 + SI-12 + Privacy Act §552a(e)(5)
+   accuracy provisions + NIST SP 800-88 Rev 1 media-sanitization)** —
+   not previously surfaced as a discrete loop; covers cryptographic
+   erasure attestations, subprocessor offboarding (data-return /
+   destruction certificates), and the federal-records-disposition
+   workflow when an agency terminates use of a CSO. Drives **LOOP-Z**.
+
+### LOOP-U — EU AI Act Extraterritorial Compliance Overlay
+
+- **3 slices.**
+- Conditional applicability: triggered when `org_profile.eu_ai_act_in_scope == true`
+  OR when an operator-supplied data-flow indicates EU residents' data
+  is processed by an AI system the CSP operates.
+- Slices:
+  - **U.U1** — AI System EU-Scope Determination + Risk Classification
+    per Article 6 / Annex III. Produces a signed determination artifact
+    + classification (prohibited / high-risk / limited-risk / minimal).
+  - **U.U2** — Transparency + Post-Market Monitoring deliverables per
+    Articles 13 / 72. Reuses LOOP-O.O5 model card emitter; adds the
+    EU-specific deployer-facing instructions for use.
+  - **U.U3** — Conformity Assessment + EU Declaration of Conformity
+    package for high-risk AI systems per Article 47.
+- Reusable primitives from: LOOP-O (AI/ML governance), LOOP-M (privacy
+  package), C.C4 (PTA / PIA).
+
+### LOOP-V — HIPAA Security Rule Business-Associate Overlay
+
+- **4 slices.**
+- Conditional applicability: triggered when
+  `org_profile.processes_phi == true` AND
+  `org_profile.business_associate_agreements[] is non-empty`.
+- Slices:
+  - **V.V1** — HIPAA risk analysis emitter (164.308(a)(1)(ii)(A)
+    today; expanded under the 2024 NPRM to require annual written
+    risk analysis + asset inventory + network map).
+  - **V.V2** — Encryption-at-rest attestation report (164.312(a)(2)(iv)
+    today; mandatory under the 2024 NPRM with narrow exceptions). Cross-
+    references the existing AFR-UCM crypto evidence.
+  - **V.V3** — MFA + access-control delta report against the 2024 NPRM
+    mandatory MFA requirements; reuses J.J1 privileges matrix.
+  - **V.V4** — Breach notification packet generator per 45 CFR
+    164.404 / 164.408 / 164.410. Distinct audience (HHS OCR + affected
+    individuals + media when ≥500 individuals in a state/jurisdiction)
+    from CIRCIA + SEC 8-K + state breach notice.
+
+### LOOP-X — CMMC 2.0 Level 3 Delta Overlay
+
+- **2 slices.**
+- Conditional applicability: triggered when
+  `org_profile.cmmc_level == 3` AND DoD-prime customer is identified.
+- Slices:
+  - **X.X1** — NIST SP 800-172 24-control delta crosswalk against the
+    LOOP-S NIST SP 800-171 Rev 2/Rev 3 mapping. Produces a gap report
+    + per-control implementation evidence pointer.
+  - **X.X2** — DIBCAC High Assessment package preparation (the assessor-
+    facing artifact required for Level 3 certification). Reuses LOOP-F
+    3PAO experience patterns.
+
+### LOOP-Y — State Data-Breach Notification Harmonization
+
+- **3 slices.**
+- Always applicable for CSPs serving U.S. customers (state law applies
+  by residency of the affected individual, not by CSP location).
+- Slices:
+  - **Y.Y1** — Per-state breach-notification rule registry (50 states
+    + DC + PR + territories). Trigger definitions, notice contents,
+    clocks (typically 30–60 days; California's 1798.82 has no statutory
+    deadline but requires "in the most expedient time possible").
+    Operator-supplied: state of residency for each affected individual.
+  - **Y.Y2** — Per-state notice generator. Renders state-specific
+    notice .docx + .pdf templates with mandatory disclosure fields
+    (incident date, data categories, mitigation steps, AG contact,
+    credit-monitoring offer where required).
+  - **Y.Y3** — State AG submission tracker. Tracks per-state AG filings
+    (California 1798.29(e) requires AG notification at ≥500 residents;
+    most states have similar thresholds).
+
+### LOOP-Z — End-of-Life Data Destruction + Subprocessor Offboarding
+
+- **3 slices.**
+- Always applicable; activates on tenant termination, subprocessor
+  termination, or scheduled federal-records-disposition events.
+- Slices:
+  - **Z.Z1** — Cryptographic-erasure attestation emitter per NIST SP
+    800-88 Rev 1 §2.5 + §4 (Purge level for moderate-impact data;
+    Destroy level for high-impact when feasible). Signed attestation
+    references the destroyed key UUID + the destruction timestamp.
+  - **Z.Z2** — Subprocessor data-return / destruction certificate
+    workflow. Extends J.J2 subprocessor inventory; when subprocessor
+    is terminated, emits a structured request + tracks the return
+    receipt + the destruction certificate.
+  - **Z.Z3** — Federal-records-disposition workflow per NARA General
+    Records Schedule 3.2 (Information Systems Security Records). When
+    agency terminates use of a CSO, emits the disposition manifest +
+    triggers Z.Z1 + Z.Z2.
+
+### New corpus totals
+
+- **122 slices total** = 98 prior + 24 new (15 new from U/V/X/Y/Z base
+  slices + 9 prior un-counted base slices from the W/T re-tally; see
+  STATUS.md for the canonical roll-up).
+- **26 loops** (was 21): adds LOOP-U, LOOP-V, LOOP-X, LOOP-Y, LOOP-Z.
+- The "55-slice plan" and the "98-slice plan" baselines are now
+  historical snapshots; current canonical count is in `docs/STATUS.md`.
+
+### Updated next-priority order
+
+The previously published next-priority chain (LOOP-W first, then T,
+then SEC 8-K overlay, then LOOP-B.B1) is **unchanged**. None of the
+new U/V/X/Y/Z loops pre-empt LOOP-W.W1 because:
+
+- LOOP-W's 1-business-day clock remains the sharpest enforcement
+  window in the corpus.
+- All five new loops (U/V/X/Y/Z) are either conditional on operator
+  org-profile flags (U/V/X) or activate on operator-triggered lifecycle
+  events (Z), with only LOOP-Y being unconditional. LOOP-Y still has a
+  multi-day breach-notice clock (typically 30–60 days), which is more
+  forgiving than W's 1-BD clock.
+- LOOP-W.W1 also unblocks the prohibited-vendor registry pattern reused
+  by LOOP-T.T1, so shipping W first preserves dependency ordering.
+
+The full revised priority chain:
+
+1. **W.W1** — Section 889 covered-equipment registry + scanner (unchanged top)
+2. **W.W2** — Discovery event emitter + 1-BD clock start
+3. **W.W3** — Contracting-officer notification packet
+4. **W.W4** — Clock dashboard + escalation
+5. **T.T1** — Prohibited-vendor registry (Kaspersky cascade)
+6. **T.T2** — CISA Common Form ingestion
+7. **T.T3** — Attestation-coverage report
+8. **T.T4** — Procurement-gate enforcement hook
+9. **T.T5** — POA&M auto-creation on attestation expiry
+10. **G.G2-SEC-8K-EXTENSION** (lands alongside next G.G2 work)
+11. **Y.Y1 / Y.Y2 / Y.Y3** — state breach harmonization (only LOOP from
+    this audit that is always-applicable; queued ahead of the
+    conditional loops)
+12. **Z.Z1 / Z.Z2 / Z.Z3** — destruction + offboarding (always-applicable
+    on lifecycle events; pairs naturally with subprocessor work in J)
+13. **U/V/X** loops — conditional on org-profile flags; ship when an
+    operator activates the corresponding flag
+14. **LOOP-B.B1** — risk engine (the previously top-priority slice)
+15. Continue with the prior LOOP-B..K order from there.
+
+### Pointer to FIFTH-PASS-AUDIT.md
+
+The fifth-pass audit findings are recorded in
+`docs/FIFTH-PASS-AUDIT.md` (to be authored alongside this section).
+Any *further* statutory / regulatory / contractual gaps surfaced by a
+sixth pass will arrive in their own appended section to this execution
+plan, following the same pattern. Candidate drivers already flagged
+for the sixth-pass review include:
+
+- UK GDPR + UK Cyber Resilience Act (post-Brexit divergence from EU AI
+  Act and EU GDPR; relevant for CSPs with UK Crown-Dependency customers)
+- Australian Privacy Act 1988 Notifiable Data Breaches scheme +
+  Australian Cyber Security Act 2024 (sovereign-data + breach-reporting
+  obligations for CSPs serving Australian government customers)
+- Canada's Bill C-26 / Critical Cyber Systems Protection Act (CCSPA)
+- India's Digital Personal Data Protection Act 2023 + CERT-In 6-hour
+  reporting directive
+- ENISA Cybersecurity Certification Scheme for Cloud Services (EUCS)
+  draft scheme — divergence from FedRAMP control mappings
+
+### Slice-completion + push directive (MANDATORY for every new slice)
+
+Every U.*, V.*, X.*, Y.*, and Z.* slice MUST follow the 9-step
+procedure already codified in `cloud-evidence/CLAUDE.md`:
+
+1. Pass typecheck + tests + check:reo (atomic — green before commit)
+2. Update `docs/STATUS.md` (slice row + Overall section)
+3. Update the loop's spec doc (`docs/loops/LOOP-{U,V,X,Y,Z}-SPEC.md`)
+   — slice's status row
+4. Update the per-slice doc's YAML frontmatter (`status: done`,
+   `commit: <hash>`, `completed_date: <ISO>`, `last_updated: <ISO>`)
+5. Append the final Implementation log entry to the per-slice doc
+6. Add any newly-discovered risks to the loop's RISKS register
+7. Add a `CHANGELOG.md` "Unreleased" entry
+8. Commit with the slice ID in the message + Co-Authored-By trailer
+9. **Push to origin/main**
+
+NO U.*/V.*/X.*/Y.*/Z.* slice is "closed" until step 9 completes. The
+push step is what makes the slice visible to other sessions and to the
+published GitHub state; skipping it leaves the on-disk source of truth
+in disagreement with the public truth, which is itself a REO violation.
