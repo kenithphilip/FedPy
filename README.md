@@ -329,11 +329,16 @@ one-liner from the repo root:
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Module maps, data flow, integration points, the read-only invariant |
 | [RUNBOOK.md](RUNBOOK.md) | Setup, required IAM, all environment variables, exit codes, troubleshooting |
+| [cloud-evidence/docs/OPERATOR-GUIDE.md](cloud-evidence/docs/OPERATOR-GUIDE.md) | **Single consolidated operator reference** — complete CLI flag list, env var list, config files (`config.yaml`, `thresholds.yaml`, forward-spec `org-profile.yaml`), loop landscape (implemented / spec'd / roadmap), conditional-loop activation matrix, output-artifact catalogue, common run patterns |
+| [cloud-evidence/org-profile.yaml.example](cloud-evidence/org-profile.yaml.example) | Forward-spec template for conditional loops (LOOP-M, LOOP-O, LOOP-S, LOOP-X, G.G2-CIRCIA, M.M4-CIRCIA, G.G2-SEC-8K) |
 | [COST.md](COST.md) | Cost model for the collector and optional integrations |
 | [GAP-ANALYSIS.md](GAP-ANALYSIS.md) | How this compares to Prowler / ScoutSuite / Wiz / Drata / Vanta / Paramify |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [cloud-evidence/README.md](cloud-evidence/README.md) | Collector deep-dive |
+| [cloud-evidence/CLAUDE.md](cloud-evidence/CLAUDE.md) | REO standard + Scope Guard + Conditional Applicability Matrix (for contributors) |
+| [cloud-evidence/docs/STATUS.md](cloud-evidence/docs/STATUS.md) | Current implementation status: every slice, every loop |
 | [cloud-evidence/docs/IAM-PERMISSIONS-CATALOG.md](cloud-evidence/docs/IAM-PERMISSIONS-CATALOG.md) | Exact per-collector cloud permissions |
+| [cloud-evidence/docs/roadmap/README.md](cloud-evidence/docs/roadmap/README.md) | Out-of-core / roadmap docs (LOOP-U/V/Y/Z + fifth-pass audit) |
 | [tracker/README.md](tracker/README.md) | Tracker features, API, configuration |
 
 ## Data sources & attribution

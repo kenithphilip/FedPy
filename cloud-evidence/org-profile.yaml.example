@@ -1,0 +1,213 @@
+# cloud-evidence/org-profile.yaml — operator-supplied organizational profile.
+#
+# FORWARD-SPEC STATUS (2026-06-08):
+#   This file is the CONFIGURATION CONTRACT for the conditional / federal-
+#   adjacent loops (LOOP-M, LOOP-O, LOOP-S, LOOP-X, G.G2-CIRCIA,
+#   M.M4-CIRCIA, G.G2-SEC-8K). Those loops are SPECIFIED but NOT YET
+#   IMPLEMENTED in the orchestrator. When they ship, this file becomes
+#   their runtime configuration source. Until then, this file is
+#   documentation: operators can pre-fill it so the config is ready
+#   when the corresponding collectors land.
+#
+# How to use:
+#   1. Copy this file to `cloud-evidence/org-profile.yaml` (no .example suffix).
+#   2. Fill in your organization's situation.
+#   3. The orchestrator (once the conditional loops are implemented) reads
+#      this at startup; each conditional loop checks its own trigger and
+#      either runs or skips its collection pass for the run.
+#
+# Read alongside:
+#   - cloud-evidence/CLAUDE.md (Scope Guard block + Conditional Applicability Matrix)
+#   - cloud-evidence/docs/OPERATOR-GUIDE.md (this file's context + flag reference)
+#   - cloud-evidence/config.yaml (technical / SDK-side config)
+
+# ==========================================================================
+# Organization identification
+# ==========================================================================
+#
+# These fields embed into OSCAL SSP, OSCAL AP, OSCAL AR, the submission
+# bundle catalogue, and every signed evidence envelope. They are operator-
+# supplied per REO Rule 4 — the system never invents these defaults.
+
+organization:
+  legal_name: ""                       # e.g. "Acme Cloud Services, Inc."
+  csp_name: ""                         # e.g. "Acme Federal Cloud"
+  d_uns_number: ""                     # SAM.gov DUNS (or UEI if registered)
+  cage_code: ""                        # NATO Commercial and Government Entity code
+  primary_poc:
+    name: ""
+    title: ""
+    email: ""
+    phone: ""
+
+# ==========================================================================
+# Customer / market posture — drives WHICH conditional loops fire
+# ==========================================================================
+
+customer_posture:
+
+  # Federal civilian agencies you serve or plan to serve (drives LOOP-X
+  # Zero Trust applicability for those agencies' tailoring requirements).
+  # Use the agency's official short code (GSA, HHS, EPA, etc.).
+  federal_civilian_agencies: []        # e.g. [GSA, HHS, EPA, Education, IRS]
+
+  # Set true if you currently serve (or plan to serve) DoD primes running
+  # CDI (Covered Defense Information) workloads on your service. This is
+  # the LOOP-S trigger — DFARS 252.204-7012 Cloud Equivalency.
+  # See cloud-evidence/docs/loops/LOOP-S-SPEC.md for the regulatory drivers.
+  serves_dod_cdi: false
+
+  # Subset of DoD-prime customer relationships (only meaningful if
+  # serves_dod_cdi is true). Each entry describes one prime relationship.
+  dod_prime_relationships: []
+  # Example:
+  # dod_prime_relationships:
+  #   - prime_name: "Example Defense Contractor LLC"
+  #     contract_number: "W56HZV-26-D-0001"
+  #     cui_categories: [CTI, CRYPTO]  # CUI categories handled
+  #     dc3_reporting_endpoint: "https://dibnet.dod.mil"
+
+# ==========================================================================
+# Service architecture — drives LOOP-O (AI/ML governance)
+# ==========================================================================
+
+service_architecture:
+
+  # Set true if your FedRAMP-authorized service contains any AI/ML
+  # component (model inference, RAG, agent loops, vector DB, etc.) that
+  # processes federal customer data. This is the LOOP-O trigger —
+  # NIST AI RMF 1.0 + OMB M-24-10 + EO 14110.
+  # See cloud-evidence/docs/loops/LOOP-O-SPEC.md.
+  uses_ai_ml: false
+
+  # If uses_ai_ml is true, declare each AI/ML component for governance
+  # cataloging (LOOP-O.O5 model cards).
+  ai_ml_components: []
+  # Example:
+  # ai_ml_components:
+  #   - name: "Threat detection classifier"
+  #     model_type: "supervised-classifier"
+  #     model_provider: "self-hosted"
+  #     intended_use: "Flag anomalous user behavior"
+  #     risk_classification: "AI-impacted"   # per OMB M-24-10
+  #     model_card_path: "./out/model-cards/threat-detection.json"
+
+# ==========================================================================
+# Corporate status — drives G.G2-SEC-8K
+# ==========================================================================
+
+corporate_status:
+
+  # Public / private / pre-IPO classification. Drives whether SEC Form 8-K
+  # Item 1.05 4-business-day cyber-disclosure obligations apply.
+  # See cloud-evidence/docs/slices/G/G.G2-SEC-8K-EXTENSION.md.
+  publicly_traded: false                # SEC registrant (NYSE, NASDAQ, etc.)
+  wholly_owned_subsidiary_of_public_co: false   # subsidiary of an SEC registrant
+  pre_ipo_with_cyber_disclosure_obligations: false   # pre-IPO commitments to investors
+
+  # Only meaningful if publicly_traded is true (or subsidiary). The EDGAR
+  # filer identifiers needed to programmatically submit a Form 8-K.
+  edgar:
+    cik: ""                            # Central Index Key (10-digit)
+    ccc: ""                            # CIK Confirmation Code (PRIVATE)
+    edgar_password: ""                 # set via env var EDGAR_PASSWORD instead of here
+    pmac: ""                           # Password Modification Authorization Code
+
+  # SEC counsel / general counsel / D&O signing officer for the 4-business-
+  # day clock workflow. These flow into the unsigned 8-K draft G.G2-SEC-8K
+  # emits.
+  designated_signing_officer:
+    name: ""
+    title: ""
+    email: ""
+
+# ==========================================================================
+# Critical-infrastructure posture — drives G.G2-CIRCIA + M.M4-CIRCIA
+# ==========================================================================
+
+critical_infrastructure:
+
+  # Set true if your CSP qualifies as a Covered Entity under the CIRCIA
+  # Final Rule (6 USC §681b) — generally, any entity in one of the 16
+  # critical-infrastructure sectors above the Final Rule's size threshold.
+  # See cloud-evidence/docs/CIRCIA-WORKFLOW.md.
+  is_circia_covered_entity: false
+
+  # If is_circia_covered_entity is true, list the applicable CISA sectors.
+  cisa_sectors: []
+  # Example:
+  # cisa_sectors:
+  #   - Information Technology
+  #   - Communications
+
+  # CISA submission endpoint (CIRCIA portal). Override only if CISA
+  # publishes an alternate endpoint for your sector.
+  cisa_reporting_endpoint: "https://cyberreporting.cisa.gov"
+
+# ==========================================================================
+# Data jurisdiction — informs LOOP-M (Privacy Package)
+# ==========================================================================
+#
+# LOOP-M handles federal Privacy Act SORN + E-Gov §208 PIA + NIST 800-53 PT
+# controls. The DPIA piece (GDPR Article 35) is informational here; the
+# full GDPR / state-PII regimes live in roadmap LOOP-U.
+
+data_posture:
+
+  handles_federal_pii: true            # SORN + PIA always-on for federal-data CSPs
+  handles_eu_uk_data_subjects: false   # DPIA aware; full GDPR is in roadmap LOOP-U
+  handles_student_records_ferpa: false # FERPA reference; full coverage in roadmap LOOP-U
+  handles_phi_hipaa_ba: false          # HIPAA reference; full coverage in roadmap LOOP-V
+
+# ==========================================================================
+# Software-supply-chain posture — drives LOOP-T (NIST SSDF + CISA Common Form)
+# ==========================================================================
+
+software_supply_chain:
+
+  # Universal for any CSP delivering software to a federal agency. The
+  # CISA Self-Attestation Common Form (OMB Control 1670-0052) is a
+  # mandatory deliverable per OMB M-22-18 + M-23-16.
+  delivers_software_to_federal_agencies: true
+
+  # The corporate officer who signs the CISA Common Form attestation
+  # (usually CEO, CTO, or CISO). Required for LOOP-T.T3 emission.
+  attestation_signing_officer:
+    name: ""
+    title: ""
+    email: ""
+
+# ==========================================================================
+# Cryptographic posture — drives LOOP-R (PQC Migration)
+# ==========================================================================
+
+cryptography:
+
+  # Universal for any CSP processing federal data. NSM-10 + OMB M-23-02
+  # require cryptographic inventory + migration plan. Default: on.
+  pqc_migration_plan_required: true
+
+  # Target migration timeline (override only if your agency customer
+  # demands an accelerated schedule).
+  pqc_target_completion_year: 2035     # per NSA CNSA 2.0 + OMB M-23-02
+
+# ==========================================================================
+# Federal-contracting posture — drives LOOP-W (Section 889)
+# ==========================================================================
+
+federal_contracting:
+
+  # Universal for any CSP with a federal contract. FAR 52.204-25 +
+  # 52.204-26 apply to every federal acquisition since 2020-08-13.
+  # Default: on.
+  section_889_screening_required: true
+
+  # The corporate officer who signs the FAR 52.204-26 annual representation.
+  far_52_204_26_signing_officer:
+    name: ""
+    title: ""
+    email: ""
+
+  # The DHS Section 889(d) 1-business-day reporting endpoint. Override
+  # only if DHS publishes an alternate endpoint for your contract type.
+  section_889_reporting_endpoint: ""   # see DHS Section 889 Reporting Memo

@@ -275,6 +275,7 @@ npm run check:coverage-regression
 
 1. **This file** — REO rules + Real Slice Contract.
 2. **`docs/STATUS.md`** — current master status tracker for every slice. ALWAYS read this first to see what's done, in-progress, and pending. The next slice to work on is in the "Overall → Next priority" line.
+2a. **`docs/OPERATOR-GUIDE.md`** — single consolidated operator reference: complete CLI flag list, complete env var list, configuration files (`config.yaml`, `thresholds.yaml`, forward-spec `org-profile.yaml`), loop landscape (implemented / spec'd / roadmap), conditional-loop activation matrix, output-artifact catalogue, common run patterns. Read when answering any operator-config question or when a new flag / env var / loop lands.
 3. **`docs/SLICE-COMPLETION-PROCEDURE.md`** — MANDATORY 7-step procedure when shipping any slice.
 4. **`docs/EXECUTION-PLAN.md`** — high-level plan with all 55 slices.
 5. **`docs/loops/LOOP-X-SPEC.md`** — full per-slice implementation specs for the loop you're working on. Each `LOOP-X-SPEC.md` cross-references its per-slice docs under `docs/slices/X/`:
