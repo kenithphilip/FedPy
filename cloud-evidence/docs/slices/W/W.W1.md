@@ -3,7 +3,7 @@ slice_id: W.W1
 title: Prohibited-vendor catalog ingester + canonical-JSON emitter
 loop: W
 status: done
-commit: TBD-step6
+commit: be78723
 completed_date: 2026-06-08
 depends_on: []
 blocks: [W.W2, W.W3, W.W4]
@@ -447,7 +447,7 @@ data/
 
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
-| 2026-06-08 | impl-w-w1 | Shipped end to end per spec. Created `core/prohibited-vendors-{catalog,parsers,config}.ts`, `scripts/extract-prohibited-vendors.mjs`, committed `data/{far-52-204-25,ndaa-1634}-named-entities.json` + `data/fascsa-orders.json`, `prohibited-vendors-config.example.yaml`, and `tests/core/prohibited-vendors-{catalog,parsers}.test.ts` (29 tests). Added `signDetached`/`verifyDetached` to `core/sign.ts`; `augmentCoverageWithProhibitedVendors` to `core/inventory-coverage.ts`; `--prohibited-vendors-catalog` flag + `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` env to the orchestrator; WELL_KNOWN bundle role to `core/submission-bundle.ts`. typecheck clean, 903/903 tests pass (+29), check:reo (G1+G2+G3) green. | `TBD-step6` | See divergence + open-question notes below. |
+| 2026-06-08 | impl-w-w1 | Shipped end to end per spec. Created `core/prohibited-vendors-{catalog,parsers,config}.ts`, `scripts/extract-prohibited-vendors.mjs`, committed `data/{far-52-204-25,ndaa-1634}-named-entities.json` + `data/fascsa-orders.json`, `prohibited-vendors-config.example.yaml`, and `tests/core/prohibited-vendors-{catalog,parsers}.test.ts` (29 tests). Added `signDetached`/`verifyDetached` to `core/sign.ts`; `augmentCoverageWithProhibitedVendors` to `core/inventory-coverage.ts`; `--prohibited-vendors-catalog` flag + `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` env to the orchestrator; WELL_KNOWN bundle role to `core/submission-bundle.ts`. typecheck clean, 903/903 tests pass (+29), check:reo (G1+G2+G3) green. | `be78723` | See divergence + open-question notes below. |
 
 ### Implementation notes — spec divergences (recorded per anti-pattern #2)
 

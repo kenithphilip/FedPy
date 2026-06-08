@@ -995,7 +995,7 @@ LOOP-Q.Q1 ← LOOP-W.W4  (Marketplace "Section 889 Compliant" badge)
 
 | Slice | Status | Last updated | Commit | Notes |
 |---|---|---|---|---|
-| W.W1 — Prohibited-Vendor List Ingester | done | 2026-06-08 | `TBD-step6` | Shipped end to end. Signed canonical-JSON catalog (OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA); 7 source_ids; detached Ed25519 + run-manifest signing; `core/prohibited-vendors-{catalog,parsers,config}.ts` + `scripts/extract-prohibited-vendors.mjs` + committed `data/` constants; orchestrator `--prohibited-vendors-catalog`; 29 tests; typecheck/test/check:reo green |
+| W.W1 — Prohibited-Vendor List Ingester | done | 2026-06-08 | `be78723` | Shipped end to end. Signed canonical-JSON catalog (OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA); 7 source_ids; detached Ed25519 + run-manifest signing; `core/prohibited-vendors-{catalog,parsers,config}.ts` + `scripts/extract-prohibited-vendors.mjs` + committed `data/` constants; orchestrator `--prohibited-vendors-catalog`; 29 tests; typecheck/test/check:reo green |
 | W.W2 — Subprocessor + SBOM + OCI Image Screening | pending | 2026-06-07 | — | Depends on W.W1 + E.E2 + J.J3.b |
 | W.W3 — FAR 52.204-25(d) 1-Business-Day Reporter | pending | 2026-06-07 | — | Depends on W.W2 + A.A1 + A.A5; per-Contracting-Officer fan-out |
 | W.W4 — Section 889 Part B Annual Representation | pending | 2026-06-07 | — | Depends on W.W2 + A.A5; emits .docx + signed JSON for SAM.gov |
