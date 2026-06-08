@@ -1,4 +1,4 @@
-# Per-slice resume prompt — template + populated instances
+# Per-slice resume prompt — auto-detect + templates + worked examples
 
 This document is the **canonical session-bootstrap prompt** for shipping
 any pending slice in FedPy core. It exists because:
@@ -16,12 +16,171 @@ any pending slice in FedPy core. It exists because:
 This document gives any future Claude session the **complete
 context-load manifest, the implementation contract, the REO compliance
 gate, and the file-by-file completion checklist** as one paste-ready
-prompt. Use the universal template (§1) and the populated instance
-(§2 for W.W1) as the model for every subsequent slice.
+prompt.
+
+## What to paste each session — quick guide
+
+| Scenario | Use |
+|---|---|
+| Default — ship the next-priority slice per STATUS.md, no per-slice parameters needed | **§1 Auto-detect resume prompt** (paste this 95% of the time) |
+| Override — explicitly ship a non-default slice (e.g., user wants to skip a slice or backfill a missed one) | **§2 Explicit-override template** (parameterized) |
+| First time learning the pattern + want to see a worked example | **§3 Populated instance for W.W1** |
 
 ---
 
-## §1. Universal template (parameterize for any slice)
+## §1. Auto-detect resume prompt — paste THIS each session
+
+> **This is the canonical paste-ready prompt for shipping any slice.**
+> It contains zero per-slice parameters. The session reads STATUS.md,
+> picks the next-priority slice itself, and ships it. The same prompt
+> works for W.W1, W.W2, W.W3, W.W4, T.T1, ..., the 50 LOOP-B–K base
+> slices, through to the last slice of LOOP-X. Paste this each session.
+
+```text
+You are resuming work on the FedPy / FedRAMP 20x compliance toolkit
+(Apache-2.0, clean-room, REO standard). Your single objective for this
+session is to AUTO-DETECT the next-priority pending slice from
+STATUS.md and ship it end to end, atomically, following the 7-step
+SLICE-COMPLETION-PROCEDURE.md exactly.
+
+═══════════════════════════════════════════════════════════════════════
+PHASE −1 — AUTO-DETECTION (do this FIRST, before any other reading)
+═══════════════════════════════════════════════════════════════════════
+
+1. Read /Users/kenith.philip/FedRAMP 20x/cloud-evidence/docs/STATUS.md
+
+2. Locate the "## Overall (Core only)" section and find the
+   "Next priority:" line. It names the next slice(s) in the queue, in
+   priority order, sometimes with arrows ("W.W1 → W.W2 → ...").
+
+3. Parse the FIRST slice ID named on that line.
+   - The slice ID format is `<LOOP>.<LOOP><N>` (e.g., `W.W1`, `T.T3`,
+     `B.B1`, `G.G2`) or with a LOOP- prefix (`LOOP-W.W1`).
+   - Normalize to the form `<SLICE-ID>` = `W.W1` (no LOOP- prefix).
+   - The loop letter is the character before the dot. So for `W.W1`:
+     <LOOP> = `W`, <SLICE-ID> = `W.W1`.
+
+4. Read the slice's per-slice doc to extract metadata:
+   /Users/kenith.philip/FedRAMP 20x/cloud-evidence/docs/slices/<LOOP>/<SLICE-ID>.md
+   From the YAML frontmatter at the top, extract:
+   - title:           → <SLICE-TITLE>
+   - status:          → must be "proposed" or "pending"
+   - depends_on:      → list of <DEPENDENCY-LOOPS>
+
+5. Validate the slice is eligible to ship NOW:
+   (a) The per-slice doc exists at the path above.
+   (b) The slice doc path is NOT under docs/roadmap/ (that folder is
+       out-of-core; refuse to ship and tell me).
+   (c) The frontmatter status: is "proposed" or "pending" (NOT "done").
+   (d) Every entry in `depends_on:` is either:
+       - A loop letter (e.g. "LOOP-A") whose loop is marked COMPLETE in
+         STATUS.md, OR
+       - A specific slice ID (e.g. "A.A4", "W.W1") whose row in
+         STATUS.md shows status=done, OR
+       - An existing primitive module (e.g. "tracker DB", "core/sign.ts",
+         "existing IAM collectors") that is part of the shipped base
+         (LOOP-A is shipped, plus all the pre-loop foundational
+         infrastructure documented in CLAUDE.md).
+   (e) The slice's row in STATUS.md per-loop status table shows
+       status=proposed or pending (consistent with frontmatter).
+
+6. If ANY validation fails, STOP and report to me:
+   - The slice ID you detected.
+   - Which validation(s) failed.
+   - What you suggest I do (e.g., "W.W1 already shipped per STATUS.md;
+     should I ship W.W2 instead?", or "S.S2 depends on S.S1 which is
+     pending; should I queue S.S1 first?").
+   Wait for my response. Do NOT proceed.
+
+7. If all validations pass, announce in chat:
+     "Auto-detected next-priority slice: <SLICE-ID> — <SLICE-TITLE>
+      Loop: <LOOP>
+      Dependencies: <DEPENDENCY-LOOPS>
+      Status before this session: pending → starting work now."
+   Then proceed to Phase 0.
+
+═══════════════════════════════════════════════════════════════════════
+PHASES 0-5 — execute per the universal template
+═══════════════════════════════════════════════════════════════════════
+
+Open and read:
+/Users/kenith.philip/FedRAMP 20x/cloud-evidence/docs/PER-SLICE-RESUME-PROMPT.md
+
+In §2 of that file you'll find the universal template. The Phase 0
+mandatory reading list, the Phase 1 REO rules (A-J), the Phase 2 test
+contract, the Phase 3 REO guardrail commands, the Phase 4 atomic
+completion procedure (including the two-pass commit-hash close-out),
+and the Phase 5 file-by-file checklist are all defined there.
+
+Execute Phases 0 through 5 verbatim, substituting:
+  <SLICE-ID>     ← detected in Phase −1.3
+  <LOOP>         ← detected in Phase −1.3
+  <SLICE-TITLE>  ← extracted in Phase −1.4
+  <DEPENDENCY-LOOPS> ← extracted in Phase −1.4
+
+In Phase 4, when updating consumer files (STATUS.md / loop SPEC /
+per-slice doc frontmatter / RISKS register / OPERATOR-GUIDE.md /
+CHANGELOG.md), apply the exact rules from the universal template.
+The OPERATOR-GUIDE.md updates only apply IF the slice introduces new
+CLI flags / env vars / output files — check §7 of the per-slice doc
+to determine.
+
+═══════════════════════════════════════════════════════════════════════
+PHASE 6 — VERIFY NEXT-PRIORITY LINE IS UPDATED
+═══════════════════════════════════════════════════════════════════════
+
+A critical Phase 4 outcome: STATUS.md "Next priority:" line MUST now
+name the NEXT slice in the queue (not the one you just shipped). This
+makes the next session self-driving — they paste the SAME prompt and
+auto-detect the slice AFTER yours.
+
+Verify in your post-push check:
+  grep "Next priority" cloud-evidence/docs/STATUS.md
+
+The named slice should be different from the one you just shipped. If
+it's the same, you missed the Phase 4 Step 2 (b) Next priority update.
+Fix and re-amend.
+
+═══════════════════════════════════════════════════════════════════════
+FINAL REPORT (when Phase 5 + Phase 6 are complete)
+═══════════════════════════════════════════════════════════════════════
+
+Report to me:
+  - Slice that just shipped: <SLICE-ID> — <SLICE-TITLE>
+  - Final commit hash (post-push)
+  - Test count delta (was N, now N+M, +M)
+  - Files created (count + total lines)
+  - Files modified (count + lines added per file)
+  - REO compliance: G1/G2/G3 all green
+  - Open §10 questions resolved (with answers)
+  - New risks added to LOOP-<LOOP>-RISKS.md (if any)
+  - NEXT-PRIORITY SLICE per the updated STATUS.md
+    (this is the slice the next session will auto-detect when I paste
+    this same prompt)
+
+Then STOP. Do not auto-start the next slice. New slice = new session
+= new paste of this same prompt. Each slice is its own context boundary.
+
+═══════════════════════════════════════════════════════════════════════
+OVERRIDE INSTRUCTIONS (if I want to ship a specific slice instead)
+═══════════════════════════════════════════════════════════════════════
+
+If I prepend "OVERRIDE: ship LOOP-X.XN" to this prompt, skip Phase −1
+auto-detection and use the explicit slice ID I gave. Read its
+per-slice doc + frontmatter to extract title and dependencies. Validate
+the slice exists in docs/slices/, not docs/roadmap/, and that
+dependencies are done. Then proceed to Phase 0.
+
+Use the override only when the auto-detected slice isn't what I want.
+Default behavior is: paste the prompt with NO override, let auto-detect
+pick whatever STATUS.md says is next.
+```
+
+End of auto-detect resume prompt.
+
+---
+
+## §2. Explicit-override template (parameterize for a specific slice)
 
 > Copy this block. Replace `<SLICE-ID>`, `<LOOP>`, `<SLICE-TITLE>`,
 > `<DEPENDENCY-LOOPS>` placeholders. Paste into a new Claude session as
@@ -426,7 +585,7 @@ End of universal template.
 
 ---
 
-## §2. Populated instance — LOOP-W.W1 (the next slice to ship)
+## §3. Populated instance — LOOP-W.W1 (worked example)
 
 > This is the actual paste-ready prompt for the next session.
 > Copy from the triple-backtick block below into a new Claude session
@@ -721,45 +880,67 @@ End of populated W.W1 instance.
 
 ---
 
-## §3. How to use this document
+## §4. How to use this document
 
-### For the next session (shipping W.W1)
+### Default workflow — paste §1 each session
 
-1. Open a new Claude Code session in the repo root.
-2. Paste the block from §2 above (the triple-backtick block) as the
-   first message.
-3. The session has every file path, every checklist step, every REO
-   rule, every anti-pattern it needs. It should not need to ask
-   "where do I start" or "what does X mean."
-4. Watch for the final report from Phase 5. Verify the checklist
-   items the session reports are actually true (spot-check 2-3 files
-   on disk + run `git log --oneline -3`).
+1. Open a new Claude Code session in the repo root:
+   `cd "/Users/kenith.philip/FedRAMP 20x" && claude`
+2. Paste the §1 auto-detect resume prompt (the triple-backtick block
+   under "§1. Auto-detect resume prompt — paste THIS each session").
+3. The session reads STATUS.md, auto-detects the next-priority slice,
+   reads the universal template at §2 of this file, executes Phases
+   0-5 for the detected slice, and reports back when done. The same
+   prompt works for every slice from now through the final slice of
+   the project.
+4. Watch for the final report. Verify with:
+   ```bash
+   git log --oneline -3
+   git status -s                           # must be empty
+   git log --oneline origin/main..HEAD     # must be empty
+   grep "Last shipped" cloud-evidence/docs/STATUS.md
+   grep "Next priority" cloud-evidence/docs/STATUS.md
+   ```
 
-### For subsequent slices (W.W2, W.W3, W.W4, T.T1, …)
+### Override workflow — when you want a specific slice
 
-Use §1's universal template. Replace:
-- `<SLICE-ID>` (e.g. `W.W2`)
-- `<LOOP>` (e.g. `W`)
-- `<SLICE-TITLE>` (from the per-slice doc's frontmatter `title:` field)
-- `<DEPENDENCY-LOOPS>` (from the per-slice doc's frontmatter
-  `depends_on:` field)
+Sometimes you'll want to ship a non-default slice — e.g., the auto-
+detected slice is blocked on external work, or you want to backfill
+a missed slice, or you want to skip ahead in the queue.
 
-Customize Phase 1 (file paths) and the file-by-file checklist by
-reading the per-slice doc's §7 (Files to create / modify). Customize
-Phase 4 (a)-(f) with the slice-specific OPERATOR-GUIDE.md updates.
+Two ways:
 
-The universal template's Phase 0, Phase 3 (REO guardrails), Phase 5
-checklist structure, and Anti-patterns section apply to EVERY slice
-verbatim — no customization needed.
+(a) **Prepend an OVERRIDE line to the §1 prompt** (least friction):
+    ```
+    OVERRIDE: ship LOOP-X.XN — <title>
+    <then paste the §1 block as-is>
+    ```
+    The §1 prompt's Override Instructions section at the bottom tells
+    the session to skip Phase −1 auto-detection and use your specified
+    slice.
 
-### For maintenance
+(b) **Use §2 explicit-override template** (paste a slice-specific
+    prompt directly). Replace the 4 placeholders:
+    - `<SLICE-ID>` (e.g. `W.W2`)
+    - `<LOOP>` (e.g. `W`)
+    - `<SLICE-TITLE>` (from the per-slice doc's frontmatter `title:` field)
+    - `<DEPENDENCY-LOOPS>` (from the per-slice doc's frontmatter
+      `depends_on:` field)
+
+### Worked example
+
+§3 shows a fully-populated W.W1 prompt with every parameter filled in.
+Useful for understanding what auto-detect would produce on the first
+session against this STATUS.md.
+
+### For maintenance of this file
 
 When a new core primitive is added (e.g., a new signing scheme or a
-new bundle registration mechanism), update §1.10 of this document
-(the primitive source-code list) so future prompts include the new
-file in the mandatory reading list.
+new bundle registration mechanism), update §2.10 of this document
+(the primitive source-code list in the universal template) so future
+prompts include the new file in the mandatory reading list.
 
-When the SLICE-COMPLETION-PROCEDURE.md changes, update §1's Phase 4
+When the SLICE-COMPLETION-PROCEDURE.md changes, update §2's Phase 4
 to match. The two MUST stay in sync.
 
 This document is the on-disk source of truth for "how to ship a slice
@@ -768,7 +949,7 @@ not let it drift from CLAUDE.md or SLICE-COMPLETION-PROCEDURE.md.
 
 ---
 
-## §4. Reading-order summary (TL;DR for a tired session)
+## §5. Reading-order summary (TL;DR for a tired session)
 
 If you somehow get a fresh session and can only read 3 files before
 acting:
