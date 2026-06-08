@@ -59,36 +59,52 @@ preserved as research / roadmap reference, not as implementation work.
 
 ### Conditional applicability matrix (per-loop trigger; user-confirmed in scope-audit on 2026-06-08)
 
-Several core loops only fire when a specific operator-supplied condition is true.
-This table is the **resolved** scope status — the user explicitly confirmed
-on 2026-06-08 that all of the following stay in core (rather than being
-moved to `docs/roadmap/`) because each one is a plausibly-applicable
-federal-adjacent or conditional obligation that a FedRAMP CSP may face.
-DO NOT re-litigate these decisions without a fresh user directive.
+**Every loop in the table below is IN-SCOPE for implementation under
+FedPy core.** All of them get full SPEC + per-slice docs + RISKS
+registers, all of them are queued for code implementation, and all of
+them ship to `cloud-evidence/core/` + `providers/{aws,gcp,azure}/`
+when their turn in the implementation queue comes up. They are listed
+here because each one has a **runtime activation trigger** — when the
+implemented code runs, it only fires its evidence collection for CSPs
+whose `org-profile.yaml` declares the trigger condition is true. That
+runtime gating is what keeps the orchestrator from emitting spurious
+findings for CSPs that don't have AI / DoD / public-company / etc.
+exposure. It is NOT a statement that the loop is deferred or
+de-prioritized — implementation is on the queue regardless.
 
-| Loop / extension | Trigger condition (when this loop fires) | Why it stays in core |
+The user explicitly confirmed on 2026-06-08 that all of the following
+stay in core (rather than being moved to `docs/roadmap/`) because
+each one is a plausibly-applicable federal-adjacent or conditional
+obligation that a FedRAMP CSP may face. DO NOT re-litigate these
+decisions without a fresh user directive.
+
+| Loop / extension | Implementation | Runtime trigger condition |
 |---|---|---|
-| **LOOP-M** Privacy Package (SORN + PIA + DPIA + PT-family) | CSP handles federal PII (SORN/PIA: always) or EU/UK PII (DPIA: conditional) | SORN + PIA are federal Privacy Act + E-Gov §208 — required for federal IT systems. DPIA piece overlaps with roadmap LOOP-U but is documented here for in-loop completeness. |
-| **LOOP-O** AI/ML Governance | CSP uses AI/ML in its authorized service (operator declares via `org-profile.yaml`: `uses_ai_ml: true`) | OMB M-24-10 + EO 14110 + NIST AI RMF 1.0 govern federal AI use; agency tailoring will demand AI-RMF alignment from AI-capable FedRAMP CSPs. Conditional but applicable when the CSP has AI components. |
-| **LOOP-R** PQC Migration | Always-on for federal-data-handling CSPs (which is most FedRAMP CSPs) | NSM-10 + OMB M-23-02 federal cryptographic mandate. The migration plan is a federally-required artifact for federal-data systems. |
-| **LOOP-S** DFARS 252.204-7012 Cloud Equivalency | CSP has DoD-prime customers running CDI workloads (operator declares: `serves_dod_cdi: true`) | DoD market segment (~20-30% of federal CSPs). FedRAMP Moderate is the literal baseline for DFARS 7012 cloud-equivalency — the loop bridges FedRAMP-Moderate authorization into the DoD-CDI market. Conditional on operator's customer base. |
-| **LOOP-T** NIST SSDF + CISA Common Form | CSP delivers software to any federal agency (essentially universal for federal-selling SaaS) | OMB M-22-18 + M-23-16 hard procurement gate. Required for every federal software award since Q3 2024. Near-universal for any FedRAMP CSP. |
-| **LOOP-W** Section 889 Prohibited Vendors | Universal — every federal contract since 2020-08-13 | FAR 52.204-25 applies to every federal acquisition. Universal. |
-| **LOOP-X** Zero Trust Architecture | CSP serves federal customers subject to OMB M-22-09 (essentially universal for federal-customer CSPs) | OMB M-22-09 had a FY 2024 federal-agency deadline; agency tailoring will pull most FedRAMP-authorized services into ZT alignment. Conditional but pervasive. |
-| **G.G2-CIRCIA** | CSP is a Covered Entity under CIRCIA Final Rule (critical-infrastructure-related workloads) | 6 USC §681b + CIRCIA Final Rule (effective May 2026). 72-hour incident reporting to CISA. Many FedRAMP CSPs qualify as Covered Entities. |
-| **M.M4-CIRCIA** | Same trigger as G.G2-CIRCIA | Privacy-Act + CIRCIA harmonization on incidents involving Privacy Act records. |
-| **G.G2-SEC-8K** | CSP is publicly traded, a wholly-owned subsidiary of a publicly-traded parent, or pre-IPO with cyber-disclosure obligations | SEC Final Rule 33-11216 (Jul 26, 2023) imposes 4-business-day disclosure on material cybersecurity incidents for SEC registrants. Operator-conditional on corporate status. |
+| **LOOP-M** Privacy Package (SORN + PIA + DPIA + PT-family) | IN-SCOPE — ship all 4 slices | SORN + PIA: always-on for federal-data CSPs. DPIA: fires when operator declares EU/UK data-subjects. |
+| **LOOP-O** AI/ML Governance | IN-SCOPE — ship all 5 slices | Fires when operator declares `uses_ai_ml: true` (CSP uses AI/ML in its authorized service). |
+| **LOOP-R** PQC Migration | IN-SCOPE — ship all 3 slices | Always-on for federal-data-handling CSPs (NSM-10 + OMB M-23-02 mandate). |
+| **LOOP-S** DFARS 252.204-7012 Cloud Equivalency | IN-SCOPE — ship all 3 slices | Fires when operator declares `serves_dod_cdi: true` (DoD-prime customers running CDI workloads). |
+| **LOOP-T** NIST SSDF + CISA Common Form | IN-SCOPE — ship all 5 slices | Universal for federal-selling SaaS (OMB M-22-18 procurement gate). |
+| **LOOP-W** Section 889 Prohibited Vendors | IN-SCOPE — ship all 4 slices | Universal for every federal contract since 2020-08-13 (FAR 52.204-25). |
+| **LOOP-X** Zero Trust Architecture | IN-SCOPE — ship all 5 slices | Pervasive for federal-customer CSPs subject to OMB M-22-09 (agency tailoring). |
+| **G.G2-CIRCIA** | IN-SCOPE — ship the extension alongside G.G2 | Fires when operator declares CSP is a Covered Entity under CIRCIA Final Rule. |
+| **M.M4-CIRCIA** | IN-SCOPE — ship the extension alongside M.M4 | Same as G.G2-CIRCIA (Covered Entity + Privacy Act). |
+| **G.G2-SEC-8K** | IN-SCOPE — ship the extension alongside G.G2 | Fires when operator declares CSP is publicly traded / wholly-owned subsidiary / pre-IPO with cyber-disclosure obligations. |
 
-When a loop in this table is unconditionally in scope (LOOP-R, LOOP-T,
-LOOP-W) it runs by default. When it is conditional (LOOP-M-DPIA, LOOP-O,
-LOOP-S, LOOP-X, CIRCIA, SEC-8K) it requires an explicit operator opt-in
-via `org-profile.yaml`. Each loop's SPEC documents the exact trigger
-flag + env var in its frontmatter.
+**Implementation queue priority (unchanged by this matrix):** W.W1 →
+W.W2 → W.W3 → W.W4 → T.T1 → T.T2 → T.T3 → T.T4 → T.T5 → B.B1 → the
+50 pending LOOP-B–K base implementations → then LOOP-L through Q →
+then R / S / X / G.G2 extensions / M.M4 extensions in the order their
+dependencies clear.
 
-The **default state** of every conditional loop is **off** — an operator
-who does not need it should not encounter spurious requirements or
-findings. The conditional flag in the YAML frontmatter (`applicable_conditional: true`)
-and the trigger guard in the orchestrator are what enforce this.
+**Runtime vs implementation distinction.** A conditional `applicable_conditional: true`
+flag in a loop's YAML frontmatter is what tells the runtime
+orchestrator to skip the loop's collection pass for an operator whose
+`org-profile.yaml` doesn't declare the trigger. It is NOT a statement
+that the loop is unimplemented or de-prioritized. Every loop in this
+matrix gets full implementation work; the runtime trigger is just how
+the implemented code stays silent for CSPs that don't need that
+particular collector to run.
 
 ### Rules of the scope fence
 
