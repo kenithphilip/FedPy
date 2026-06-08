@@ -4,12 +4,42 @@
 > The values below MUST be kept in sync with CHANGELOG.md "Unreleased" entries.
 > When a slice completes: update its row + commit + push (atomic with the slice's own commit).
 
-## Overall
-- Total slices: 121 base (5 LOOP-A done + 50 LOOP-B-K pending + 25 LOOP-L-Q pending + 6 LOOP-R+S pending + 4 LOOP-W pending + 5 LOOP-T pending + 5 LOOP-U pending + 5 LOOP-V pending + 5 LOOP-X pending + 4 LOOP-Y pending + 5 LOOP-Z pending + 2 CIRCIA-extension slices pending) + 1 SEC 8-K overlay (G.G2-SEC-8K) = 122 total counting the overlay; + 4 pre-loop research (R1-R4 done) + REO-0 (done)
-- Loops total: 26 (A-S + T + U + V + W + X + Y + Z) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
-- Loops complete: 1 of 26 (LOOP-A)
+## Scope (READ CLAUDE.md "Scope Guard" block first)
+
+FedPy is FedRAMP 20x + Rev5 evidence automation. Loops in **Core** are
+in-scope for implementation. Loops in **Overlay / Out-of-Core** are
+parallel compliance regimes preserved as research / roadmap reference
+under `docs/roadmap/` — not part of the FedRAMP authorization pipeline
+and not on the implementation queue.
+
+## Overall (Core only)
+- Total core slices: 102 base + 1 SEC 8-K overlay = 103 counting overlay
+  - 5 LOOP-A done
+  - 50 LOOP-B-K pending
+  - 25 LOOP-L-Q pending
+  - 6 LOOP-R+S pending
+  - 4 LOOP-W pending
+  - 5 LOOP-T pending
+  - 5 LOOP-X pending
+  - 2 CIRCIA-extension slices pending
+  - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
+- Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
+- Loops complete: 1 of 22 (LOOP-A)
 - Last shipped: LOOP-A.A5 (commit `469049f`)
-- Next priority: **LOOP-W.W1 (Prohibited-vendor list ingest) — HIGHEST PRIORITY per `docs/THIRD-PASS-AUDIT.md`** (FY2025 NDAA §1634 + EO 14117 + BIS ICTS Final Rule are statutorily binding and gate the submission package). The newly-specified LOOP-U / LOOP-V / LOOP-X / LOOP-Y / LOOP-Z (24 slices total, authored via gap-fill workflow on 2026-06-08) queue **after** the foundational base implementation (LOOP-W → LOOP-T → LOOP-B.B1) lands. Then **LOOP-T (NIST SSDF + CISA Common Form)** — required by OMB M-22-18 / M-23-16 for any CSP supplying software to the federal government. Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring remains the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1; LOOP-R, LOOP-S, CIRCIA extensions, and the newly-authored LOOP-U/V/X/Y/Z queued behind LOOP-L–Q.
+- Next priority: **LOOP-W.W1 (Prohibited-vendor list ingest) — HIGHEST PRIORITY per `docs/THIRD-PASS-AUDIT.md`** (FAR 52.204-25 Section 889 Part B is statutorily binding on every federal acquisition and is the 1-business-day reporting gate). Then **LOOP-W.W2/W3/W4** to close out Section 889 reporting end-to-end. Then **LOOP-T.T1-T.T5** (NIST SSDF + CISA Self-Attestation Common Form — OMB M-22-18 / M-23-16 procurement gate for federal software awards). Then **LOOP-B.B1** (per-finding CVSS+EPSS scoring) — risk scoring is the highest-priority enabling slice for I, F, E, N, and O. LOOP-L through LOOP-Q queued behind B.B1. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
+
+## Out-of-Core / Roadmap (NOT on the implementation queue)
+Parallel compliance regimes; preserved as research material under
+`docs/roadmap/`. See `docs/roadmap/README.md` for the scope-fence
+rationale.
+
+| Out-of-core loop | What it is | Roadmap doc |
+|---|---|---|
+| LOOP-U Privacy frameworks | FERPA / COPPA / GLBA / CCPA / CPRA / GDPR / UK GDPR / NY SHIELD / 50-state breach matrix / Schrems II | `docs/roadmap/loops/LOOP-U-{SPEC,RISKS}.md` + `docs/roadmap/slices/U/` |
+| LOOP-V Healthcare overlay | HIPAA Security Rule + Breach Notification + BAA + NIST SP 800-66 R2 + HITRUST CSF v11.2.0 | `docs/roadmap/loops/LOOP-V-{SPEC,RISKS}.md` + `docs/roadmap/slices/V/` |
+| LOOP-Y Sector overlays | CJIS Security Policy v5.9.5 + IRS Publication 1075 | `docs/roadmap/loops/LOOP-Y-{SPEC,RISKS}.md` + `docs/roadmap/slices/Y/` |
+| LOOP-Z International | ISO/IEC 27001:2022 + 27017 + 27018 + 27701 + ENISA EUCS | `docs/roadmap/loops/LOOP-Z-{SPEC,RISKS}.md` + `docs/roadmap/slices/Z/` |
+| FIFTH-PASS-AUDIT candidates | PCI-DSS, CMMC, FedRAMP Tailored, TIC 3.0, SOC 2, ISMAP/IRAP/TISAX, StateRAMP, NSM-22, AI EOs, Section 508, FIPS 140-3, CISA CPGs, etc. | `docs/roadmap/FIFTH-PASS-AUDIT.md` |
 
 > **Note on LOOP-L through LOOP-Q (2026-06-07):** `ADDITIONAL-LOOPS-AUDIT.md`
 > (2026-06-06) surfaced 6 net-new loops (L–Q). The human has ratified the
@@ -227,49 +257,31 @@
 | T.T4 | Third-party software components attestation appendix | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T4.md` | T.T3 | 2026-06-07 |
 | T.T5 | CISA RSAA portal submission package + repository signed-envelope | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T5.md` | T.T3, T.T4 | 2026-06-07 |
 
-## LOOP-U — (newly authored 2026-06-08 via gap-fill workflow)
+## LOOP-X — Zero Trust Architecture compliance (OMB M-22-09 + NIST SP 800-207/207A + CISA ZTMM v2.0)
 | Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
 |---|---|---|---|---|---|---|---|
-| U.U1 | LOOP-U slice U.U1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U1.md` | — | 2026-06-08 |
-| U.U2 | LOOP-U slice U.U2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U2.md` | — | 2026-06-08 |
-| U.U3 | LOOP-U slice U.U3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U3.md` | — | 2026-06-08 |
-| U.U4 | LOOP-U slice U.U4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U4.md` | — | 2026-06-08 |
-| U.U5 | LOOP-U slice U.U5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-U-SPEC.md` | `docs/slices/U/U.U5.md` | — | 2026-06-08 |
+| X.X1 | ZT pillar inventory (Identity / Devices / Networks / Apps / Data + cross-cutting capabilities) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X1.md` | A.A5 | 2026-06-08 |
+| X.X2 | NIST SP 800-207 architecture mapping (PDP/PEP placement + trust algorithm) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X2.md` | X.X1, INV-S | 2026-06-08 |
+| X.X3 | NIST SP 800-207A cloud-native ZTA (service mesh, sidecar, k8s admission, API gateway) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X3.md` | X.X2, E.1, J.J3 | 2026-06-08 |
+| X.X4 | CISA ZTMM v2.0 maturity scoring (per-pillar Traditional/Initial/Advanced/Optimal scorecard .docx) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X4.md` | X.X1-X.X3, A.A4, A.A5 | 2026-06-08 |
+| X.X5 | PDP / PEP integration evidence (k8s NetworkPolicy, AWS VPC SG, GCP firewall, Azure NSG, OPA/Gatekeeper, Istio AuthorizationPolicy) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X5.md` | X.X2, X.X3, INV-S | 2026-06-08 |
 
-## LOOP-V — (newly authored 2026-06-08 via gap-fill workflow)
-| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
-|---|---|---|---|---|---|---|---|
-| V.V1 | LOOP-V slice V.V1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V1.md` | — | 2026-06-08 |
-| V.V2 | LOOP-V slice V.V2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V2.md` | — | 2026-06-08 |
-| V.V3 | LOOP-V slice V.V3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V3.md` | — | 2026-06-08 |
-| V.V4 | LOOP-V slice V.V4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V4.md` | — | 2026-06-08 |
-| V.V5 | LOOP-V slice V.V5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-V-SPEC.md` | `docs/slices/V/V.V5.md` | — | 2026-06-08 |
+## Out-of-Core / Overlay loops — see `docs/roadmap/`
 
-## LOOP-X — (newly authored 2026-06-08 via gap-fill workflow)
-| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
-|---|---|---|---|---|---|---|---|
-| X.X1 | LOOP-X slice X.X1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X1.md` | — | 2026-06-08 |
-| X.X2 | LOOP-X slice X.X2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X2.md` | — | 2026-06-08 |
-| X.X3 | LOOP-X slice X.X3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X3.md` | — | 2026-06-08 |
-| X.X4 | LOOP-X slice X.X4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X4.md` | — | 2026-06-08 |
-| X.X5 | LOOP-X slice X.X5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-X-SPEC.md` | `docs/slices/X/X.X5.md` | — | 2026-06-08 |
+LOOP-U (Privacy frameworks), LOOP-V (HIPAA Healthcare), LOOP-Y
+(CJIS + IRS Pub 1075), and LOOP-Z (ISO 27001/27017/27018/27701 +
+ENISA EUCS) were scope-fenced out of core FedPy and relocated to
+`cloud-evidence/docs/roadmap/loops/` + `cloud-evidence/docs/roadmap/slices/`.
+They are preserved as research / roadmap reference, not as
+implementation work. The FIFTH-PASS-AUDIT.md candidates
+(LOOP-AA through LOOP-GG: PCI-DSS / CMMC / FedRAMP Tailored / TIC 3.0
+/ SOC 2 / ISMAP/IRAP/TISAX / StateRAMP / NSM-22 / AI EOs / Section 508 /
+FIPS 140-3 / CISA CPGs / etc.) are also roadmap-only.
 
-## LOOP-Y — (newly authored 2026-06-08 via gap-fill workflow)
-| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
-|---|---|---|---|---|---|---|---|
-| Y.Y1 | LOOP-Y slice Y.Y1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y1.md` | — | 2026-06-08 |
-| Y.Y2 | LOOP-Y slice Y.Y2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y2.md` | — | 2026-06-08 |
-| Y.Y3 | LOOP-Y slice Y.Y3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y3.md` | — | 2026-06-08 |
-| Y.Y4 | LOOP-Y slice Y.Y4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Y-SPEC.md` | `docs/slices/Y/Y.Y4.md` | — | 2026-06-08 |
-
-## LOOP-Z — (newly authored 2026-06-08 via gap-fill workflow)
-| Slice | Title | Status | Commit | Spec | Doc | Dependencies | Last updated |
-|---|---|---|---|---|---|---|---|
-| Z.Z1 | LOOP-Z slice Z.Z1 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z1.md` | — | 2026-06-08 |
-| Z.Z2 | LOOP-Z slice Z.Z2 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z2.md` | — | 2026-06-08 |
-| Z.Z3 | LOOP-Z slice Z.Z3 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z3.md` | — | 2026-06-08 |
-| Z.Z4 | LOOP-Z slice Z.Z4 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z4.md` | — | 2026-06-08 |
-| Z.Z5 | LOOP-Z slice Z.Z5 (see per-slice doc for full title) | proposed | TBD | `docs/loops/LOOP-Z-SPEC.md` | `docs/slices/Z/Z.Z5.md` | — | 2026-06-08 |
+Read `docs/roadmap/README.md` and the **Scope Guard** block in
+`cloud-evidence/CLAUDE.md` before referencing anything in that folder.
+The scope-fence policy is: do not propose moving these back to core
+without an explicit mission re-statement from the user.
 
 ## CIRCIA Extensions + Overlays (HIGH PRIORITY — May 2026 effective for CIRCIA; SEC 8-K is in force today)
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc |

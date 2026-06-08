@@ -963,17 +963,35 @@ with the public truth, which is itself a REO violation.
 
 ---
 
-## Added loops U + V + X + Y + Z (2026-06-08)
+## Added loops U + V + X + Y + Z (2026-06-08) — superseded by scope-fence
+
+> **Status (scope-fence, post-commit `<next>`):** LOOP-X remains in CORE
+> (Zero Trust per OMB M-22-09 is in-scope for FedRAMP-serving CSPs).
+> **LOOP-U, LOOP-V, LOOP-Y, and LOOP-Z have been scope-fenced out of
+> core FedPy and relocated to `docs/roadmap/`** as parallel-compliance
+> reference material. They are NOT on the implementation queue. See
+> `docs/roadmap/README.md` for the scope-fence rationale and
+> `cloud-evidence/CLAUDE.md` "Scope Guard" block for the on-going policy.
+>
+> The fifth-pass audit itself has been moved to
+> `docs/roadmap/FIFTH-PASS-AUDIT.md`. Its proposed LOOP-AA through
+> LOOP-GG candidates are roadmap-only — do not spin them as new core
+> loops. New federal obligations should extend an existing core loop
+> rather than become new top-level loops.
+>
+> The remainder of this section is preserved as the original audit's
+> reasoning trail for historical context.
 
 ### Why this section exists
 
-A **fifth-pass audit** (recorded in the forthcoming
-`docs/FIFTH-PASS-AUDIT.md`) revisited the corpus after the FOURTH-PASS
-ratified LOOP-W (FAR 52.204-25 / Section 889) + LOOP-T (NDAA §1634 +
-OMB M-22-18 + CISA Common Form) + the SEC 8-K extension to G.G2. The
-fifth-pass exercise re-evaluated *five further* statutory, regulatory,
-and contractual drivers that prior passes had explicitly enumerated as
-"queued for the next audit" or had not surfaced at all:
+A **fifth-pass audit** (recorded in
+`docs/roadmap/FIFTH-PASS-AUDIT.md` post-scope-fence) revisited the corpus
+after the FOURTH-PASS ratified LOOP-W (FAR 52.204-25 / Section 889) +
+LOOP-T (NDAA §1634 + OMB M-22-18 + CISA Common Form) + the SEC 8-K
+extension to G.G2. The fifth-pass exercise re-evaluated *five further*
+statutory, regulatory, and contractual drivers that prior passes had
+explicitly enumerated as "queued for the next audit" or had not
+surfaced at all:
 
 1. **EU AI Act (Regulation (EU) 2024/1689)** — extraterritorial reach
    for U.S. CSPs that either provide AI systems whose output is used in

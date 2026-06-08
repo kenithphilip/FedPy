@@ -4,6 +4,85 @@
 > It is **enforceable**, not aspirational. Three CI guardrails (see below)
 > fail the build on any violation.
 
+---
+
+## SCOPE GUARD — read FIRST before proposing any new loop or slice
+
+FedPy is the open-source go-to tooling for SaaS providers to **get to
+FedRAMP 20x and FedRAMP Rev5 authorization and operate compliantly
+thereafter**. That's the whole mission. Three boundaries are doing the
+work:
+
+- **Regime: FedRAMP 20x + Rev5** (the 60 KSIs / 223 requirements;
+  NIST 800-53 Rev 5 baselines at Low / Moderate / High; the FRMR
+  catalog; the submission-package artifacts; ConMon).
+- **Surface: AWS / GCP / Azure / Kubernetes config evidence**
+  (read-only collectors; Ed25519-signed; OSCAL-emitted).
+- **Audience: SaaS CSPs targeting federal customers** + their 3PAOs +
+  the FedRAMP PMO + sponsoring Authorizing Officials.
+
+### What stays in core (`docs/loops/`, `docs/slices/`)
+
+Loops that directly produce / consume / enable FedRAMP-authorization or
+operating-in-the-federal-market evidence:
+
+| In core | Reason |
+|---|---|
+| LOOP-A | OSCAL submission package (SSP, AP, AR, POA&M, IIW, RoE) — the literal FedRAMP submission |
+| LOOP-B–K (60 KSI collectors + risk + tracker + signing + dashboards + integrations) | The mission-critical FedRAMP 20x KSI evidence pipeline |
+| LOOP-L (CRM) | Customer Responsibility Matrix — FedRAMP-required artifact |
+| LOOP-M (federal Privacy: SORN + PIA + E-Gov §208) | Federal Privacy Act + agency PIA — required for FedRAMP packages handling federal data |
+| LOOP-N (Threat Modeling) | NIST 800-53 SA control family + FedRAMP 20x KSI baseline |
+| LOOP-O (AI/ML Governance) | OMB M-24-10 + EO 14110 — federal-AI-relevant for CSPs using AI |
+| LOOP-P (Insider Threat) | NIST 800-53 PS + AC control families — required for FedRAMP Moderate/High |
+| LOOP-Q (Marketplace) | FedRAMP Marketplace post-ATO publication |
+| LOOP-R (PQC) | NSM-10 + OMB M-23-02 — federal cryptographic migration mandate |
+| LOOP-S (DFARS 252.204-7012) | DoD-prime conditional; in-scope when applicable |
+| LOOP-T (NIST SSDF + CISA Common Form) | OMB M-22-18 procurement gate — hard prereq for federal software awards |
+| LOOP-W (Section 889 Prohibited Vendors) | FAR 52.204-25 — universal federal contracting clause |
+| LOOP-X (Zero Trust) | OMB M-22-09 — agency tailoring will demand ZT alignment for FedRAMP-authorized services |
+| G.G2 CIRCIA + SEC 8-K extensions | Federal cyber-incident-reporting obligations for FedRAMP-serving CSPs |
+
+### What is NOT in core (lives under `docs/roadmap/`)
+
+Loops that are parallel compliance regimes — a FedRAMP CSP may also
+face them, but they are NOT part of FedRAMP authorization. They are
+preserved as research / roadmap reference, not as implementation work.
+
+| Out of core | Why | Roadmap location |
+|---|---|---|
+| LOOP-U Privacy frameworks | State PII (CCPA/CPRA/NY SHIELD/50-state matrix) + EU GDPR + UK GDPR + FERPA + COPPA + GLBA Safeguards — parallel regimes to FedRAMP | `docs/roadmap/loops/LOOP-U-{SPEC,RISKS}.md`, `docs/roadmap/slices/U/` |
+| LOOP-V Healthcare | HIPAA Security Rule + Breach Notification + BAA + NIST 800-66 R2 + HITRUST — separate federal regime under HHS OCR | `docs/roadmap/loops/LOOP-V-{SPEC,RISKS}.md`, `docs/roadmap/slices/V/` |
+| LOOP-Y Sector overlays | CJIS Security Policy v5.9.5 + IRS Publication 1075 — sector-specific, only relevant for law-enforcement or IRS-authorized customers | `docs/roadmap/loops/LOOP-Y-{SPEC,RISKS}.md`, `docs/roadmap/slices/Y/` |
+| LOOP-Z International | ISO/IEC 27001:2022 + 27017 + 27018 + 27701 + ENISA EUCS — parallel certification audit chains | `docs/roadmap/loops/LOOP-Z-{SPEC,RISKS}.md`, `docs/roadmap/slices/Z/` |
+| FIFTH-PASS-AUDIT candidates | PCI-DSS, CMMC, FedRAMP Tailored LI-SaaS, TIC 3.0, SOC 2, ISMAP/IRAP/TISAX, StateRAMP, NSM-22, AI EOs, Section 508, FIPS 140-3, CISA CPGs, etc. — out-of-FedRAMP-scope or partially overlapping with existing core loops | `docs/roadmap/FIFTH-PASS-AUDIT.md` |
+
+### Rules of the scope fence
+
+1. **Do NOT propose new loops** unless the new loop is direct
+   FedRAMP 20x or Rev5 evidence. New federal-adjacent obligations
+   should extend an existing core loop, not become a new top-level loop.
+2. **Do NOT cite roadmap loops as dependencies** in any core slice's
+   `depends_on:` list. A core slice depends only on other core slices.
+3. **Do NOT run audits** with the goal of "finding things missing"
+   broader than FedRAMP. The audit-driven expansion reflex is what
+   produced the roadmap folder; the user has explicitly scope-fenced
+   FedPy.
+4. **Do NOT spin LOOP-AA, BB, CC, …** for items in the FIFTH-PASS-AUDIT.
+   Those candidates are roadmap-only.
+5. **DO** add new slices to existing core loops when a real FedRAMP
+   need surfaces — e.g., a new RFC-0014+ requirement extends LOOP-A,
+   a new KSI extends LOOP-B–K, a new Marketplace requirement extends
+   LOOP-Q.
+6. **DO** read `docs/roadmap/README.md` before referencing anything
+   in that folder. The README documents the scope-fence rationale and
+   the policy on which the rules above are based.
+
+Source-of-truth ordering for "is this in scope":
+**This Scope Guard block → STATUS.md "Core" section → docs/roadmap/README.md.**
+
+---
+
 ## Why this exists
 
 FedRAMP 20x Phase Two for Moderate explicitly mandates "**truly automated and
@@ -168,13 +247,10 @@ npm run check:coverage-regression
    - `docs/loops/LOOP-Q-SPEC.md` — Marketplace + Post-ATO Publication (3 slices)
    - `docs/loops/LOOP-R-SPEC.md` — Post-Quantum Cryptography Migration (3 slices)
    - `docs/loops/LOOP-S-SPEC.md` — DFARS 252.204-7012 Cloud Equivalency (3 conditional slices)
-   - `docs/loops/LOOP-T-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
-   - `docs/loops/LOOP-U-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
-   - `docs/loops/LOOP-V-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
-   - `docs/loops/LOOP-W-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
-   - `docs/loops/LOOP-X-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
-   - `docs/loops/LOOP-Y-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
-   - `docs/loops/LOOP-Z-SPEC.md` — additional loop spec (see file frontmatter for scope + slice count)
+   - `docs/loops/LOOP-T-SPEC.md` — NIST SSDF + CISA Self-Attestation Common Form (5 slices) — OMB M-22-18 procurement gate
+   - `docs/loops/LOOP-W-SPEC.md` — Prohibited-Vendor Screening + Section 889 Reporting (4 slices) — FAR 52.204-25
+   - `docs/loops/LOOP-X-SPEC.md` — Zero Trust Architecture (5 slices) — OMB M-22-09 + NIST 800-207/207A + CISA ZTMM v2.0
+   - **OUT OF CORE — see `docs/roadmap/`:** LOOP-U (Privacy frameworks), LOOP-V (HIPAA), LOOP-Y (CJIS + IRS Pub 1075), LOOP-Z (ISO international). These are parallel compliance regimes preserved as research / roadmap reference. Do not cite them as dependencies of core slices. Read `docs/roadmap/README.md` for the scope-fence rationale.
    - `docs/CIRCIA-WORKFLOW.md` — CIRCIA Final Rule extensions to G.G2 + M.M4 (May 2026 effective; HIGH PRIORITY)
    - `docs/slices/G/G.G2-SEC-8K-EXTENSION.md` — SEC Item 1.05 Form 8-K cyber-incident disclosure extension to G.G2 (co-ship requirement; see file for trigger criteria + four-business-day clock)
 6. **`docs/slices/X/X.XN.md`** — per-slice deep-context docs (one per pending slice, 49 total). Each carries:
@@ -189,7 +265,7 @@ npm run check:coverage-regression
 12. **`docs/SECOND-PASS-AUDIT.md`** — post-LOOP-L..Q audit (2026-06-07) confirming nothing else is still missing after L-Q specification. Read alongside `ADDITIONAL-LOOPS-AUDIT.md` when assessing roadmap completeness.
 12a. **`docs/THIRD-PASS-AUDIT.md`** — post-second-pass audit (2026-06-07) surfacing LOOP-R (PQC), LOOP-S (DFARS 252.204-7012 Cloud Equivalency), and the CIRCIA Final Rule extensions to G.G2 + M.M4. All three are now fully specified (LOOP-R + LOOP-S SPEC + 6 per-slice docs + 2 risks registers; CIRCIA-WORKFLOW.md + 2 CIRCIA-extension per-slice docs). CIRCIA is **HIGH PRIORITY** (May 2026 effective date).
 12c. **`docs/FOURTH-PASS-AUDIT.md`** — post-third-pass audit (2026-06-07) surfacing LOOP-W, LOOP-T, and the SEC Form 8-K Item 1.05 extension to G.G2. Read this alongside `THIRD-PASS-AUDIT.md` when assessing roadmap completeness. The audit ratifies LOOP-T + LOOP-W as in-scope and confirms G.G2-SEC-8K-EXTENSION as a co-ship requirement for any G.G2 implementation that touches a registrant subject to SEC reporting.
-12d. **`docs/FIFTH-PASS-AUDIT.md`** — post-fourth-pass audit (2026-06-08) surfacing LOOP-U, LOOP-V, LOOP-X, LOOP-Y, LOOP-Z. All five are now fully specified (LOOP SPECs + per-slice docs + risks registers) via the gap-fill workflow. Read this alongside `FOURTH-PASS-AUDIT.md` when assessing roadmap completeness.
+12d. **`docs/roadmap/FIFTH-PASS-AUDIT.md`** — post-fourth-pass audit (2026-06-08) surfacing LOOP-U, LOOP-V, LOOP-X, LOOP-Y, LOOP-Z + candidates LOOP-AA through LOOP-GG. After the scope-fence (commit `<next>`), LOOP-X stayed in core (Zero Trust per OMB M-22-09 is in-scope for FedRAMP-serving CSPs). LOOP-U, V, Y, Z and all LOOP-AA-GG candidates were moved to `docs/roadmap/` as out-of-FedRAMP-scope reference material. Read `docs/roadmap/README.md` for the scope-fence rationale before referencing any roadmap doc.
 12b. **`docs/CIRCIA-WORKFLOW.md`** — CIRCIA Final Rule 72-hour incident reporting workflow. Extends G.G2 (Incident Communications Procedures) and M.M4 (Privacy incident response). Defines Covered Entity / Covered Cyber Incident scoping, 72-hour reporting deadline, 24-hour ransom-payment deadline, CISA submission paths, and harmonization with FedRAMP IR-6 + Privacy Act §552a(e)(10) + OMB M-17-12.
 13. **`docs/sections/SECTION-X.md`** — artifact-requirements layer (cross-references loops):
     - `docs/sections/SECTION-A.md` — Submission package artifacts
