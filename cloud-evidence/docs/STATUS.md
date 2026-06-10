@@ -25,7 +25,7 @@ and not on the implementation queue.
   - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
 - Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
 - Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (1 of 4 slices done); LOOP-B in progress (1 of 5 slices done)
-- Last shipped: LOOP-B.B1 (commit `TBD-step6`)
+- Last shipped: LOOP-B.B1 (commit `22b6590`)
 - Next priority: **LOOP-T.T1 (NIST SP 800-218 v1.1 SSDF practice catalog + 800-53 + KSI crosswalk emitter)** — fully unblocked (`depends_on: []`), universal for federal-selling SaaS (OMB M-22-18 / M-23-16 procurement gate), and the next slice in the documented W→T→B queue order now that the blocked W-loop slices are deferred. Then **LOOP-T.T2-T.T5** to close the CISA Secure Software Development Attestation Common Form. **B.B1 shipped out of queue order** (2026-06-10) because the originally-next **W.W2 is blocked**: its `depends_on` (per `docs/slices/W/W.W2.md`) requires E.E2 (SBOM, pending) + J.J3 (OCI cosign, pending) — J.J3 itself needs J.J2 (pending) — plus B.B1 (now done). **To unblock the HIGHEST-PRIORITY W loop**, ship the critical path **J.J2 → J.J3 + E.E2 → W.W2 → W.W3 → W.W4**; the operator may elevate that chain above T at any time. **B.B2** (remediation deadline math) is now unblocked as the LOOP-B continuation (B.B1 was its only blocker). LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
   - **Dependency-metadata note (discovered 2026-06-10):** the W.W2 row's `Dependencies` column below (W.W1, J.J2) is inconsistent with the W.W2 per-slice-doc frontmatter (W.W1, E.E2, J.J3, A.A1, A.A5, B.B1). Reconcile before scheduling W.W2. See `docs/loops/LOOP-B-RISKS.md` risk B.B1-EXT-1.
 
@@ -92,7 +92,7 @@ rationale.
 ## LOOP-B — Risk + Remediation Engine
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
 |---|---|---|---|---|---|---|
-| B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | done | `TBD-step6` | 2026-06-10 | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B1.md` |
+| B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | done | `22b6590` | 2026-06-10 | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B1.md` |
 | B.B2 | Remediation deadline math (KEV/PAIN/IRV/LEV) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B2.md` |
 | B.B3 | Risk acceptance workflow in tracker | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B3.md` |
 | B.B4 | Compensating-controls registry | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B4.md` |

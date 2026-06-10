@@ -3,7 +3,7 @@ slice_id: B.B1
 title: Per-finding CVSS+EPSS+criticality+exposure scoring
 loop: B
 status: done
-commit: TBD-step6
+commit: 22b6590
 completed_date: 2026-06-10
 depends_on: [LOOP-A.A1, INV-P1, INV-P2, INV-P3, INV-P4, INV-P5, INV-S1, INV-S2, INV-S3, INV-S4, INV-S5, INV-S6]
 blocks: [B.B2, B.B5, I.I1, E.E1, C.C7]
@@ -18,7 +18,7 @@ Replace the LOOP-A.A1 severity-only POA&M sort with a defensible, per-Finding co
 
 ## Status
 - Status: done
-- Commit: TBD-step6 (filled by the two-pass amend in SLICE-COMPLETION-PROCEDURE.md Step 6)
+- Commit: 22b6590 (filled by the two-pass amend in SLICE-COMPLETION-PROCEDURE.md Step 6)
 - Date: 2026-06-10
 - Verification: typecheck=clean, tests=939/939 (+36 new), check:reo=green (G1 0 violations, G2 skip [no local out/], G3 OK)
 
