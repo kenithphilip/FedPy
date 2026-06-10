@@ -6,6 +6,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-T.T1: NIST SP 800-218 v1.1 (SSDF) practice catalog + 800-53 + KSI crosswalk emitter
+
+Shipped the foundation slice of LOOP-T (NIST SSDF self-attestation via the CISA
+Secure Software Development Attestation Common Form). T.T1 extracts the NIST SP
+800-218 v1.1 Secure Software Development Framework into a canonical,
+Ed25519-signed catalog (`data/ssdf-800-218-v1.1.json`) that downstream slices
+(T.T2 Common Form generator, T.T3 evidence aggregator, T.T5 KSI↔SSDF gap matrix)
+consume. New files: `core/ssdf-practices-catalog.ts` (488 lines — typed
+loader/validator/lookup + shared builder + Ed25519 sign/verify),
+`scripts/extract-ssdf-practices.mjs` (276 lines — offline extractor that parses
+Table 1 verbatim from the committed PDF and signs via `core/sign.ts`),
+`scripts/data/ssdf-ksi-mapping.json` (curated SSDF→FedRAMP KSI forward map with
+per-pair confidence + rationale), `tests/core/ssdf-practices-catalog.test.ts`
+(25 tests) + 3 fixtures, and the committed published sources
+`docs/sources/NIST.SP.800-218.pdf` (sha256 `617746e5…`) +
+`docs/sources/Self_Attestation_Common_Form_FINAL_508c.pdf` (sha256 `a8d6b568…`).
+Modified: `core/submission-bundle.ts` (role `ssdf-practice-catalog-json`),
+`package.json` (`build:ssdf-catalog` script + `pdf-parse` devDependency),
+`.gitignore` (un-ignore the committed catalog), `CLAUDE.md` reading list, and
+`docs/OPERATOR-GUIDE.md` §7.
+
+The catalog is real evidence end to end: all 19 practice intents, 42 active task
+statements, and the SP 800-53 Rev 5 control mappings are parsed verbatim from
+`docs/sources/NIST.SP.800-218.pdf` (the extractor re-verifies each of the 19
+practice names appears verbatim in the PDF text and pins `source_pdf_sha256`, so
+a 3PAO can confirm the catalog traces to the NIST-signed PDF). The catalog
+carries a G3-compliant `provenance` block (camelCase emitter/emittedAt/
+sourceCalls/signingKeyId) + a detached Ed25519 signature over the canonical
+(RFC 8785) signature-blanked bytes, self-verifying via its embedded public key.
+The curated KSI forward map references only ids that exist in `core/ksi-map.ts`
+(extractor fails `ERR_SSDF_KSI_UNKNOWN` otherwise); `reviewed: true` is required.
+
+Verification: `npm run typecheck` clean, **964/964 tests passing (+25)**,
+`npm run check:reo` (lint:no-stubs G1 + check:coverage-regression G2 +
+check:provenance G3) all return 0. Three spec assumptions were corrected against
+the authoritative NIST PDF per REO (documented in `docs/slices/T/T.T1.md` §10):
+the real active-task count is **42** (not 43) plus 5 withdrawn "Moved to" tasks;
+**PW.2 and PW.5 carry no SP 800-53 mapping** (their Table 1 References cite other
+frameworks), so 17 of 19 practices are mapped; and the Common Form Section IV
+maps to 11 of 19 practices at the practice level. Statutory/regulatory drivers:
+EO 14028 §4(e)/(n) (May 12 2021); NIST SP 800-218 v1.1 (Feb 2022, DOI
+10.6028/NIST.SP.800-218); OMB M-22-18 (Sep 14 2022) + M-23-16 (Jun 9 2023);
+CISA Secure Software Development Attestation Common Form (OMB Control No.
+1670-0052, finalized Mar 11 2024); NIST SP 800-53 Rev 5; FedRAMP KSI catalog.
+
 ### Added — LOOP-B.B1: Per-finding CVSS+EPSS+criticality+exposure scoring
 First slice of LOOP-B (Risk + Remediation Engine). Replaces the LOOP-A.A1
 severity-only POA&M sort with a defensible, operator-tunable composite risk

@@ -96,7 +96,8 @@ type Role =
   | 'oscal-validation-report'
   | 'prohibited-vendors-catalog'
   | 'risk-scores-json'
-  | 'epss-cache';
+  | 'epss-cache'
+  | 'ssdf-practice-catalog-json';
 
 interface WellKnownArtifact {
   role: Role;
@@ -134,6 +135,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'prohibited-vendors-catalog', filename: 'prohibited-vendors-catalog.json', description: 'Prohibited-vendor catalog merged from OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA (LOOP-W.W1)' },
   { role: 'risk-scores-json', filename: 'risk-scores.json', description: 'Per-finding CVSS+EPSS+criticality+exposure composite scores (LOOP-B.B1)' },
   { role: 'epss-cache', filename: '.epss-cache.json', description: 'On-disk FIRST EPSS API response cache (24h TTL) — provenance-stamped (LOOP-B.B1)' },
+  { role: 'ssdf-practice-catalog-json', filename: 'ssdf-800-218-v1.1.json', description: 'NIST SP 800-218 v1.1 (SSDF) practice catalog — 19 practices, 42 tasks, 800-53 Rev 5 + FedRAMP KSI crosswalk (LOOP-T.T1); included when --include-ssdf-catalog is set (T.T2)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

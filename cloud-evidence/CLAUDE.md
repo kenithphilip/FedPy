@@ -332,6 +332,7 @@ npm run check:coverage-regression
 18. `core/inventory-coverage.ts` — the coverage contract pattern. Replicate for new emit families.
 19. `docs/IMPACT-LEVEL-NOTES.md` — why Phase 4 / High is not authored by 20x.
 20. `RUNBOOK.md` — operational invariants.
+21. `data/ssdf-800-218-v1.1.json` — signed NIST SP 800-218 v1.1 (SSDF) practice catalog (19 practices, 42 tasks, 800-53 Rev 5 + FedRAMP KSI crosswalk), extracted from `docs/sources/NIST.SP.800-218.pdf` by `scripts/extract-ssdf-practices.mjs` (LOOP-T.T1). Loaded via `core/ssdf-practices-catalog.ts`; consumed by LOOP-T.T2/T3/T5.
 
 If a new contributor reads only one file, it should be this one. If they read two, the second is `docs/STATUS.md`.
 

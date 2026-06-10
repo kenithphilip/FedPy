@@ -577,6 +577,24 @@ Files emitted depend on the flags you pass.
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
 | `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 
+### 7.1 Committed reference catalogs (built offline, not per-run)
+
+Some signed catalogs are checked into version control rather than emitted on
+every run. They are rebuilt only when their upstream published source changes,
+via a dedicated `npm run build:*` script, and committed to `data/`.
+
+| File | Build command | Source | Format | Signed? |
+|---|---|---|---|---|
+| `data/ssdf-800-218-v1.1.json` | `npm run build:ssdf-catalog` | `docs/sources/NIST.SP.800-218.pdf` (sha256-pinned) | JSON | yes (embedded detached Ed25519 in `provenance`) |
+
+The SSDF catalog (LOOP-T.T1) holds the 19 NIST SP 800-218 v1.1 practices, 42
+tasks, the verbatim SP 800-53 Rev 5 control mapping, the CISA Common Form
+Section IV labelling, and a curated FedRAMP KSI forward map. It is loaded via
+`core/ssdf-practices-catalog.ts` and consumed by LOOP-T.T2/T3/T5. It joins a
+submission bundle (role `ssdf-practice-catalog-json`) only when
+`--include-ssdf-catalog` is set (wired in T.T2). To regenerate with the org's
+stable signing key, set `EVIDENCE_SIGNING_KEY_PATH` before running the build.
+
 The bundle catalogue (LOOP-A.A4) is the authoritative index of what's
 in a submission bundle for a given run.
 

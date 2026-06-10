@@ -2,16 +2,16 @@
 slice_id: T.T1
 title: NIST SP 800-218 v1.1 SSDF practice catalog + 800-53 + KSI crosswalk emitter
 loop: T
-status: proposed
-commit: TBD
-completed_date: —
+status: done
+commit: TBD-step6
+completed_date: 2026-06-10
 applicable_conditional: any CSP delivering software to federal agencies subject to OMB M-22-18 (as amended by M-23-16 and reflected in the CISA Common Form OMB 1670-0052)
 trigger_flag: "--ssdf-catalog"
 trigger_env: CLOUD_EVIDENCE_SSDF_CATALOG
 depends_on: []
 blocks: [T.T2, T.T3, T.T5]
 estimated_effort: medium (4-5 working days)
-last_updated: 2026-06-07
+last_updated: 2026-06-10
 ---
 
 # T.T1 — NIST SP 800-218 v1.1 SSDF practice catalog + 800-53 + KSI crosswalk emitter
@@ -483,6 +483,36 @@ export function tasksByCommonFormSection(s: '§IV(1)'|'§IV(2)'|'§IV(3)'|'§IV(
 - **Q4.** Should the catalog include a `withdrawn_practices` array enumerating practices removed between v1.0 and v1.1 (notably PW.3)? **Recommendation:** Yes — improves transparency for cross-version mapping consumers.
 - **Q5.** Should the curated KSI forward-mapping be reviewable through the tracker UI? **Recommendation:** Out of scope for T.T1; T.T5 will add a tracker page for reviewing the gap matrix; mapping edits remain code-review-only.
 
+### §10 resolutions (impl session 2026-06-10)
+
+- **Q1 (implementation examples):** Deferred per recommendation — the catalog omits the lettered `Example N:` sub-bullets (the extractor truncates each task statement at the first `Example`). They remain available in the committed PDF for T.T3. No `examples[]` array shipped (no `--include-examples` flag in T.T1 scope).
+- **Q2 (Rev 4 mapping):** Resolved NO — the catalog carries only SP 800-53 Rev 5 controls (verbatim from Table 1's `SP80053:` reference cells); `provenance.nist53Revision = "5"`.
+- **Q3 (OSCAL SSDF source):** NIST publishes no official OSCAL SSDF catalog as of 2026-06-10; the extractor parses the published PDF. The extractor re-verifies each practice name appears verbatim in the PDF text and pins `source_pdf_sha256`, so a 3PAO can confirm the catalog traces to the NIST-signed PDF.
+- **Q4 (withdrawn enumeration):** Resolved YES — the catalog carries `withdrawn_practices` (PW.3) and `withdrawn_tasks` (PW.3.1, PW.3.2, PW.4.3, PW.4.5, PW.5.2 — the 5 "Moved to" tasks). The extractor asserts exactly 5 withdrawn tasks.
+- **Q5 (tracker review):** Deferred to T.T5 per recommendation; the curated map ships as `scripts/data/ssdf-ksi-mapping.json` with `reviewed: true` + per-pair `confidence`/`rationale`, PR-reviewed only.
+
+### Spec-vs-source reconciliations (authoritative NIST PDF wins — REO)
+
+The per-slice spec made three numeric/shape assumptions that the authoritative
+extraction from `docs/sources/NIST.SP.800-218.pdf` corrected. Per REO, the
+catalog + tests assert the real source, and the §8 test table was adapted:
+
+1. **Task count is 42, not 43.** NIST SP 800-218 v1.1 Table 1 has 42 active
+   tasks plus 5 withdrawn ("Moved to") task headings. `EXPECTED_TASK_COUNT = 42`.
+   (Per-group split: PO 13, PS 4, PW 16, RV 9.)
+2. **PW.2 and PW.5 have NO SP 800-53 mapping.** Their Table 1 References cells
+   cite other frameworks (BSAFSS, BSIMM, EO14028, IEC62443, ISO27034, OWASP, …)
+   but no `SP80053:` line. So 17 of 19 practices carry a 800-53 mapping, not 19.
+   Spec test T5 was changed from "every practice" to "17 of 19; PW.2/PW.5 empty".
+3. **The Common Form covers 11 of 19 practices** at the practice level (the four
+   §IV attestations map to PO.1, PO.3, PO.5, PS.1, PS.3, PW.4, PW.7, PW.8, RV.1,
+   RV.2, RV.3). Spec test T9 ("each practice carries ≥1 ref") was changed to
+   "11 carry ≥1 ref; the field is present (possibly empty) on all 19".
+4. Tests T6/T7 (PO.1 / RV.1 expected controls) were set to the controls actually
+   published in those practices' References cells (e.g. PO.1 ⊇ {sa-1, sa-8, sa-15,
+   sr-3}; RV.1 ⊇ {sa-10, sa-11, sr-3, sr-4}) rather than the spec's illustrative
+   {pm-3, pm-7, …} guess.
+
 ## 11. REQUIRES-OPERATOR-INPUT fields (per REO Rule 4)
 
 | Field name | Type | Validator | UI location | Failure mode if missing |
@@ -498,9 +528,11 @@ export function tasksByCommonFormSection(s: '§IV(1)'|'§IV(2)'|'§IV(3)'|'§IV(
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
 | 2026-06-07 | authoring | T.T1 spec authored | (this commit TBD) | per-slice doc created from ground up; awaiting implementation session |
-|  |  |  |  |  |
-|  |  |  |  |  |
-|  |  |  |  |  |
+| 2026-06-10 | impl-t-t1 | Downloaded + committed the authoritative NIST SP 800-218 v1.1 PDF (sha256 `617746e5…`) + CISA Common Form PDF (sha256 `a8d6b568…`) to `docs/sources/` | TBD-step6 | `docs/sources/` did not previously exist; T.T1 establishes it. Both PDFs are now version-controlled provenance anchors. |
+| 2026-06-10 | impl-t-t1 | Added `pdf-parse@^2.4.5` devDependency for the offline extractor's PDF-text fidelity parse | TBD-step6 | spec assumed `pdf-parse` was "existing from LOOP-C.C2"; LOOP-C is unimplemented + the dep was absent, so it was added here. pdf-parse v2 uses the `new PDFParse({data}).getText()` class API (not the v1 callable). |
+| 2026-06-10 | impl-t-t1 | Implemented `scripts/extract-ssdf-practices.mjs` (parses Table 1 verbatim) + `core/ssdf-practices-catalog.ts` (typed loader/validator/lookup) + `scripts/data/ssdf-ksi-mapping.json` (curated forward map) | TBD-step6 | extractor parses statements/intents/800-53 controls verbatim from the PDF; 19 practice names are verified-present published constants; runs via `tsx` so it composes `core/sign.ts`. |
+| 2026-06-10 | impl-t-t1 | Generated + committed signed catalog `data/ssdf-800-218-v1.1.json` (un-ignored via `.gitignore` negation, mirroring the W.W1 constants) | TBD-step6 | 19 practices, 42 tasks, 17/19 practices with 800-53 mapping, 11 with Common Form refs, 12 KSI-mapped; detached Ed25519 signature self-verifies via embedded `provenance.publicKeyPem`. |
+| 2026-06-10 | impl-t-t1 | Wrote 25 vitest tests (`tests/core/ssdf-practices-catalog.test.ts`) + 3 fixtures; typecheck clean, 964/964 tests pass (+25), `npm run check:reo` (G1+G2+G3) all green | TBD-step6 | spec §8 test expectations were adapted to the authoritative source (see §10 resolutions): real task count is 42 (not 43); PW.2/PW.5 carry no SP 800-53 mapping; 11 (not all 19) practices carry a Common Form ref. |
 
 (Implementation session: append a new row at every meaningful milestone — see `docs/IMPLEMENTATION-LOG-TEMPLATE.md` §3.)
 

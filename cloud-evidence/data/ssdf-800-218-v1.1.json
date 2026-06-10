@@ -1,0 +1,762 @@
+{
+  "catalog_id": "ssdf-800-218-v1.1",
+  "framework_version": "SSDF v1.1 (NIST SP 800-218, Feb 2022)",
+  "extracted_at": "2026-06-10T10:25:54.949Z",
+  "source_pdf_path": "docs/sources/NIST.SP.800-218.pdf",
+  "source_pdf_sha256": "617746e553a9e2da49bfbd4eef0dfc3094758a39b869314e4173ac36605cde22",
+  "publication": {
+    "title": "Secure Software Development Framework (SSDF) Version 1.1: Recommendations for Mitigating the Risk of Software Vulnerabilities",
+    "publisher": "NIST",
+    "publication_date": "2022-02",
+    "doi": "10.6028/NIST.SP.800-218"
+  },
+  "practice_groups": [
+    {
+      "id": "PO",
+      "name": "Prepare the Organization",
+      "definition": "Ensure that the organization's people, processes, and technology are prepared to perform secure software development at the organization level. Many organizations will find some PO practices applicable to subsets of their software development, like individual development groups or projects."
+    },
+    {
+      "id": "PS",
+      "name": "Protect the Software",
+      "definition": "Protect all components of the software from tampering and unauthorized access."
+    },
+    {
+      "id": "PW",
+      "name": "Produce Well-Secured Software",
+      "definition": "Produce well-secured software with minimal security vulnerabilities in its releases."
+    },
+    {
+      "id": "RV",
+      "name": "Respond to Vulnerabilities",
+      "definition": "Identify residual vulnerabilities in software releases and respond appropriately to address those vulnerabilities and prevent similar vulnerabilities from occurring in the future."
+    }
+  ],
+  "practices": [
+    {
+      "id": "PO.1",
+      "group": "PO",
+      "name": "Define Security Requirements for Software Development",
+      "intent": "Ensure that security requirements for software development are known at all times so that they can be taken into account throughout the SDLC and duplication of effort can be minimized because the requirements information can be collected once and shared. This includes requirements from internal sources (e.g., the organization's policies, business objectives, and risk management strategy) and external sources (e.g., applicable laws and regulations).",
+      "tasks": [
+        {
+          "id": "PO.1.1",
+          "statement": "Identify and document all security requirements for the organization's software development infrastructures and processes, and maintain the requirements over time.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PO.1.2",
+          "statement": "Identify and document all security requirements for organization-developed software to meet, and maintain the requirements over time.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PO.1.3",
+          "statement": "Communicate requirements to all third parties who will provide commercial software components to the organization for reuse by the organization's own software. [Formerly PW.3.1]",
+          "common_form_section_ref": [
+            "§IV(2)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-1",
+        "sa-10",
+        "sa-10(1)",
+        "sa-15",
+        "sa-4",
+        "sa-8",
+        "sa-8(3)",
+        "sa-9",
+        "sr-3",
+        "sr-4",
+        "sr-5"
+      ],
+      "common_form_section_ref": [
+        "§IV(2)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-SCR-MON",
+          "confidence": "medium",
+          "rationale": "PO.1.3 communicates security requirements to third parties supplying commercial components; both PO.1 and KSI-SCR-MON (Monitoring Supply Chain Risk) trace to SP 800-53 SR-3 (supply chain risk management plan)."
+        }
+      ]
+    },
+    {
+      "id": "PO.2",
+      "group": "PO",
+      "name": "Implement Roles and Responsibilities",
+      "intent": "Ensure that everyone inside and outside of the organization involved in the SDLC is prepared to perform their SDLC-related roles and responsibilities throughout the SDLC.",
+      "tasks": [
+        {
+          "id": "PO.2.1",
+          "statement": "Create new roles and alter responsibilities for existing roles as needed to encompass all parts of the SDLC. Periodically review and maintain the defined roles and responsibilities, updating them as needed.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PO.2.2",
+          "statement": "Provide role-based training for all personnel with responsibilities that contribute to secure development. Periodically review personnel proficiency and role-based training, and update the training as needed.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PO.2.3",
+          "statement": "Obtain upper management or authorizing official commitment to secure development, and convey that commitment to all with development- related roles and responsibilities.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-3",
+        "sa-8"
+      ],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PO.3",
+      "group": "PO",
+      "name": "Implement Supporting Toolchains",
+      "intent": "Use automation to reduce human effort and improve the accuracy, reproducibility, usability, and comprehensiveness of security practices throughout the SDLC, as well as provide a way to document and demonstrate the use of these practices. Toolchains and tools may be used at different levels of the organization, such as organization-wide or project-specific, and may address a particular part of the SDLC, like a build pipeline.",
+      "tasks": [
+        {
+          "id": "PO.3.1",
+          "statement": "Specify which tools or tool types must or should be included in each toolchain to mitigate identified risks, as well as how the toolchain components are to be integrated with each other.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PO.3.2",
+          "statement": "Follow recommended security practices to deploy, operate, and maintain tools and toolchains.",
+          "common_form_section_ref": [
+            "§IV(2)"
+          ]
+        },
+        {
+          "id": "PO.3.3",
+          "statement": "Configure tools to generate artifacts6 of their support of secure software development practices as defined by the organization.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-15"
+      ],
+      "common_form_section_ref": [
+        "§IV(2)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-MLA-LET",
+          "confidence": "medium",
+          "rationale": "PO.3.3 configures toolchains to generate logged artifacts of their operation; KSI-MLA-LET (Logging Event Types) governs which event types the platform logs."
+        }
+      ]
+    },
+    {
+      "id": "PO.4",
+      "group": "PO",
+      "name": "Define and Use Criteria for Software Security Checks",
+      "intent": "Help ensure that the software resulting from the SDLC meets the organization's expectations by defining and using criteria for checking the software's security during development.",
+      "tasks": [
+        {
+          "id": "PO.4.1",
+          "statement": "Define criteria for software security checks and track throughout the SDLC.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PO.4.2",
+          "statement": "Implement processes, mechanisms, etc. to gather and safeguard the necessary information in support of the criteria.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-15",
+        "sa-15(1)",
+        "sa-15(11)"
+      ],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PO.5",
+      "group": "PO",
+      "name": "Implement and Maintain Secure Environments for Software Development",
+      "intent": "Ensure that all components of the environments for software development are strongly protected from internal and external threats to prevent compromises of the environments or the software being developed or maintained within them. Examples of environments for software development include development, build, test, and distribution environments.",
+      "tasks": [
+        {
+          "id": "PO.5.1",
+          "statement": "Separate and protect each environment involved in software development.",
+          "common_form_section_ref": [
+            "§IV(1)",
+            "§IV(2)"
+          ]
+        },
+        {
+          "id": "PO.5.2",
+          "statement": "Secure and harden development endpoints (i.e., endpoints for software designers, developers, testers, builders, etc.) to perform development-related tasks using a risk-based approach.",
+          "common_form_section_ref": [
+            "§IV(1)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-15",
+        "sa-3(1)",
+        "sa-8"
+      ],
+      "common_form_section_ref": [
+        "§IV(1)",
+        "§IV(2)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-IAM-MFA",
+          "confidence": "high",
+          "rationale": "PO.5.1 (separate and protect each development/build environment) is the SSDF basis for CISA Common Form Section IV(1)(c), which requires multi-factor authentication across environments relevant to developing and building software; KSI-IAM-MFA (Enforcing Phishing-Resistant MFA) is the direct FedRAMP control."
+        },
+        {
+          "ksi_id": "KSI-MLA-ALA",
+          "confidence": "medium",
+          "rationale": "Common Form Section IV(1)(b) requires logging, monitoring, and auditing of trust relationships used for authorization and access to development/build environments; KSI-MLA-ALA (Authorizing Log Access) governs who may access those logs."
+        }
+      ]
+    },
+    {
+      "id": "PS.1",
+      "group": "PS",
+      "name": "Protect All Forms of Code from Unauthorized Access and Tampering",
+      "intent": "Help prevent unauthorized changes to code, both inadvertent and intentional, which could circumvent or negate the intended security characteristics of the software. For code that is not intended to be publicly accessible, this helps prevent theft of the software and may make it more difficult or time-consuming for attackers to find vulnerabilities in the software.",
+      "tasks": [
+        {
+          "id": "PS.1.1",
+          "statement": "Store all forms of code - including source code, executable code, and configuration-as-code - based on the principle of least privilege so that only authorized personnel, tools, services, etc. have access.",
+          "common_form_section_ref": [
+            "§IV(1)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-10"
+      ],
+      "common_form_section_ref": [
+        "§IV(1)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-IAM-ELP",
+          "confidence": "high",
+          "rationale": "PS.1.1 stores all forms of code 'based on the principle of least privilege so that only authorized personnel, tools, services, etc. have access'; KSI-IAM-ELP (Ensuring Least Privilege) is the direct FedRAMP control."
+        }
+      ]
+    },
+    {
+      "id": "PS.2",
+      "group": "PS",
+      "name": "Provide a Mechanism for Verifying Software Release Integrity",
+      "intent": "Help software acquirers ensure that the software they acquire is legitimate and has not been tampered with.",
+      "tasks": [
+        {
+          "id": "PS.2.1",
+          "statement": "Make software integrity verification information available to software acquirers.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-8"
+      ],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-SVC-VRI",
+          "confidence": "medium",
+          "rationale": "PS.2.1 makes software integrity verification information available to acquirers; KSI-SVC-VRI (Validating Resource Integrity) is the runtime analog of release-integrity verification."
+        }
+      ]
+    },
+    {
+      "id": "PS.3",
+      "group": "PS",
+      "name": "Archive and Protect Each Software Release",
+      "intent": "Preserve software releases in order to help identify, analyze, and eliminate vulnerabilities discovered in the software after release.",
+      "tasks": [
+        {
+          "id": "PS.3.1",
+          "statement": "Securely archive the necessary files and supporting data (e.g., integrity verification information, provenance data) to be retained for each software release.",
+          "common_form_section_ref": [
+            "§IV(2)"
+          ]
+        },
+        {
+          "id": "PS.3.2",
+          "statement": "Collect, safeguard, maintain, and share provenance data for all components of each software release (e.g., in a software bill of materials [SBOM]).",
+          "common_form_section_ref": [
+            "§IV(3)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-10",
+        "sa-15",
+        "sa-15(11)",
+        "sa-8",
+        "sr-3",
+        "sr-4"
+      ],
+      "common_form_section_ref": [
+        "§IV(2)",
+        "§IV(3)"
+      ],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PW.1",
+      "group": "PW",
+      "name": "Design Software to Meet Security Requirements and Mitigate Security Risks",
+      "intent": "Identify and evaluate the security requirements for the software; determine what security risks the software is likely to face during operation and how the software's design and architecture should mitigate those risks; and justify any cases where risk-based analysis indicates that security requirements should be relaxed or waived. Addressing security requirements and risks during software design (secure by design) is key for improving software security and also helps improve development efficiency.",
+      "tasks": [
+        {
+          "id": "PW.1.1",
+          "statement": "Use forms of risk modeling - such as threat modeling, attack modeling, or attack surface mapping - to help assess the security risk for the software.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PW.1.2",
+          "statement": "Track and maintain the software's security requirements, risks, and design decisions.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PW.1.3",
+          "statement": "Where appropriate, build in support for using standardized security features and services (e.g., enabling software to integrate with existing log management, identity management, access control, and vulnerability management systems) instead of creating proprietary implementations of security features and services. [Formerly PW.4.3]",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-10",
+        "sa-11(2)",
+        "sa-11(6)",
+        "sa-15(5)",
+        "sa-17",
+        "sa-8"
+      ],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PW.2",
+      "group": "PW",
+      "name": "Review the Software Design to Verify Compliance with Security Requirements and Risk Information",
+      "intent": "Help ensure that the software will meet the security requirements and satisfactorily address the identified risk information.",
+      "tasks": [
+        {
+          "id": "PW.2.1",
+          "statement": "Have 1) a qualified person (or people) who were not involved with the design and/or 2) automated processes instantiated in the toolchain review the software design to confirm and enforce that it meets all of the security requirements and satisfactorily addresses the identified risk information.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PW.4",
+      "group": "PW",
+      "name": "Reuse Existing, Well-Secured Software When Feasible Instead of Duplicating Functionality",
+      "intent": "Lower the costs of software development, expedite software development, and decrease the likelihood of introducing additional security vulnerabilities into the software by reusing software modules and services that have already had their security posture checked. This is particularly important for software that implements security functionality, such as cryptographic modules and protocols.",
+      "tasks": [
+        {
+          "id": "PW.4.1",
+          "statement": "Acquire and maintain well-secured software components (e.g., software libraries, modules, middleware, frameworks) from commercial, open- source, and other third-party developers for use by the organization's software.",
+          "common_form_section_ref": [
+            "§IV(2)"
+          ]
+        },
+        {
+          "id": "PW.4.2",
+          "statement": "Create and maintain well-secured software components in-house following SDLC processes to meet common internal software development needs that cannot be better met by third-party software components.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PW.4.4",
+          "statement": "Verify that acquired commercial, open-source, and all other third-party software components comply with the requirements, as defined by the organization, throughout their life cycles.",
+          "common_form_section_ref": [
+            "§IV(2)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-10(6)",
+        "sa-4",
+        "sa-5",
+        "sa-8(3)",
+        "sa-9",
+        "sr-3",
+        "sr-4",
+        "sr-4(3)",
+        "sr-4(4)"
+      ],
+      "common_form_section_ref": [
+        "§IV(2)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-SCR-MON",
+          "confidence": "high",
+          "rationale": "PW.4 acquires and verifies third-party software components; both PW.4 and KSI-SCR-MON (Monitoring Supply Chain Risk) trace to SP 800-53 SR-3/SR-4 (supply chain risk management plan and provenance)."
+        },
+        {
+          "ksi_id": "KSI-SCR-MIT",
+          "confidence": "high",
+          "rationale": "PW.4.4 verifies acquired commercial/open-source components meet requirements; KSI-SCR-MIT (Mitigating Supply Chain Risk) is the FedRAMP control for acting on identified supplier risk."
+        }
+      ]
+    },
+    {
+      "id": "PW.5",
+      "group": "PW",
+      "name": "Create Source Code by Adhering to Secure Coding Practices",
+      "intent": "Decrease the number of security vulnerabilities in the software, and reduce costs by minimizing vulnerabilities introduced during source code creation that meet or exceed organization-defined vulnerability severity criteria.",
+      "tasks": [
+        {
+          "id": "PW.5.1",
+          "statement": "Follow all secure coding practices that are appropriate to the development languages and environment to meet the organization's requirements.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PW.6",
+      "group": "PW",
+      "name": "Configure the Compilation, Interpreter, and Build Processes to Improve Executable Security",
+      "intent": "Decrease the number of security vulnerabilities in the software and reduce costs by eliminating vulnerabilities before testing occurs.",
+      "tasks": [
+        {
+          "id": "PW.6.1",
+          "statement": "Use compiler, interpreter, and build tools that offer features to improve executable security.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PW.6.2",
+          "statement": "Determine which compiler, interpreter, and build tool features should be used and how each should be configured, then implement and use the approved configurations.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-15",
+        "sr-9"
+      ],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": []
+    },
+    {
+      "id": "PW.7",
+      "group": "PW",
+      "name": "Review and/or Analyze Human-Readable Code to Identify Vulnerabilities and Verify Compliance with Security Requirements",
+      "intent": "Help identify vulnerabilities so that they can be corrected before the software is released to prevent exploitation. Using automated methods lowers the effort and resources needed to detect vulnerabilities. Human-readable code includes source code, scripts, and any other form of code that an organization deems human- readable.",
+      "tasks": [
+        {
+          "id": "PW.7.1",
+          "statement": "Determine whether code review (a person looks directly at the code to find issues) and/or code analysis (tools are used to find issues in code, either in a fully automated way or in conjunction with a person) should be used, as defined by the organization.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "PW.7.2",
+          "statement": "Perform the code review and/or code analysis based on the organization's secure coding standards, and record and triage all discovered issues and recommended remediations in the development team's workflow or issue tracking system.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-11",
+        "sa-11(1)",
+        "sa-11(4)",
+        "sa-15(7)"
+      ],
+      "common_form_section_ref": [
+        "§IV(4)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-CMT-VTD",
+          "confidence": "medium",
+          "rationale": "PW.7 reviews/analyzes human-readable code to find vulnerabilities (SP 800-53 SA-11); KSI-CMT-VTD (Validating Throughout Deployment) requires equivalent validation gates throughout the deployment pipeline."
+        }
+      ]
+    },
+    {
+      "id": "PW.8",
+      "group": "PW",
+      "name": "Test Executable Code to Identify Vulnerabilities and Verify Compliance with Security Requirements",
+      "intent": "Help identify vulnerabilities so that they can be corrected before the software is released in order to prevent exploitation. Using automated methods lowers the effort and resources needed to detect vulnerabilities and improves traceability and repeatability. Executable code includes binaries, directly executed bytecode and source code, and any other form of code that an organization deems executable.",
+      "tasks": [
+        {
+          "id": "PW.8.1",
+          "statement": "Determine whether executable code testing should be performed to find vulnerabilities not identified by previous reviews, analysis, or testing and, if so, which types of testing should be used.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "PW.8.2",
+          "statement": "Scope the testing, design the tests, perform the testing, and document the results, including recording and triaging all discovered issues and recommended remediations in the development team's workflow or issue tracking system.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-11",
+        "sa-11(5)",
+        "sa-11(8)",
+        "sa-15(7)"
+      ],
+      "common_form_section_ref": [
+        "§IV(4)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-CMT-VTD",
+          "confidence": "medium",
+          "rationale": "PW.8 tests executable code to find vulnerabilities (SP 800-53 SA-11); KSI-CMT-VTD (Validating Throughout Deployment) requires equivalent validation gates throughout the deployment pipeline."
+        }
+      ]
+    },
+    {
+      "id": "PW.9",
+      "group": "PW",
+      "name": "Configure Software to Have Secure Settings by Default",
+      "intent": "Help improve the security of the software at the time of installation to reduce the likelihood of the software being deployed with weak security settings, putting it at greater risk of compromise.",
+      "tasks": [
+        {
+          "id": "PW.9.1",
+          "statement": "Define a secure baseline by determining how to configure each setting that has an effect on security or a security-related setting so that the default settings are secure and do not weaken the security functions provided by the platform, network infrastructure, or services.",
+          "common_form_section_ref": []
+        },
+        {
+          "id": "PW.9.2",
+          "statement": "Implement the default settings (or groups of default settings, if applicable), and document each setting for software administrators.",
+          "common_form_section_ref": []
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-5",
+        "sa-8(23)"
+      ],
+      "common_form_section_ref": [],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-MLA-EVC",
+          "confidence": "medium",
+          "rationale": "PW.9 configures software to have secure settings by default; KSI-MLA-EVC (Evaluating Configurations) continuously evaluates that deployed configurations remain secure."
+        }
+      ]
+    },
+    {
+      "id": "RV.1",
+      "group": "RV",
+      "name": "Identify and Confirm Vulnerabilities on an Ongoing Basis",
+      "intent": "Help ensure that vulnerabilities are identified more quickly so that they can be remediated more quickly in accordance with risk, reducing the window of opportunity for attackers.",
+      "tasks": [
+        {
+          "id": "RV.1.1",
+          "statement": "Gather information from software acquirers, users, and public sources on potential vulnerabilities in the software and third-party components that the software uses, and investigate all credible reports.",
+          "common_form_section_ref": [
+            "§IV(2)",
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "RV.1.2",
+          "statement": "Review, analyze, and/or test the software's code to identify or confirm the presence of previously undetected vulnerabilities.",
+          "common_form_section_ref": [
+            "§IV(2)",
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "RV.1.3",
+          "statement": "Have a policy that addresses vulnerability disclosure and remediation, and implement the roles, responsibilities, and processes needed to support that policy.",
+          "common_form_section_ref": [
+            "§IV(2)",
+            "§IV(4)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-10",
+        "sa-11",
+        "sa-15(10)",
+        "sr-3",
+        "sr-4"
+      ],
+      "common_form_section_ref": [
+        "§IV(2)",
+        "§IV(4)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-SCR-MON",
+          "confidence": "medium",
+          "rationale": "RV.1.1 gathers vulnerability information including for third-party components (SP 800-53 SR-3/SR-4); KSI-SCR-MON (Monitoring Supply Chain Risk) is the ongoing supplier-risk monitoring control."
+        },
+        {
+          "ksi_id": "KSI-INR-RIR",
+          "confidence": "low",
+          "rationale": "RV.1.3 requires a vulnerability disclosure program; KSI-INR-RIR (Reviewing Incident Response Procedures) overlaps where disclosure intake feeds incident response. Confidence low: the linkage is partial and surfaced for operator review."
+        }
+      ]
+    },
+    {
+      "id": "RV.2",
+      "group": "RV",
+      "name": "Assess, Prioritize, and Remediate Vulnerabilities",
+      "intent": "Help ensure that vulnerabilities are remediated in accordance with risk to reduce the window of opportunity for attackers.",
+      "tasks": [
+        {
+          "id": "RV.2.1",
+          "statement": "Analyze each vulnerability to gather sufficient information about risk to plan its remediation or other risk response.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "RV.2.2",
+          "statement": "Plan and implement risk responses for vulnerabilities.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-10",
+        "sa-11",
+        "sa-15(7)",
+        "sa-5"
+      ],
+      "common_form_section_ref": [
+        "§IV(4)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-CMT-RMV",
+          "confidence": "high",
+          "rationale": "RV.2.2 plans and implements risk responses for vulnerabilities (SP 800-53 SA-11); KSI-CMT-RMV (Redeploying vs Modifying) is the FedRAMP control for remediating by redeploying fixed artifacts rather than mutating running ones."
+        }
+      ]
+    },
+    {
+      "id": "RV.3",
+      "group": "RV",
+      "name": "Analyze Vulnerabilities to Identify Their Root Causes",
+      "intent": "Help reduce the frequency of vulnerabilities in the future.",
+      "tasks": [
+        {
+          "id": "RV.3.1",
+          "statement": "Analyze identified vulnerabilities to determine their root causes.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "RV.3.2",
+          "statement": "Analyze the root causes over time to identify patterns, such as a particular secure coding practice not being followed consistently.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "RV.3.3",
+          "statement": "Review the software for similar vulnerabilities to eradicate a class of vulnerabilities, and proactively fix them rather than waiting for external reports.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        },
+        {
+          "id": "RV.3.4",
+          "statement": "Review the SDLC process, and update it if appropriate to prevent (or reduce the likelihood of) the root cause recurring in updates to the software or in new software that is created.",
+          "common_form_section_ref": [
+            "§IV(4)"
+          ]
+        }
+      ],
+      "nist_800_53_r5_controls": [
+        "sa-11",
+        "sa-15"
+      ],
+      "common_form_section_ref": [
+        "§IV(4)"
+      ],
+      "fedramp_ksi_forward_map": [
+        {
+          "ksi_id": "KSI-CMT-RVP",
+          "confidence": "low",
+          "rationale": "RV.3.4 reviews and updates the SDLC process after root-cause analysis; KSI-CMT-RVP (Reviewing Change Procedures) overlaps on periodic process review. Confidence low: surfaced for operator review."
+        },
+        {
+          "ksi_id": "KSI-INR-RPI",
+          "confidence": "low",
+          "rationale": "RV.3.1/RV.3.2 analyze root causes over time; KSI-INR-RPI (Reviewing Past Incidents) is the incident-side analog of recurring root-cause analysis. Confidence low: surfaced for operator review."
+        }
+      ]
+    }
+  ],
+  "withdrawn_practices": [
+    {
+      "id": "PW.3",
+      "note": "Verify Third-Party Software Complies with Security Requirements — withdrawn in v1.1; tasks moved to PO.1.3 and PW.4.4."
+    }
+  ],
+  "withdrawn_tasks": [
+    {
+      "id": "PW.3.1",
+      "moved_to": "PO.1.3"
+    },
+    {
+      "id": "PW.3.2",
+      "moved_to": "PW.4.4 Reuse Existing, Well-Secured Software When Feasible Instead of Duplicating Functionality (PW.4): Lower the costs of software development, expedite software development, and decrease the likelihood of introducing additional security vulnerabilities into the software by reusing software modules and services that have already had their security posture checked. This is particularly important for software that implements security functionality, such as cryptographic modules and protocols."
+    },
+    {
+      "id": "PW.4.3",
+      "moved_to": "PW.1.3"
+    },
+    {
+      "id": "PW.4.5",
+      "moved_to": "PW.4.1 and PW.4.4 Create Source Code by Adhering to Secure Coding Practices (PW.5): Decrease the number of security vulnerabilities in the software, and reduce costs by minimizing vulnerabilities introduced during source code creation that meet or exceed organization-defined vulnerability severity criteria."
+    },
+    {
+      "id": "PW.5.2",
+      "moved_to": "PW.5.1 as example"
+    }
+  ],
+  "statistics": {
+    "practice_count": 19,
+    "task_count": 42,
+    "withdrawn_practice_count": 1,
+    "withdrawn_task_count": 5,
+    "practices_with_53_mapping": 17,
+    "practices_with_ksi_map": 12,
+    "practices_with_common_form_ref": 11
+  },
+  "provenance": {
+    "emitter": "scripts/extract-ssdf-practices.mjs",
+    "emitterVersion": "1.0.0",
+    "emittedAt": "2026-06-10T10:25:54.949Z",
+    "sourceCalls": [
+      "file:617746e553a9:NIST.SP.800-218.pdf",
+      "file:ssdf-ksi-mapping.json",
+      "module:core/ksi-map.ts"
+    ],
+    "signingKeyId": "323b7929507d2c62",
+    "algorithm": "ed25519",
+    "signatureEd25519": "IN8lYg0NOnVqYEDM4VCjruz1z3Uq6QFH8W737FEH2voXiFip0kIWfHHgWaj5YLnzPAwonLQxrqXxMmxb4m5TBA==",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAFRVWdXOT/FUUY/y0/vXieRHBRP/D7B2AAAv7P8JBgA4=\n-----END PUBLIC KEY-----\n",
+    "rfc3161TimestampPath": null,
+    "sourcePdfSha256": "617746e553a9e2da49bfbd4eef0dfc3094758a39b869314e4173ac36605cde22",
+    "ksiMapSha256": "28f3948d4ea5b8176cd636a61a534620754130ff2a01a76730565bcb6d3249e1",
+    "mappingSource": "operator-defined-via-cloud-evidence",
+    "nist53Revision": "5",
+    "policyBasis": "NIST SP 800-218 v1.1 (Feb 2022); procurement regime as of 2026-06-07: OMB M-22-18 + M-23-16 + CISA Common Form OMB 1670-0052, as modified by M-26-05 (risk-based / voluntary continuation).",
+    "extractedByRunId": "4a9209e5-159f-4588-9a49-278807b1b49e"
+  }
+}

@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "gen:iam-actions": "node scripts/extract-iam-actions.mjs",
     "gen:oscal-schemas": "node scripts/extract-oscal-schemas.mjs",
+    "build:ssdf-catalog": "tsx scripts/extract-ssdf-practices.mjs",
     "lint:no-stubs": "node scripts/lint-no-stubs.mjs",
     "check:provenance": "node scripts/check-provenance.mjs",
     "check:coverage-regression": "node scripts/check-coverage-regression.mjs",
@@ -86,6 +87,7 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@vitest/coverage-v8": "^2.1.0",
+    "pdf-parse": "^2.4.5",
     "pino-pretty": "^11.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
