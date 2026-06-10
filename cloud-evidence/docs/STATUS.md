@@ -25,7 +25,7 @@ and not on the implementation queue.
   - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
 - Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
 - Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (1 of 4 slices done); LOOP-T in progress (1 of 5 slices done); LOOP-B in progress (1 of 5 slices done)
-- Last shipped: LOOP-T.T1 (commit `TBD-step6`)
+- Last shipped: LOOP-T.T1 (commit `9bbbcd1`)
 - Next priority: **LOOP-T.T2 (Per-Practice Evidence Aggregator + Satisfaction Matrix)** — reads the T.T1 catalog (`data/ssdf-800-218-v1.1.json`) to aggregate per-SSDF-practice evidence from the KSI envelopes. Its per-slice-doc frontmatter `depends_on` (T.T1 ✅, LOOP-B.B1 ✅, LOOP-J.J3, KSI envelopes from LOOPs B-K) still includes **J.J3 (pending)** and broad B-K KSI coverage, so the operator may instead elevate **LOOP-T.T1's sibling foundation work or the J.J2→J.J3 supply-chain chain** ahead of T.T2; absent that, T.T2 is the documented next slice in the T-loop. Then **LOOP-T.T3-T.T5** to close the CISA Secure Software Development Attestation Common Form. **B.B1 shipped out of queue order** (2026-06-10) because the originally-next **W.W2 is blocked**: its `depends_on` (per `docs/slices/W/W.W2.md`) requires E.E2 (SBOM, pending) + J.J3 (OCI cosign, pending) — J.J3 itself needs J.J2 (pending) — plus B.B1 (now done). **To unblock the HIGHEST-PRIORITY W loop**, ship the critical path **J.J2 → J.J3 + E.E2 → W.W2 → W.W3 → W.W4**; the operator may elevate that chain above T at any time. **B.B2** (remediation deadline math) is now unblocked as the LOOP-B continuation (B.B1 was its only blocker). LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
   - **Dependency-metadata note (discovered 2026-06-10):** the W.W2 row's `Dependencies` column below (W.W1, J.J2) is inconsistent with the W.W2 per-slice-doc frontmatter (W.W1, E.E2, J.J3, A.A1, A.A5, B.B1). Reconcile before scheduling W.W2. See `docs/loops/LOOP-B-RISKS.md` risk B.B1-EXT-1.
 
@@ -252,7 +252,7 @@ rationale.
 ## LOOP-T — NIST SSDF + CISA Secure Software Development Attestation Common Form
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc | Dependencies | Last updated |
 |---|---|---|---|---|---|---|---|---|
-| T.T1 | NIST SSDF (SP 800-218) practice inventory + control mapping | done | `TBD-step6` | 2026-06-10 | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T1.md` | — | 2026-06-10 |
+| T.T1 | NIST SSDF (SP 800-218) practice inventory + control mapping | done | `9bbbcd1` | 2026-06-10 | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T1.md` | — | 2026-06-10 |
 | T.T2 | SSDF evidence collector (CI/CD pipeline, build provenance, SBOM, signing) | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T2.md` | T.T1, J.J3 | 2026-06-07 |
 | T.T3 | CISA Secure Software Development Attestation Common Form emitter (OMB M-22-18 / M-23-16) | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T3.md` | T.T1, T.T2 | 2026-06-07 |
 | T.T4 | Third-party software components attestation appendix | proposed | TBD | — | `docs/loops/LOOP-T-SPEC.md` | `docs/slices/T/T.T4.md` | T.T3 | 2026-06-07 |

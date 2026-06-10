@@ -3,7 +3,7 @@ slice_id: T.T1
 title: NIST SP 800-218 v1.1 SSDF practice catalog + 800-53 + KSI crosswalk emitter
 loop: T
 status: done
-commit: TBD-step6
+commit: 9bbbcd1
 completed_date: 2026-06-10
 applicable_conditional: any CSP delivering software to federal agencies subject to OMB M-22-18 (as amended by M-23-16 and reflected in the CISA Common Form OMB 1670-0052)
 trigger_flag: "--ssdf-catalog"
@@ -528,11 +528,11 @@ catalog + tests assert the real source, and the §8 test table was adapted:
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
 | 2026-06-07 | authoring | T.T1 spec authored | (this commit TBD) | per-slice doc created from ground up; awaiting implementation session |
-| 2026-06-10 | impl-t-t1 | Downloaded + committed the authoritative NIST SP 800-218 v1.1 PDF (sha256 `617746e5…`) + CISA Common Form PDF (sha256 `a8d6b568…`) to `docs/sources/` | TBD-step6 | `docs/sources/` did not previously exist; T.T1 establishes it. Both PDFs are now version-controlled provenance anchors. |
-| 2026-06-10 | impl-t-t1 | Added `pdf-parse@^2.4.5` devDependency for the offline extractor's PDF-text fidelity parse | TBD-step6 | spec assumed `pdf-parse` was "existing from LOOP-C.C2"; LOOP-C is unimplemented + the dep was absent, so it was added here. pdf-parse v2 uses the `new PDFParse({data}).getText()` class API (not the v1 callable). |
-| 2026-06-10 | impl-t-t1 | Implemented `scripts/extract-ssdf-practices.mjs` (parses Table 1 verbatim) + `core/ssdf-practices-catalog.ts` (typed loader/validator/lookup) + `scripts/data/ssdf-ksi-mapping.json` (curated forward map) | TBD-step6 | extractor parses statements/intents/800-53 controls verbatim from the PDF; 19 practice names are verified-present published constants; runs via `tsx` so it composes `core/sign.ts`. |
-| 2026-06-10 | impl-t-t1 | Generated + committed signed catalog `data/ssdf-800-218-v1.1.json` (un-ignored via `.gitignore` negation, mirroring the W.W1 constants) | TBD-step6 | 19 practices, 42 tasks, 17/19 practices with 800-53 mapping, 11 with Common Form refs, 12 KSI-mapped; detached Ed25519 signature self-verifies via embedded `provenance.publicKeyPem`. |
-| 2026-06-10 | impl-t-t1 | Wrote 25 vitest tests (`tests/core/ssdf-practices-catalog.test.ts`) + 3 fixtures; typecheck clean, 964/964 tests pass (+25), `npm run check:reo` (G1+G2+G3) all green | TBD-step6 | spec §8 test expectations were adapted to the authoritative source (see §10 resolutions): real task count is 42 (not 43); PW.2/PW.5 carry no SP 800-53 mapping; 11 (not all 19) practices carry a Common Form ref. |
+| 2026-06-10 | impl-t-t1 | Downloaded + committed the authoritative NIST SP 800-218 v1.1 PDF (sha256 `617746e5…`) + CISA Common Form PDF (sha256 `a8d6b568…`) to `docs/sources/` | 9bbbcd1 | `docs/sources/` did not previously exist; T.T1 establishes it. Both PDFs are now version-controlled provenance anchors. |
+| 2026-06-10 | impl-t-t1 | Added `pdf-parse@^2.4.5` devDependency for the offline extractor's PDF-text fidelity parse | 9bbbcd1 | spec assumed `pdf-parse` was "existing from LOOP-C.C2"; LOOP-C is unimplemented + the dep was absent, so it was added here. pdf-parse v2 uses the `new PDFParse({data}).getText()` class API (not the v1 callable). |
+| 2026-06-10 | impl-t-t1 | Implemented `scripts/extract-ssdf-practices.mjs` (parses Table 1 verbatim) + `core/ssdf-practices-catalog.ts` (typed loader/validator/lookup) + `scripts/data/ssdf-ksi-mapping.json` (curated forward map) | 9bbbcd1 | extractor parses statements/intents/800-53 controls verbatim from the PDF; 19 practice names are verified-present published constants; runs via `tsx` so it composes `core/sign.ts`. |
+| 2026-06-10 | impl-t-t1 | Generated + committed signed catalog `data/ssdf-800-218-v1.1.json` (un-ignored via `.gitignore` negation, mirroring the W.W1 constants) | 9bbbcd1 | 19 practices, 42 tasks, 17/19 practices with 800-53 mapping, 11 with Common Form refs, 12 KSI-mapped; detached Ed25519 signature self-verifies via embedded `provenance.publicKeyPem`. |
+| 2026-06-10 | impl-t-t1 | Wrote 25 vitest tests (`tests/core/ssdf-practices-catalog.test.ts`) + 3 fixtures; typecheck clean, 964/964 tests pass (+25), `npm run check:reo` (G1+G2+G3) all green | 9bbbcd1 | spec §8 test expectations were adapted to the authoritative source (see §10 resolutions): real task count is 42 (not 43); PW.2/PW.5 carry no SP 800-53 mapping; 11 (not all 19) practices carry a Common Form ref. |
 
 (Implementation session: append a new row at every meaningful milestone — see `docs/IMPLEMENTATION-LOG-TEMPLATE.md` §3.)
 

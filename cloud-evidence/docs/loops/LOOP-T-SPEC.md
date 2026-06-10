@@ -597,7 +597,7 @@ when the CSP is a DoD-prime customer.
 
 | id | title | status | commit | dependencies | estimated_effort |
 |---|---|---|---|---|---|
-| T.T1 | SSDF Practices Inventory (catalogue + extractor) | done | `TBD-step6` (2026-06-10) | LOOP-A.A1, LOOP-A.A4 | 4-5 working days |
+| T.T1 | SSDF Practices Inventory (catalogue + extractor) | done | `9bbbcd1` (2026-06-10) | LOOP-A.A1, LOOP-A.A4 | 4-5 working days |
 | T.T2 | Per-Practice Evidence Aggregator + Satisfaction Matrix | pending | — | T.T1, LOOP-B.B1, LOOP-J.J3, KSI envelopes from LOOPs B-K | 5-6 working days |
 | T.T3 | CISA Common Form Generator (unsigned canonical PDF) | pending | — | T.T2, LOOP-A.A4 (bundler) | 5-6 working days |
 | T.T4 | Annual Re-Attestation Workflow + Material-Change Detector | pending | — | T.T3, Tracker DB | 4-5 working days |
