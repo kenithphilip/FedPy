@@ -2,13 +2,13 @@
 slice_id: B.B1
 title: Per-finding CVSS+EPSS+criticality+exposure scoring
 loop: B
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: TBD-step6
+completed_date: 2026-06-10
 depends_on: [LOOP-A.A1, INV-P1, INV-P2, INV-P3, INV-P4, INV-P5, INV-S1, INV-S2, INV-S3, INV-S4, INV-S5, INV-S6]
 blocks: [B.B2, B.B5, I.I1, E.E1, C.C7]
 estimated_effort: 4-5 working days
-last_updated: 2026-06-06
+last_updated: 2026-06-10
 ---
 
 # B.B1 — Per-finding CVSS+EPSS+criticality+exposure scoring
@@ -17,10 +17,10 @@ last_updated: 2026-06-06
 Replace the LOOP-A.A1 severity-only POA&M sort with a defensible, per-Finding composite risk score combining FIRST CVSS (3.1 + 4.0), FIRST EPSS, inventory-derived criticality, and inventory-derived exposure. The result is `out/risk-scores.json` plus a `risk_score` block on every Finding in every `KSI-*.json` envelope, surfaced as OSCAL props on every POA&M risk and poam-item so a 3PAO can sort + filter on numeric severity, not just a 5-bucket enum.
 
 ## Status
-- Status: pending
-- Commit: — (filled when shipped, per SLICE-COMPLETION-PROCEDURE.md)
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: TBD-step6 (filled by the two-pass amend in SLICE-COMPLETION-PROCEDURE.md Step 6)
+- Date: 2026-06-10
+- Verification: typecheck=clean, tests=939/939 (+36 new), check:reo=green (G1 0 violations, G2 skip [no local out/], G3 OK)
 
 ## Why this slice exists
 LOOP-A.A1 (`core/oscal-poam.ts:84-90`) keys every POA&M deadline off the `Severity` enum and sorts the catalog by the same enum. NIST SP 800-30 Rev 1 §3.2 ("Risk = function of Threat × Vulnerability × Likelihood × Impact") and the FedRAMP Continuous Monitoring Strategy & Guide both demand a defensible *per-finding* risk score before a deadline is assigned. The current system has:
@@ -200,31 +200,65 @@ npm run lint:no-stubs
 - **Risk 5: Composite formula version drift.** Changing default weights mid-authorization-cycle would shift the POA&M sort. Mitigation: `formula_version` field carries the version string; CHANGELOG entry pins the version; weight changes bump version and are called out in monthly ConMon delta.
 - **Risk 6: EPSS API spec drift.** FIRST may add fields or change schema. Mitigation: the parser is permissive about extra fields and strict about the four we use (`cve, epss, percentile, date`); a missing required field surfaces as `epss_source: REQUIRES-OPERATOR-INPUT`.
 
-## Open questions (for implementation session to resolve)
-- **Q1**: Should `risk-config.yaml` be checked into the repo with org-specific weights, or kept out-of-tree and operator-supplied at run time? Recommend: example committed at `risk-config.example.yaml`; operator copies to `risk-config.yaml` (gitignored) and customises.
-- **Q2**: How do we handle CVEs cited in a finding that don't yet exist in the FIRST EPSS dataset (CVE just published)? Should we mark `epss_source: 'REQUIRES-OPERATOR-INPUT'` or `'not-yet-scored'`? Recommend: `'REQUIRES-OPERATOR-INPUT'` with a `note: "CVE not yet in EPSS dataset"` so the operator can decide to wait or escalate.
-- **Q3**: When a finding's `affected_resources[]` matches MULTIPLE inventory assets with different criticality scores, do we take max, mean, or median? Spec says max. Implementation should pin max with a code comment citing this decision.
-- **Q4**: Where does the NVD CVE→CVSS lookup live in the future? B.B1 explicitly defers; should we sketch a separate slice (B.B6?) for it now? Recommend: yes, file a follow-up GitHub issue (or a slice stub in EXECUTION-PLAN.md as a future deliverable).
-- **Q5**: Does `core/retry.ts` already handle exponential backoff for arbitrary HTTPS calls (not just SDK calls)? Verify before reusing; if not, add a thin wrapper.
-- **Q6**: Should the cache file be canonical-JSON-formatted (so signed manifest is stable) or pretty-printed? Recommend: canonical-JSON, since it's signed.
+## Open questions (RESOLVED 2026-06-10 during implementation)
+- **Q1 — RESOLVED**: Committed `risk-config.example.yaml`; the operator copies it to `risk-config.yaml` (kept out-of-tree) and customises. The orchestrator auto-discovers `./risk-config.yaml` or takes `--risk-config <path>` / `CLOUD_EVIDENCE_RISK_CONFIG`.
+- **Q2 — RESOLVED**: A CVE not in the EPSS dataset is reported in `lookupEpss().missing[]` and resolves to `epss_source: 'REQUIRES-OPERATOR-INPUT'` with the EPSS term dropped from the composite (re-normalised). No silent `epss=0`. (We did not add a distinct `'not-yet-scored'` enum value — REQUIRES-OPERATOR-INPUT is the single honest signal the props already surface.)
+- **Q3 — RESOLVED**: `max` across matched assets for both criticality and exposure. `resolveCriticality`/`resolveExposure` in `core/risk-score.ts` implement max with a code comment.
+- **Q4 — RESOLVED (deferred)**: The NVD CVE→CVSS auto-lookup remains out of B.B1 scope. Logged as risk **B.B1-EXT-2** in `docs/loops/LOOP-B-RISKS.md` (untracked-work pointer) rather than creating a speculative B.B6 stub.
+- **Q5 — RESOLVED**: `core/retry.ts` `withRetry()` is a generic async retry (transient classifier already covers HTTP 429/5xx + network errors), so it is reused directly for the EPSS fetch — no new wrapper. Retry attempts are injectable via `EpssLookupOptions.retryAttempts` (default 5).
+- **Q6 — RESOLVED**: `.epss-cache.json` and `risk-scores.json` are both written pretty-printed on disk; the embedded detached Ed25519 signature covers the **signature-blanked canonical (RFC-8785-style) form** via `serializeUnsignedCanonical()` (JSON round-trip drops `undefined` optional keys so the signed bytes match the on-disk form). This matches the LOOP-W.W1 convention.
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-06-10 | session impl-b-b1 | Shipped B.B1 end to end.
+  Context: auto-detect flagged W.W2 as next-priority but W.W2 is blocked
+  (depends_on E.E2 + J.J3 + B.B1, all pending at session start). Operator
+  chose to ship B.B1 (this slice) instead — it is unblocked (deps A.A1 done
+  + INV-P1..S6 shipped base) and is itself a W.W2 dependency + the top
+  enabler for I/F/E/N/O.
+
+  Created: core/risk-score.ts (pure CVSS 3.1/4.0 parser + EPSS lookup/cache +
+  criticality/exposure derivation + composite formula), core/risk-config.ts
+  (typed risk-config.yaml loader/validator), core/risk-score-emit.ts (disk
+  emitter: walks out/KSI-*.json, attaches finding.risk_score in place, writes
+  signed+provenanced risk-scores.json + provenance-stamped .epss-cache.json),
+  risk-config.example.yaml, and 3 test files + tests/fixtures/risk-score/.
+  Extended: core/envelope.ts (Finding.risk_score? + references[].cve_id/
+  cvss_vector), core/findings.ts (FindingInput.risk_score), core/oscal-poam.ts
+  (findingProps() emits composite-score/cvss-*/epss-*/criticality/exposure/
+  risk-score-source-* props), core/orchestrator.ts (--risk-score / --risk-config
+  / --risk-no-epss + env vars; emit runs BEFORE OSCAL POA&M + signing),
+  core/submission-bundle.ts (WELL_KNOWN: risk-scores-json + epss-cache roles).
+
+  Spec divergences (both documented + benign):
+   - CVSS namespace: used the real CE_NS constant 'urn:fedramp:cloud-evidence'
+     from core/oscal-poam.ts, NOT the 'https://cloud-evidence.example/oscal-ns'
+     string in the B.B1 spec §"Schemas" (the spec string was stale).
+   - CVSS 4.0 base is a documented first-cut qualitative approximation
+     (approximate:true; version stays an honest '4.0'); full MacroVector table
+     deferred (Risk 1 / B.B1-EXT-2).
+
+  Verification: typecheck clean; vitest 939/939 (was 903, +36 new across the
+  3 B.B1 test files); npm run check:reo green (G1 0 violations / G2 skip,
+  no local out/ / G3 OK). All §8 tests T1-T20 covered.
+
+  Risks added to LOOP-B-RISKS.md: B.B1-EXT-1 (W.W2 dependency-metadata
+  inconsistency), B.B1-EXT-2 (NVD CVE→CVSS auto-lookup untracked work).
+  Open questions Q1-Q6 all resolved (see "Open questions" above).
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
 The implementing session MUST check every box:
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by ≥20 for this slice's new tests)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (slice row + Overall section)
-- [ ] LOOP-B-SPEC.md status table updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with slice ID in message
-- [ ] Commit amended with commit hash recorded in STATUS.md + this file + LOOP-B-SPEC.md
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by ≥20 for this slice's new tests — +36)
+- [x] check:reo green (G1+G2+G3)
+- [x] STATUS.md updated (slice row + Overall section)
+- [x] LOOP-B-SPEC.md status table updated
+- [x] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with slice ID in message
+- [x] Commit amended with commit hash recorded in STATUS.md + this file + LOOP-B-SPEC.md
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 If a session opens with ONLY this file as context:

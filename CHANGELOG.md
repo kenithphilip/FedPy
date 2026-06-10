@@ -6,6 +6,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-B.B1: Per-finding CVSS+EPSS+criticality+exposure scoring
+First slice of LOOP-B (Risk + Remediation Engine). Replaces the LOOP-A.A1
+severity-only POA&M sort with a defensible, operator-tunable composite risk
+score on every Finding. Four real signals combine per the documented formula
+(`composite = w_cvss·cvss_base + w_epss·(epss·10) + w_criticality·(criticality·10) + w_exposure·(exposure·10)`,
+default weights `0.4/0.3/0.2/0.1`): FIRST CVSS (3.1 + 4.0) base parsed from a
+collector- or operator-supplied vector, FIRST EPSS exploitation probability,
+inventory-derived organisational criticality (`data_classification` / `asset_tier`),
+and inventory-derived exposure (`public_facing` / `internet_reachable`). The
+new `--risk-score` flag emits `out/risk-scores.json` (Ed25519-signed + provenance
+block) and rewrites each `KSI-*.json` envelope in place with a `risk_score`
+block; `core/oscal-poam.ts findingProps()` surfaces the score as OSCAL props
+(`composite-score`, `cvss-version`, `cvss-base`, `cvss-vector`, `epss-score`,
+`epss-percentile`, `criticality`, `exposure`, `risk-score-source-*`,
+`risk-score-formula`) so a 3PAO can sort/filter the POA&M on numeric severity.
+
+Real-evidence path: CVSS base scores are computed from real FIRST vector strings
+(CVSS 3.1 Equations 1-7 + metric constants §7.4 + Roundup per Appendix A; the
+spec example `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H` pins to 9.8 and a
+Scope-Changed vector to 6.4). EPSS is a live HTTPS `GET` to
+`https://api.first.org/data/v1/epss` (batched ≤100 CVEs, `core/retry.ts withRetry`
+backoff on 429/5xx) with a 24h on-disk cache at `out/.epss-cache.json`.
+Criticality + exposure read real `out/inventory.json` asset metadata. Per REO
+Rule 4, every signal that cannot be derived from real evidence is marked
+`REQUIRES-OPERATOR-INPUT` and its term is dropped from the composite (remaining
+weights re-normalised to sum to 1.0) — except CVSS, which always anchors the
+score via a clearly-flagged severity fallback; on persistent EPSS failure the
+CVE is reported missing rather than substituting `epss=0`. CVSS 4.0 ships a
+documented first-cut qualitative approximation (`approximate:true`; full
+MacroVector table deferred — risk B.B1-1/B.B1-EXT-2). Both `risk-scores.json`
+and the provenance-stamped `.epss-cache.json` are registered in the submission
+bundle `WELL_KNOWN` catalogue and covered by the run manifest.
+
+Statutory / regulatory drivers (verbatim citations in `docs/slices/B/B.B1.md`):
+FIRST CVSS v3.1 Specification Document (June 2019), FIRST CVSS v4.0
+Specification Document (Nov 2023), FIRST EPSS (`https://api.first.org/data/v1/epss`),
+NIST SP 800-30 Rev 1 §3.2 ("Risk = function of Threat × Vulnerability ×
+Likelihood × Impact"), NIST SP 800-53 Rev 5 RA-3 + RA-5, and CISA BOD 22-01
+(KEV `cve_ids` stored for the downstream B.B2 branch).
+
+Files created: `core/risk-score.ts` (pure scorer + EPSS lookup/cache),
+`core/risk-config.ts` (typed `risk-config.yaml` loader/validator),
+`core/risk-score-emit.ts` (disk emitter), `risk-config.example.yaml`, and three
+test files under `tests/core/` plus `tests/fixtures/risk-score/`. Files extended:
+`core/envelope.ts` (`Finding.risk_score?` + `references[].cve_id`/`cvss_vector`),
+`core/findings.ts` (`FindingInput.risk_score`), `core/oscal-poam.ts`
+(`findingProps()` risk props), `core/orchestrator.ts` (`--risk-score` /
+`--risk-config` / `--risk-no-epss` + env vars; emit runs before POA&M + signing),
+`core/submission-bundle.ts` (`risk-scores-json` + `epss-cache` roles).
+Verification: `npm run typecheck` clean; `npm test` 939/939 passing (was 903,
++36 new tests covering §8 T1-T20); `npm run check:reo` returns 0 (G1
+lint:no-stubs 0 violations, G2 coverage-regression skip with no local `out/`, G3
+check:provenance OK). Shipped out of queue order because the originally-next
+W.W2 is blocked on pending dependencies (E.E2 + J.J3); see STATUS.md "Next
+priority" and risk B.B1-EXT-1.
+
 ### Added — LOOP-W.W1: Prohibited-vendor catalog ingester + canonical-JSON emitter
 First slice of LOOP-W (Prohibited-Vendor Screening + Section 889 Reporting).
 Builds the single, canonical, Ed25519-signed prohibited-vendor catalog that

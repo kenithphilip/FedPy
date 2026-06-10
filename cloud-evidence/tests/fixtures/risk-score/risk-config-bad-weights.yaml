@@ -1,0 +1,5 @@
+weights:
+  cvss: 0.5
+  epss: 0.5
+  criticality: 0.5
+  exposure: 0.5

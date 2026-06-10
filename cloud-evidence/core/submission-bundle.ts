@@ -94,7 +94,9 @@ type Role =
   | 'scn-notice-draft'
   | 'pva-summary'
   | 'oscal-validation-report'
-  | 'prohibited-vendors-catalog';
+  | 'prohibited-vendors-catalog'
+  | 'risk-scores-json'
+  | 'epss-cache';
 
 interface WellKnownArtifact {
   role: Role;
@@ -130,6 +132,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'pva-summary', filename: 'pva-run-summary.json', description: 'Persistent Validation & Assessment run summary' },
   { role: 'oscal-validation-report', filename: 'oscal-validation-report.json', description: 'ajv validation report for emitted OSCAL artifacts' },
   { role: 'prohibited-vendors-catalog', filename: 'prohibited-vendors-catalog.json', description: 'Prohibited-vendor catalog merged from OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA (LOOP-W.W1)' },
+  { role: 'risk-scores-json', filename: 'risk-scores.json', description: 'Per-finding CVSS+EPSS+criticality+exposure composite scores (LOOP-B.B1)' },
+  { role: 'epss-cache', filename: '.epss-cache.json', description: 'On-disk FIRST EPSS API response cache (24h TTL) — provenance-stamped (LOOP-B.B1)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

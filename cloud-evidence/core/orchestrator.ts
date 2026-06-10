@@ -67,6 +67,7 @@ import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
+import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -208,6 +209,17 @@ interface Args {
    * BEFORE the (future) W.W2 subprocessor screen that consumes it.
    */
   prohibitedVendorsCatalog: boolean;
+  /**
+   * When true (LOOP-B.B1), compute per-finding composite risk scores
+   * (CVSS+EPSS+criticality+exposure) and emit out/risk-scores.json. Runs
+   * BEFORE the OSCAL POA&M emitter so the scores flow onto poam-item props,
+   * and BEFORE signing so risk-scores.json is covered by the run manifest.
+   */
+  riskScore: boolean;
+  /** Path to risk-config.yaml (weights, EPSS settings, CVSS overrides). */
+  riskConfigPath: string | null;
+  /** When true, disable the live EPSS feed for this run (overrides config). */
+  riskNoEpss: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -263,6 +275,9 @@ function parseArgs(argv: string[]): Args {
     siemUrl: process.env.CLOUD_EVIDENCE_SIEM_URL ?? null,
     webhookUrl: process.env.CLOUD_EVIDENCE_WEBHOOK_URL ?? null,
     prohibitedVendorsCatalog: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG === '1',
+    riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
+    riskConfigPath: process.env.CLOUD_EVIDENCE_RISK_CONFIG ?? null,
+    riskNoEpss: process.env.CLOUD_EVIDENCE_RISK_NO_EPSS === '1',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -373,6 +388,17 @@ function parseArgs(argv: string[]): Args {
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
         args.prohibitedVendorsCatalog = true;
+        break;
+      case '--risk-score':
+        // LOOP-B.B1: compute per-finding composite risk scores.
+        args.riskScore = true;
+        break;
+      case '--risk-config':
+        args.riskConfigPath = argv[++i] ?? null;
+        break;
+      case '--risk-no-epss':
+        // Disable the live EPSS feed for this run (offline / air-gapped).
+        args.riskNoEpss = true;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -1882,6 +1908,39 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`RoE emission failed: ${e.message}`);
       log.error({ event: 'roe.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Per-finding composite risk scoring (LOOP-B.B1) — CVSS + EPSS +
+  // inventory-derived criticality + exposure. Rewrites each KSI-*.json envelope
+  // in place with a finding.risk_score block and emits out/risk-scores.json.
+  // Runs BEFORE the OSCAL POA&M emitter (so the scores flow onto poam-item
+  // props) and BEFORE signing (so risk-scores.json + the cache are covered by
+  // the run manifest). EPSS hits the live FIRST API unless --risk-no-epss. ----
+  if (args.riskScore) {
+    try {
+      const r = await emitRiskScores({
+        outDir: args.outDir,
+        runId,
+        riskConfigPath: args.riskConfigPath
+          ?? (existsSync(resolve(process.cwd(), 'risk-config.yaml')) ? resolve(process.cwd(), 'risk-config.yaml') : undefined),
+        epssEnabled: args.riskNoEpss ? false : undefined,
+      });
+      console.log(
+        `Risk scores: ${r.path} (${r.scored_findings} scored, ${r.unscored_findings} unscored; ` +
+        `${r.cve_lookups} CVE(s): ${r.epss_cache_hits} cache hit(s), ${r.epss_api_calls} EPSS API call(s))`
+      );
+      ledger.record('risk_score.emit', {
+        status: 'info',
+        scored_findings: r.scored_findings,
+        unscored_findings: r.unscored_findings,
+        cve_lookups: r.cve_lookups,
+        epss_cache_hits: r.epss_cache_hits,
+        epss_api_calls: r.epss_api_calls,
+      });
+    } catch (e: any) {
+      console.error(`Risk scoring failed: ${e.message}`);
+      log.error({ event: 'risk_score.fail', err_message: e?.message });
     }
   }
 

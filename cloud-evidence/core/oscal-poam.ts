@@ -408,6 +408,30 @@ function findingProps(f: Finding, prov: ProviderBlock, ksiId: string): OscalProp
       props.push({ name: 'remediation-mechanism', ns: CE_NS, value: primaryOpt.mechanism });
     }
   }
+  // LOOP-B.B1: surface the per-finding composite risk score + its provenance so
+  // a 3PAO can sort/filter the POA&M on numeric severity, not just the 5-bucket
+  // enum. Every source field is honest: REQUIRES-OPERATOR-INPUT shows on the
+  // prop wherever a signal could not be derived from real evidence.
+  if (f.risk_score) {
+    const rs = f.risk_score;
+    props.push({ name: 'composite-score', ns: CE_NS, value: rs.composite_score.toFixed(2) });
+    if (rs.cvss) {
+      props.push({ name: 'cvss-version', ns: CE_NS, value: rs.cvss.version });
+      props.push({ name: 'cvss-base', ns: CE_NS, value: rs.cvss.base_score.toFixed(1) });
+      props.push({ name: 'cvss-vector', ns: CE_NS, value: rs.cvss.vector });
+    }
+    if (rs.epss) {
+      props.push({ name: 'epss-score', ns: CE_NS, value: rs.epss.score.toFixed(5) });
+      props.push({ name: 'epss-percentile', ns: CE_NS, value: rs.epss.percentile.toFixed(5) });
+    }
+    props.push({ name: 'criticality', ns: CE_NS, value: rs.criticality.toFixed(2) });
+    props.push({ name: 'exposure', ns: CE_NS, value: rs.exposure.toFixed(2) });
+    props.push({ name: 'risk-score-source-cvss', ns: CE_NS, value: rs.sources.cvss_source });
+    props.push({ name: 'risk-score-source-epss', ns: CE_NS, value: rs.sources.epss_source });
+    props.push({ name: 'risk-score-source-criticality', ns: CE_NS, value: rs.sources.criticality_source });
+    props.push({ name: 'risk-score-source-exposure', ns: CE_NS, value: rs.sources.exposure_source });
+    props.push({ name: 'risk-score-formula', ns: CE_NS, value: rs.formula_version });
+  }
   return props;
 }
 

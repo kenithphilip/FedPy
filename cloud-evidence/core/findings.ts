@@ -29,6 +29,12 @@ export interface FindingInput {
   note?: string;
   /** Obligation strength at the run's impact tier (MUST/SHOULD/MAY). */
   applicable_key_word?: KeyWord;
+  /**
+   * Pre-computed composite risk score (LOOP-B.B1). Collectors that natively
+   * know CVSS (e.g. vdr-scan.ts) may attach it at construction time; otherwise
+   * the risk-score emitter attaches it post-collection.
+   */
+  risk_score?: NonNullable<Finding['risk_score']>;
 }
 
 export function finding(input: FindingInput): Finding {
@@ -47,6 +53,7 @@ export function finding(input: FindingInput): Finding {
     compliance_blockers: input.compliance_blockers,
     note: input.note,
     applicable_key_word: input.applicable_key_word,
+    risk_score: input.risk_score,
   };
 }
 

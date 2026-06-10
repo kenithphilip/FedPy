@@ -1,0 +1,8 @@
+{
+  "assets": [
+    { "identifier": "arn:aws:ec2:us-east-1:111:instance/i-cui", "data_classification": "cui", "asset_tier": "tier-0", "public_facing": true, "internet_reachable": true },
+    { "identifier": "arn:aws:ec2:us-east-1:111:instance/i-public", "data_classification": "public", "public_facing": false, "internet_reachable": false },
+    { "identifier": "arn:aws:ec2:us-east-1:111:instance/i-tier0", "asset_tier": "tier-0" }
+  ],
+  "provenance": { "emitter": "test", "emittedAt": "2026-06-09T00:00:00.000Z", "sourceCalls": ["fixture"], "signingKeyId": "fixture" }
+}

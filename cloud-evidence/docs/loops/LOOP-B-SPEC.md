@@ -1414,7 +1414,7 @@ Update this table when a slice ships (see Section 8).
 
 | Slice ID | Title | Status | Commit hash | Completed date |
 |---|---|---|---|---|
-| B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | pending | — | — |
+| B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | done | `TBD-step6` | 2026-06-10 |
 | B.B2 | Remediation deadline math (KEV / PAIN-IRV-LEV) | pending | — | — |
 | B.B3 | Risk acceptance workflow (tracker DB + signed audit) | pending | — | — |
 | B.B4 | Compensating-controls registry | pending | — | — |

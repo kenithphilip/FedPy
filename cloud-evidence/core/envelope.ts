@@ -12,6 +12,7 @@
  * SOAR) so the consumer can recognize when the KSI is met outside the
  * cloud-native primitives.
  */
+import type { RiskScore } from './risk-score.ts';
 
 export type ProviderName = 'aws' | 'gcp' | 'azure' | 'k8s';
 export type KsiScope = 'CLOUD' | 'HYBRID' | 'PROCESS' | 'INHERITED';
@@ -147,8 +148,12 @@ export interface Finding {
   /** NIST 800-53 control IDs this finding traces to. */
   nist_controls?: string[];
 
-  /** Relevant doc URLs. */
-  references?: Array<{ title: string; url: string }>;
+  /**
+   * Relevant doc URLs. A reference may also carry a CVE id and/or a FIRST CVSS
+   * vector string so the LOOP-B.B1 risk scorer can derive a real CVSS base
+   * score + EPSS lookup from collector-cited evidence.
+   */
+  references?: Array<{ title: string; url: string; cve_id?: string; cvss_vector?: string }>;
 
   /** Other KSIs whose gaps overlap with this one (so an LLM won't propose duplicate or conflicting plans). */
   cross_ksi_dependencies?: Array<{
@@ -170,6 +175,14 @@ export interface Finding {
    * is reported at reduced severity vs a failing MUST.
    */
   applicable_key_word?: KeyWord;
+
+  /**
+   * Per-finding composite risk score (LOOP-B.B1). Attached by the risk-score
+   * emitter (core/risk-score-emit.ts) after collection; combines CVSS + EPSS +
+   * inventory-derived criticality + exposure. Backward compatible — absent on
+   * envelopes produced before B.B1 or when --risk-score is not enabled.
+   */
+  risk_score?: RiskScore;
 }
 
 /** A 3rd-party tool / vendor recognized by signatures in IAM, audit log, or org config. */

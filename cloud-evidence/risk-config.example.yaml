@@ -1,0 +1,51 @@
+# risk-config.example.yaml — LOOP-B.B1 composite risk-score tuning.
+#
+# Copy this file to `risk-config.yaml` (gitignored) and customise. The
+# orchestrator auto-discovers ./risk-config.yaml, or pass an explicit path
+# with `--risk-config <path>` / env CLOUD_EVIDENCE_RISK_CONFIG.
+#
+# Every field is optional: omit a section to accept the documented default.
+# Invalid values throw a typed error (the run does NOT silently fall back to a
+# default that could mask a typo).
+
+schema_version: '1.0.0'
+
+# Composite formula (core/risk-score.ts):
+#   composite = w_cvss·cvss_base
+#             + w_epss·(epss·10)
+#             + w_criticality·(criticality·10)
+#             + w_exposure·(exposure·10)
+# The four weights MUST sum to 1.0 (±0.01). When a signal is missing
+# (REQUIRES-OPERATOR-INPUT), its term is dropped and the remaining weights are
+# re-normalised to sum to 1.0 — except CVSS, which always anchors the score via
+# a clearly-flagged severity fallback.
+weights:
+  cvss: 0.4
+  epss: 0.3
+  criticality: 0.2
+  exposure: 0.1
+
+# FIRST EPSS feed (https://api.first.org/data/v1/epss).
+epss:
+  # Set false for air-gapped / offline runs (equivalent to --risk-no-epss).
+  # When disabled, the EPSS term is dropped and every finding's
+  # epss_source prop reads REQUIRES-OPERATOR-INPUT.
+  enabled: true
+  # On-disk cache TTL in hours. Cached scores within the TTL avoid re-querying.
+  ttl_hours: 24
+
+# Operator-supplied CVE → CVSS vector overrides. Use when a collector did not
+# cite a vector and you have an authoritative one (e.g. from the NVD). These
+# rank below collector-cited vectors and above the severity fallback.
+cvss_vectors: {}
+# Example:
+#   CVE-2021-44228: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+
+# Composite-score → qualitative band thresholds (must be strictly descending).
+# Used by dashboards / reports to label a composite score; does not change the
+# numeric score itself.
+bands:
+  critical: 9.0
+  high: 7.0
+  medium: 4.0
+  low: 0.1

@@ -180,6 +180,21 @@ Sections of `org-profile.yaml`:
 See [`cloud-evidence/org-profile.yaml.example`](../org-profile.yaml.example)
 for the full template with field-by-field comments.
 
+### 2.4 `cloud-evidence/risk-config.yaml` (LOOP-B.B1 risk-score tuning)
+
+**Status:** **OPTIONAL, IMPLEMENTED.** Template at
+[`cloud-evidence/risk-config.example.yaml`](../risk-config.example.yaml).
+Read by `--risk-score` (LOOP-B.B1). Copy the example to `risk-config.yaml`
+(kept out-of-tree) and customise, or pass `--risk-config <path>` /
+`CLOUD_EVIDENCE_RISK_CONFIG`. Omit it entirely to accept built-in defaults.
+
+| Section | Purpose | Default |
+|---|---|---|
+| `weights` | Composite formula weights (`cvss`, `epss`, `criticality`, `exposure`) — must sum to 1.0 (±0.01) | `0.4 / 0.3 / 0.2 / 0.1` |
+| `epss.enabled` / `epss.ttl_hours` | Toggle the live FIRST EPSS feed; on-disk cache TTL | `true` / `24` |
+| `cvss_vectors` | Operator CVE→CVSS vector overrides (rank below collector-cited, above severity fallback) | `{}` |
+| `bands` | Composite-score → qualitative band thresholds (strictly descending) | `9.0 / 7.0 / 4.0 / 0.1` |
+
 ---
 
 ## 3. CLI flags reference (complete)
@@ -217,6 +232,9 @@ are set.
 | `--oscal` | `out/assessment-results.json` | OSCAL 1.1.2 Assessment Results. |
 | `--oscal-ssp` | `out/ssp.json` | Draft OSCAL 1.1.2 System Security Plan. |
 | `--oscal-poam` | `out/poam.json` | OSCAL 1.1.2 Plan of Action and Milestones. |
+| `--risk-score` | `out/risk-scores.json` (+ `.epss-cache.json`) | LOOP-B.B1. Compute a per-finding composite risk score (CVSS 3.1/4.0 + FIRST EPSS + inventory-derived criticality + exposure), rewrite each `KSI-*.json` envelope in place with a `risk_score` block, and surface the score as OSCAL props on every POA&M risk/poam-item. Runs BEFORE `--oscal-poam` and before signing. |
+| `--risk-config <path>` | (config input) | Path to `risk-config.yaml` (weights, EPSS settings, CVE→CVSS overrides, band thresholds). Defaults: auto-discover `./risk-config.yaml`, else built-in defaults. See `risk-config.example.yaml`. |
+| `--risk-no-epss` | (flag) | Disable the live FIRST EPSS feed for this run (offline / air-gapped). The EPSS term is dropped and every finding's `epss_source` prop reads `REQUIRES-OPERATOR-INPUT`. |
 | `--oscal-ap` | `out/ap.json` | OSCAL 1.1.2 Assessment Plan. |
 | `--ssp-docx` | `out/ssp.docx` | FedRAMP-style Word render of the SSP (implies `--oscal-ssp`). Dependency-free OOXML. |
 | `--strict-chain` | (flag) | Enforce OSCAL chain validity: AR must import-AP; AP must import-SSP. Fails the run on chain breakage. |
@@ -317,6 +335,9 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_OSCAL` | `0` | Emit OSCAL Assessment Results. |
 | `CLOUD_EVIDENCE_OSCAL_SSP` | `0` | Emit draft OSCAL SSP. |
 | `CLOUD_EVIDENCE_OSCAL_POAM` | `0` | Emit OSCAL POA&M. |
+| `CLOUD_EVIDENCE_RISK_SCORE` | `0` | Compute per-finding composite risk scores (equivalent to `--risk-score`, LOOP-B.B1). |
+| `CLOUD_EVIDENCE_RISK_CONFIG` | (none) | Path to `risk-config.yaml` (equivalent to `--risk-config`). |
+| `CLOUD_EVIDENCE_RISK_NO_EPSS` | `0` | Disable the live FIRST EPSS feed (equivalent to `--risk-no-epss`). |
 | `CLOUD_EVIDENCE_OSCAL_AP` | `0` | Emit OSCAL Assessment Plan. |
 | `CLOUD_EVIDENCE_STRICT_CHAIN` | `0` | Enforce OSCAL chain validity. |
 | `CLOUD_EVIDENCE_SUBMISSION_BUNDLE` | `0` | Bundle the submission package. |
@@ -543,6 +564,8 @@ Files emitted depend on the flags you pass.
 | `ssp.json` | No | `--oscal-ssp` | OSCAL 1.1.2 | Yes |
 | `ssp.docx` | No | `--ssp-docx` | OOXML | rendered from signed SSP |
 | `poam.json` | No | `--oscal-poam` | OSCAL 1.1.2 | Yes |
+| `risk-scores.json` | No | `--risk-score` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
+| `.epss-cache.json` | No | `--risk-score` (live EPSS) | JSON (provenance-stamped) | yes (detached sig + run manifest) |
 | `ap.json` | No | `--oscal-ap` | OSCAL 1.1.2 | Yes |
 | `roe.docx` + `roe.json` | No | `--roe` | OOXML + JSON | Yes |
 | `submission-bundle.tar.gz` | No | `--submission-bundle` | POSIX ustar + gzip | bundle is signed |

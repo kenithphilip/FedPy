@@ -1,0 +1,16 @@
+schema_version: '1.0.0'
+weights:
+  cvss: 0.5
+  epss: 0.2
+  criticality: 0.2
+  exposure: 0.1
+epss:
+  enabled: false
+  ttl_hours: 12
+cvss_vectors:
+  CVE-2021-44228: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+bands:
+  critical: 9.0
+  high: 7.0
+  medium: 4.0
+  low: 0.1
