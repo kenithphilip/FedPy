@@ -224,6 +224,14 @@ are set.
 | `--csv-export` | `out/findings.csv` | Spreadsheet-friendly findings export. |
 | `--diff-report` | `out/diff-report.json` | Diff vs the previous baseline run. |
 | `--all-reports` | (above three) | Convenience flag — all three. |
+| `--conmon-monthly` | `out/conmon-monthly-<YYYY-MM>.{json,md,pdf}` | LOOP-E.E1. Emit the monthly ConMon analysis report — KSI posture, vulnerability-scan coverage (with internet-reachable 100%-scanned compliance), POA&M activity (opened/closed/status-changes from `diff-report.json`), past-deadline items, KEV exposure, deviation-request + SCN-event rollups, and annual-cycle progress — aggregated from the run's own artifacts (`poam.json`, `KSI-*.json`, `inventory.json`, `diff-report.json`, `scn-classification.json`) + CISA KEV + the pinned ConMon Playbook. JSON is detached-Ed25519-signed; MD + PDF are renders. Runs AFTER POA&M/VDR/inventory but BEFORE signing (the report is covered by the run manifest). |
+| `--month <YYYY-MM>` | (input) | Report month for `--conmon-monthly` (default: current UTC month). Rejected when not strict `YYYY-MM`. |
+| `--fedramp-package-id <id>` | (input) | FedRAMP-assigned package id for the report header (emits `REQUIRES-OPERATOR-INPUT` when absent). |
+| `--csp-name <name>` | (input) | CSP legal corporate name for the report header. |
+| `--conmon-strategy-href <href>` | (input) | Href of the ConMon Strategy doc (C.C6) cited in the report header. |
+| `--sampling-pct <0-100>` | (input) | Internal-only scan sampling percentage (default `100` — the FedRAMP MUST; LOOP-F.F3 will auto-derive per-class). |
+| `--ssp-last-reviewed <ISO>` | (input) | Date the SSP was last reviewed (annual-cycle section; from E.E4 when it ships). |
+| `--authorization-date <YYYY-MM-DD>` | (input) | Authorization date anchoring the report's annual-cycle math (months-elapsed + next-assessment-due). |
 
 ### 3.3 OSCAL + submission-package flags
 
@@ -357,6 +365,14 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_SYSTEM_ID` | `cloud-evidence-system` | System identifier embedded in OSCAL SSP. |
 | `CLOUD_EVIDENCE_SYSTEM_DESCRIPTION` | (auto) | System description in OSCAL SSP. |
 | `CLOUD_EVIDENCE_CROSSWALK` | `0` | Emit NIST→SOC2/ISO27001/HIPAA crosswalk. |
+| `CLOUD_EVIDENCE_CONMON_MONTHLY` | `0` | Emit the LOOP-E.E1 monthly ConMon analysis report (equivalent to `--conmon-monthly`). |
+| `CLOUD_EVIDENCE_CONMON_MONTH` | (current UTC month) | Report month `YYYY-MM` (equivalent to `--month`). |
+| `CLOUD_EVIDENCE_FEDRAMP_PACKAGE_ID` | (none) | FedRAMP package id for the monthly report (equivalent to `--fedramp-package-id`). |
+| `CLOUD_EVIDENCE_CSP_NAME` | (none) | CSP legal name for the monthly report (equivalent to `--csp-name`). |
+| `CLOUD_EVIDENCE_CONMON_STRATEGY_HREF` | (none) | ConMon Strategy doc href cited in the report (equivalent to `--conmon-strategy-href`). |
+| `CLOUD_EVIDENCE_SAMPLING_PCT` | `100` | Internal-only scan sampling percentage (equivalent to `--sampling-pct`). |
+| `CLOUD_EVIDENCE_SSP_LAST_REVIEWED` | (none) | Date the SSP was last reviewed (equivalent to `--ssp-last-reviewed`). |
+| `CLOUD_EVIDENCE_AUTHORIZATION_DATE` | (none) | Authorization date anchoring annual-cycle math (equivalent to `--authorization-date`). |
 
 ### 4.3 Inventory + scope
 
@@ -583,6 +599,7 @@ Files emitted depend on the flags you pass.
 | `report.html` + `findings.csv` + `diff-report.json` | No | `--all-reports` (or individual flags) | HTML / CSV / JSON | — |
 | `anomaly-report.json` | No | `--anomaly` | JSON | — |
 | `scn-classification.json` + `scn-notice-draft.md` | No | `--scn` | JSON + markdown | yes |
+| `conmon-monthly-<YYYY-MM>.json` + `.md` + `.pdf` | No | `--conmon-monthly` (LOOP-E.E1) | JSON + detached Ed25519 / Markdown / PDF 1.4 | yes (JSON: detached sig + run manifest; MD + PDF: run manifest — `.md`/`.pdf` are now in the signed set) |
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
 | `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 | `subprocessor-inventory.json` + `subprocessor-inventory.xlsx` | No | `--subprocessors-config` (or `config.yaml` `subprocessors`) | JSON + detached Ed25519 / XLSX | yes (detached sig + run manifest) |
@@ -597,6 +614,13 @@ via a dedicated `npm run build:*` script, and committed to `data/`.
 | File | Build command | Source | Format | Signed? |
 |---|---|---|---|---|
 | `data/ssdf-800-218-v1.1.json` | `npm run build:ssdf-catalog` | `docs/sources/NIST.SP.800-218.pdf` (sha256-pinned) | JSON | yes (embedded detached Ed25519 in `provenance`) |
+| `docs/fedramp-conmon-playbook.generated.json` | `node scripts/fetch-conmon-playbook.mjs` | FedRAMP Continuous Monitoring Playbook v1.0 PDF (sha256-pinned) | JSON | — (drift-detected via sha256) |
+
+The ConMon Playbook projection (LOOP-E.E1) pins the FedRAMP remediation-deadline
+table, scan-cadence table, monthly-deliverables list, and version/date from the
+888 KB PDF (sha256 `d96379ec…`). It drives the monthly report's pinned constants
+(`provenance.conmonPlaybookVersion`) rather than hard-coded strings. Re-run the
+fetcher quarterly (RUNBOOK) to detect playbook drift.
 
 The SSDF catalog (LOOP-T.T1) holds the 19 NIST SP 800-218 v1.1 practices, 42
 tasks, the verbatim SP 800-53 Rev 5 control mapping, the CISA Common Form

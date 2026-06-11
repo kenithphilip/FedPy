@@ -2,13 +2,13 @@
 slice_id: E.E1
 title: Monthly ConMon Analysis Report
 loop: E
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: TBD-E1
+completed_date: 2026-06-11
 depends_on: [A.A1, A.A4]
 blocks: [E.E2, E.E3, G.G6]
 estimated_effort: 5 days
-last_updated: 2026-06-06
+last_updated: 2026-06-11
 ---
 
 # E.E1 — Monthly ConMon Analysis Report
@@ -17,10 +17,10 @@ last_updated: 2026-06-06
 Ships the monthly ConMon analysis report (`out/conmon-monthly-<YYYY-MM>.{json,md,pdf}`) — the human-readable executive summary that the agency POC expects to see attached to the monthly USDA Connect.gov upload alongside the POA&M + inventory + scan files. Closes the largest gap between LOOP-A's authorization-time package and the recurring monthly cadence FedRAMP mandates.
 
 ## Status
-- Status: pending
-- Commit: — (filled when shipped, per SLICE-COMPLETION-PROCEDURE.md)
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: TBD-E1 (recorded in the follow-up `docs(E.E1)` commit per the repo's two-commit hash close-out convention)
+- Date: 2026-06-11
+- Verification: typecheck=clean, tests=1050 passing (+25: 10 conmon-pdf + 15 conmon-report), check:reo=green (G1 0 violations / G2 skip-no-out / G3 OK)
 
 ## Why this slice exists
 The codebase emits POA&M (A.A1), inventory (INV-S1..S6), AR (existing) and IIW (INV-P*) as monthly-relevant artifacts — but nothing aggregates them into the **monthly analysis** that FedRAMP's ConMon Playbook v1.0 (2025-11-17) §"Monthly Deliverables" enumerates as required-with-the-upload. Without this slice the operator hand-assembles the report in Word every month, which (a) misses real numbers (POA&M items past deadline, KEV exposure count, scan-coverage %), (b) drifts month-over-month, and (c) introduces transcription errors in a regulator-facing document.
@@ -197,21 +197,62 @@ npm run check:reo
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-06-11 | impl-e-e1 | Shipped end to end per spec.
+  Created:
+    - scripts/fetch-conmon-playbook.mjs (human-run pin) + docs/fedramp-conmon-playbook.generated.json
+      (REAL fetched PDF: 909,986 bytes, sha256 d96379ec…; remediation table + scan cadence +
+       monthly deliverables + version 1.0 / 2025-11-17 are FedRAMP-published constants per REO Rule 3).
+    - core/conmon-pdf.ts — dependency-free PDF 1.4 generator (Catalog→Pages→Page chain,
+      Helvetica /F1 + Courier /F2, FlateDecode content streams via node:zlib, byte-accurate xref,
+      auto pagination, table borders, word-wrap, ( ) \ escaping). Pure + deterministic.
+    - core/conmon-report.ts — pure buildConmonMonthlyReport() + emitConmonMonthlyReport()
+      (reads poam.json / KSI-*.json / inventory.json / diff-report.json / scn-classification.json
+       + CISA KEV + pinned playbook; detached-Ed25519-signs the JSON via the B.B1
+       serializeUnsignedCanonical+signDoc pattern; renders MD + PDF).
+    - tests/core/conmon-pdf.test.ts (10) + tests/core/conmon-report.test.ts (15) = +25 tests.
+  Extended:
+    - core/submission-bundle.ts — 3 WELL_KNOWN roles (conmon-monthly-report-{json,md,pdf}).
+    - core/orchestrator.ts — --conmon-monthly / --month / --fedramp-package-id / --csp-name /
+      --conmon-strategy-href / --sampling-pct / --ssp-last-reviewed / --authorization-date
+      (+ CLOUD_EVIDENCE_* envs); emit runs AFTER POA&M/VDR/inventory, BEFORE signing.
+    - core/sign.ts — SIGNED_EXTENSIONS now includes .md + .pdf (build step 9 + risk CC-12):
+      the monthly .md/.pdf (and, as a bonus, the pre-existing scn-notice-draft.md) are now in the run manifest.
+  Verification: typecheck clean; vitest 1050/1050 (was 1025); npm run check:reo all green.
+
+  Open-question resolutions (§10):
+    Q1 (PDF vs MD): ship BOTH — Connect.gov uploads commonly take PDF; MD is the review copy.
+    Q2 (by_class keys): keyed on the inventory's real `assetType` field (cross-artifact-consistent
+       with inventory.json `by_type`); a future slice can remap to FedRAMP Column J names if needed.
+    Q3 (archive dir): deferred to E.E2 (which creates out/archive/<YYYY-MM>/). E.E1 reads only
+       top-level out/ artifacts of the current run, so no archive dependency for v1.
+    Q4 (--strict-conmon exit on warnings): NOT added in v1 — warnings are surfaced in
+       provenance.warnings + the orchestrator log line; a strict gate can land alongside E.E2.
+    Q5 (PDF fonts): Helvetica for prose/headings, Courier for table cells (both fonts embedded).
+    Q6 (--dry-run JSON-only): NOT added in v1 — full emit is fast; can be added if CI needs it.
+
+  Spec divergences (documented per the Strong Directive):
+    - Added --authorization-date / CLOUD_EVIDENCE_AUTHORIZATION_DATE (not in §11) as the operator
+      anchor for the annual-cycle section (months_elapsed + next_assessment_due). Absent → markers +
+      provenance.warnings. Documented in OPERATOR-GUIDE §3.2 / §4.2. See new risk E.E1-R6.
+    - provenance block is the G3 camelCase superset {emitter, emittedAt, sourceCalls, signingKeyId}
+      PLUS the spec's {tool, frmrVersion, conmonPlaybookVersion, warnings}; the spec shape omitted
+      emittedAt + signingKeyId which check-provenance.mjs (G3) requires. See [[project_slice_shipping_conventions]].
+    - sign.ts SIGNED_EXTENSIONS extension is in build step 9 / CC-12 but not the §7 "files to extend"
+      list; included because REO Rule 2.2 requires the .md/.pdf renders to be signed.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
 The implementing session MUST check every box:
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by ~23 for this slice's new tests)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (slice row + Overall section)
-- [ ] LOOP-E-SPEC.md status table updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with slice ID in message
-- [ ] Commit amended with commit hash recorded in STATUS.md + this file + LOOP-E-SPEC.md
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by 25: 1025 → 1050)
+- [x] check:reo green (G1+G2+G3)
+- [x] STATUS.md updated (slice row + Overall section)
+- [x] LOOP-E-SPEC.md status table updated
+- [x] This file's frontmatter updated (status=done, commit=TBD-E1, completed_date=2026-06-11)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with slice ID in message
+- [x] Commit hash recorded in STATUS.md + this file + LOOP-E-SPEC.md (follow-up `docs(E.E1)` commit per repo convention)
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 If a session opens with ONLY this file as context, here's everything it needs to start:

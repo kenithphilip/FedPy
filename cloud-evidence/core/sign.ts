@@ -78,10 +78,14 @@ function sha256Hex(buf: Buffer): string {
  *   - `.xml`    — OSCAL XML representations (OSC-3)
  *   - `.pem`    — embedded signing key + public key (so a future verifier
  *                 can detect substitution of the key material itself)
+ *   - `.md`     — operator-facing Markdown reports (e.g. the monthly ConMon
+ *                 analysis report + SCN notice draft) shipped in the upload
+ *   - `.pdf`    — operator-facing PDF reports (e.g. the monthly ConMon
+ *                 analysis report) shipped to the FedRAMP secure repository
  *
  * Manifest itself + signature blob are excluded (they can't sign themselves).
  */
-const SIGNED_EXTENSIONS = ['.json', '.xml', '.pem'];
+const SIGNED_EXTENSIONS = ['.json', '.xml', '.pem', '.md', '.pdf'];
 
 function listSignedFiles(dir: string): string[] {
   return readdirSync(dir)

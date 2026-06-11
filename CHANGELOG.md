@@ -6,6 +6,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-E.E1: Monthly ConMon Analysis Report
+
+Shipped the monthly Continuous Monitoring analysis report — the human-readable
+executive summary the agency POC expects attached to the monthly FedRAMP secure-
+repository (USDA Connect.gov) upload alongside the POA&M + inventory + scan files.
+A single `npm run collect -- --conmon-monthly --month 2026-07` now emits
+`out/conmon-monthly-<YYYY-MM>.{json,md,pdf}` aggregating, from the run's OWN
+artifacts, nine sections: header, KSI posture snapshot, vulnerability-scan
+coverage, POA&M activity, deviation requests, SCN events, incident summary,
+annual-cycle progress, and provenance. New modules: `core/conmon-report.ts`
+(pure `buildConmonMonthlyReport()` + disk `emitConmonMonthlyReport()`) and
+`core/conmon-pdf.ts` (a dependency-free, deterministic PDF 1.4 generator —
+Catalog→Pages→Page object chain, Helvetica + Courier, FlateDecode content
+streams via node `zlib`, byte-accurate xref, auto pagination, table borders).
+`scripts/fetch-conmon-playbook.mjs` pins the FedRAMP ConMon Playbook PDF and
+writes `docs/fedramp-conmon-playbook.generated.json` (real fetched bytes:
+909,986 B, sha256 `d96379ec…`). Extended `core/orchestrator.ts` with
+`--conmon-monthly` / `--month` / `--fedramp-package-id` / `--csp-name` /
+`--conmon-strategy-href` / `--sampling-pct` / `--ssp-last-reviewed` /
+`--authorization-date` (+ `CLOUD_EVIDENCE_*` envs), running the emit AFTER
+POA&M/VDR/inventory but BEFORE signing; `core/submission-bundle.ts` with three
+`WELL_KNOWN` roles (`conmon-monthly-report-{json,md,pdf}`); and
+`core/sign.ts` `SIGNED_EXTENSIONS` to add `.md` + `.pdf` so the report renders
+join the run manifest.
+
+Statutory / regulatory drivers (verbatim): FedRAMP Rev5 Playbook — Continuous
+Monitoring Overview: *"Each month, the CSP uploads an up-to-date POA&M and
+inventory, along with raw vulnerability scan files (when required by agreements
+with agency customers) and reports to the secure repository."* FedRAMP Rev5
+Playbook — Vulnerability Scanning: *"FedRAMP vulnerability scanning guidelines
+require at least monthly scans of 100% of inventory components."* and *"100% of
+externally accessible system components should be scanned."* NIST SP 800-137
+§3.4: *"Reports communicate the security status of the information system in
+support of organizational risk management decisions, and the implementation of
+organization-defined response actions."* NIST SP 800-53 Rev5 CA-7(g):
+*"Reporting the security and privacy status of the system to [organization-
+defined personnel or roles] [organization-defined frequency]."* The remediation
+table + scan cadence + monthly-deliverables list driving the report come from
+the pinned FedRAMP ConMon Playbook v1.0 (2025-11-17), not hard-coded strings
+(REO Rule 3 FedRAMP-published constants).
+
+REO compliance: every posture count traces to a real `KSI-*.json` failing
+finding (or the `poam.json` risks when present); every scan-coverage number to a
+real `inventory.json` asset; KEV exposure to the committed CISA KEV catalog,
+deduped by CVE id; the playbook version to the pinned projection. Operator-only
+fields emit the literal `REQUIRES-OPERATOR-INPUT` sentinel (`incident_summary`
+until G.G2, `system.fedrampId`, `system.csp`, `conmon_strategy_href`,
+`annual_cycle.ssp_last_reviewed`); a missing source file records a
+`provenance.warnings` entry rather than a silent zero. The JSON carries the G3
+camelCase provenance block (`emitter`, `emittedAt`, `sourceCalls`,
+`signingKeyId`) plus `tool`/`frmrVersion`/`conmonPlaybookVersion`/`warnings`, and
+a detached Ed25519 signature via the LOOP-B.B1 `serializeUnsignedCanonical` +
+`signDoc` convention. Verification: `npm run typecheck` clean; vitest
+**1050/1050** passing (was 1025, +25: 10 `conmon-pdf` + 15 `conmon-report`);
+`npm run check:reo` returns 0 (G1 lint:no-stubs 0 violations, G2
+coverage-regression skip-no-out, G3 check:provenance OK). New risk recorded:
+LOOP-E-RISKS E.E1-R6 (annual-cycle anchor requires operator `--authorization-date`);
+CC-12 (`core/sign.ts` glob coverage) partially resolved.
+
 ### Added — LOOP-B.B2: Remediation deadline math (KEV / PAIN-IRV-LEV / FedRAMP CMP)
 
 Replaced LOOP-A.A1's single hardcoded `Severity → days` map in `core/oscal-poam.ts`

@@ -102,7 +102,10 @@ type Role =
   | 'subprocessor-inventory-xlsx'
   | 'supply-chain-risk-register-json'
   | 'supply-chain-risk-register-xlsx'
-  | 'deadline-audit-json';
+  | 'deadline-audit-json'
+  | 'conmon-monthly-report-json'
+  | 'conmon-monthly-report-md'
+  | 'conmon-monthly-report-pdf';
 
 interface WellKnownArtifact {
   role: Role;
@@ -146,6 +149,9 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'supply-chain-risk-register-json', filename: 'supply-chain-risk-register.json', description: 'SR-3 / NIST SP 800-161r1 supply chain risk register (per-system C-SCRM Plan) — signed (LOOP-J.J3)' },
   { role: 'supply-chain-risk-register-xlsx', filename: 'supply-chain-risk-register.xlsx', description: 'Supply chain risk register — FedRAMP-style Excel (one sheet per category) (LOOP-J.J3)' },
   { role: 'deadline-audit-json', filename: 'deadline-audit.json', description: 'Per-finding remediation-deadline-source audit log — KEV / FedRAMP CMP / PAIN-IRV-LEV / operator-override / severity-fallback (LOOP-B.B2)' },
+  { role: 'conmon-monthly-report-json', filename: /^conmon-monthly-\d{4}-\d{2}\.json$/, description: 'Monthly ConMon analysis report — machine-readable JSON (signed; posture + scan coverage + POA&M activity + KEV exposure) (LOOP-E.E1)' },
+  { role: 'conmon-monthly-report-md', filename: /^conmon-monthly-\d{4}-\d{2}\.md$/, description: 'Monthly ConMon analysis report — Markdown render for operator review (LOOP-E.E1)' },
+  { role: 'conmon-monthly-report-pdf', filename: /^conmon-monthly-\d{4}-\d{2}\.pdf$/, description: 'Monthly ConMon analysis report — PDF for the FedRAMP secure-repository upload (LOOP-E.E1)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

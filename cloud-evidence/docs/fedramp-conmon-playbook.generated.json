@@ -1,0 +1,26 @@
+{
+  "remediation_table": {
+    "critical": 30,
+    "high": 30,
+    "moderate": 90,
+    "low": 180,
+    "accepted_threshold_days": 192
+  },
+  "scan_cadence": {
+    "monthly_inventory": 1,
+    "internet_reachable_days": 3,
+    "internal_days": 7
+  },
+  "monthly_deliverables": [
+    "Up-to-date Plan of Action and Milestones (POA&M)",
+    "Up-to-date system inventory",
+    "Raw vulnerability scan files (when required by agreements with agency customers)",
+    "Monthly continuous-monitoring report(s) to the secure repository"
+  ],
+  "playbook_version": "1.0",
+  "playbook_published": "2025-11-17",
+  "source_url": "https://www.fedramp.gov/resources/documents/Continuous_Monitoring_Playbook.pdf",
+  "source_bytes": 909986,
+  "fetched_at": "2026-06-11T10:49:11.450Z",
+  "sha256": "d96379ecc63a8f3b31093ffedbbfba4cb8627f8d0d75b458ebd0504eb817e945"
+}

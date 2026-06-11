@@ -86,7 +86,7 @@ Severity scale: **high** (could block the slice or invalidate emitted artifacts)
 - **Severity**: high
 - **Description**: LOOP-E creates new output paths: `outDir/archive/`, `outDir/deviation-requests/`, `outDir/scn-notice-*.docx`, `outDir/iscp-test-*.docx`, etc. If `core/sign.ts`'s manifest glob is hardcoded `out/*.{json,md,xml}`, new files won't be signed.
 - **Mitigation**: First slice (E.E1) audits `core/sign.ts` and extends the glob if needed. Subsequent slices verify in their tests.
-- **Status**: open
+- **Status**: partially resolved [2026-06-11, E.E1] — `SIGNED_EXTENSIONS` extended from `{.json,.xml,.pem}` to also cover `{.md,.pdf}`, so the monthly report's `.md`/`.pdf` (and, as a bonus, the pre-existing top-level `scn-notice-draft.md`) are now in the run manifest. **Still open**: `listSignedFiles()` is top-level-only, so subdirectory outputs introduced by later slices (`out/archive/`, `out/deviation-requests/`, etc.) are NOT yet covered — E.E2/E.E5 must extend the walk to recurse (or sign per-subdir) and verify in their tests.
 
 ### CC-13: Calendar-year vs fiscal-year ambiguity
 - **Severity**: medium
@@ -115,7 +115,8 @@ Severity scale: **high** (could block the slice or invalidate emitted artifacts)
 - **E.E1-R2: Playbook drift (medium)** — Covered by CC-5.
 - **E.E1-R3: Source-file presence assumptions (medium)** — Builder accepts `null` for any input and degrades with `provenance.warnings`.
 - **E.E1-R4: Time-zone ambiguity in `report_month` (low)** — Always interpret `--month YYYY-MM` as UTC.
-- **E.E1-R5: KEV exposure double-count (low)** — Dedupe by `cve_id` via `Set`.
+- **E.E1-R5: KEV exposure double-count (low)** — Dedupe by `cve_id` via `Set`. [resolved 2026-06-11, TBD-E1: builder uppercases + Set-dedupes the CVE universe before intersecting CISA KEV; test `counts KEV exposure deduped against the catalog` locks it.]
+- **E.E1-R6: annual-cycle anchor requires operator input (low)** — `annual_cycle.months_elapsed` + `next_assessment_due` are computed from an operator-supplied `--authorization-date` / `CLOUD_EVIDENCE_AUTHORIZATION_DATE` (YYYY-MM-DD). This flag is NOT in the per-slice doc §11 list; it was added because §6 report section 8 ("months elapsed in current authorization year") has no other anchor (CC-13 calendar-vs-fiscal ambiguity makes deriving one unsafe). When absent: `months_elapsed=0`, `next_assessment_due=REQUIRES-OPERATOR-INPUT`, and a `provenance.warnings: ["authorization-date-absent: …"]` entry — never a fabricated date. Documented in OPERATOR-GUIDE §3.2/§4.2. A future slice (E.E4) may source the authorization date from the tracker.
 
 ### E.E2 — Monthly POA&M Delta Workflow
 - **E.E2-R1: Deterministic UUID drift if `core/oscal-poam.ts` changes the UUID derivation (high)** — A change to the `deterministicUuid()` salt would re-key every prior month's items, breaking the diff. Mitigation: add a regression test that locks the UUID derivation algorithm.

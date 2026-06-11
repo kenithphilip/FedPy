@@ -67,6 +67,7 @@ import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
+import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
 import { emitSupplyChainRiskRegister } from './supply-chain-risk.ts';
@@ -248,6 +249,28 @@ interface Args {
    * origin/main / a submission package.
    */
   strictRisk: boolean;
+  /**
+   * When true (LOOP-E.E1), emit the monthly ConMon analysis report
+   * (out/conmon-monthly-<YYYY-MM>.{json,md,pdf}) aggregating posture + scan
+   * coverage + POA&M activity + KEV exposure from the run's own artifacts.
+   * Runs AFTER POA&M / VDR / inventory but BEFORE signing so the report is
+   * covered by the run manifest.
+   */
+  conmonMonthly: boolean;
+  /** Report month (YYYY-MM) for --conmon-monthly. Defaults to the current UTC month. */
+  conmonMonth: string | null;
+  /** FedRAMP-assigned package id (REQUIRES-OPERATOR-INPUT when absent). */
+  fedrampPackageId: string | null;
+  /** CSP legal corporate name for the monthly report header. */
+  cspName: string | null;
+  /** Href of the ConMon Strategy doc (C.C6) cited in the monthly report header. */
+  conmonStrategyHref: string | null;
+  /** Internal-only scan sampling percentage (0..100; default 100 — the FedRAMP MUST). */
+  samplingPct: number | null;
+  /** ISO date the SSP was last reviewed (annual cycle; from E.E4 when it ships). */
+  sspLastReviewed: string | null;
+  /** Authorization date (YYYY-MM-DD) anchoring the monthly report's annual-cycle math. */
+  authorizationDate: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -310,6 +333,14 @@ function parseArgs(argv: string[]): Args {
     supplyChainRisk: process.env.CLOUD_EVIDENCE_SUPPLY_CHAIN_RISK === '1',
     risksConfig: process.env.CLOUD_EVIDENCE_RISKS_CONFIG ?? null,
     strictRisk: process.env.CLOUD_EVIDENCE_STRICT_RISK === '1',
+    conmonMonthly: process.env.CLOUD_EVIDENCE_CONMON_MONTHLY === '1',
+    conmonMonth: process.env.CLOUD_EVIDENCE_CONMON_MONTH ?? null,
+    fedrampPackageId: process.env.CLOUD_EVIDENCE_FEDRAMP_PACKAGE_ID ?? null,
+    cspName: process.env.CLOUD_EVIDENCE_CSP_NAME ?? null,
+    conmonStrategyHref: process.env.CLOUD_EVIDENCE_CONMON_STRATEGY_HREF ?? null,
+    samplingPct: process.env.CLOUD_EVIDENCE_SAMPLING_PCT ? Number(process.env.CLOUD_EVIDENCE_SAMPLING_PCT) : null,
+    sspLastReviewed: process.env.CLOUD_EVIDENCE_SSP_LAST_REVIEWED ?? null,
+    authorizationDate: process.env.CLOUD_EVIDENCE_AUTHORIZATION_DATE ?? null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -447,6 +478,37 @@ function parseArgs(argv: string[]): Args {
       case '--strict-risk':
         // LOOP-B.B2: fail the run if any deadline falls through to severity-fallback.
         args.strictRisk = true;
+        break;
+      case '--conmon-monthly':
+        // LOOP-E.E1: emit the monthly ConMon analysis report (json/md/pdf).
+        args.conmonMonthly = true;
+        break;
+      case '--month':
+        args.conmonMonth = argv[++i] ?? null;
+        break;
+      case '--fedramp-package-id':
+        args.fedrampPackageId = argv[++i] ?? null;
+        break;
+      case '--csp-name':
+        args.cspName = argv[++i] ?? null;
+        break;
+      case '--conmon-strategy-href':
+        args.conmonStrategyHref = argv[++i] ?? null;
+        break;
+      case '--sampling-pct': {
+        const n = Number(argv[++i] ?? '');
+        if (Number.isFinite(n) && n >= 0 && n <= 100) args.samplingPct = n;
+        else {
+          console.error('--sampling-pct must be a number in [0, 100]');
+          process.exit(2);
+        }
+        break;
+      }
+      case '--ssp-last-reviewed':
+        args.sspLastReviewed = argv[++i] ?? null;
+        break;
+      case '--authorization-date':
+        args.authorizationDate = argv[++i] ?? null;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -586,6 +648,22 @@ Post-run artifacts:
                          Skipped automatically when there are zero failing findings (OSCAL schema
                          mandates poam-items.minItems=1; a "clean POA&M" is reported as a structured
                          skip-result, not a missing-evidence error). (env: CLOUD_EVIDENCE_OSCAL_POAM)
+  --conmon-monthly       LOOP-E.E1: emit the monthly ConMon analysis report
+                         (out/conmon-monthly-<YYYY-MM>.{json,md,pdf}) — posture + scan coverage
+                         + POA&M activity + KEV exposure aggregated from the run's own artifacts.
+                         Runs before signing so the report is in the manifest. (env: CLOUD_EVIDENCE_CONMON_MONTHLY)
+  --month <YYYY-MM>      Report month for --conmon-monthly (default: current UTC month).
+                         (env: CLOUD_EVIDENCE_CONMON_MONTH)
+  --fedramp-package-id <id>  FedRAMP-assigned package id for the monthly report
+                         (REQUIRES-OPERATOR-INPUT when absent). (env: CLOUD_EVIDENCE_FEDRAMP_PACKAGE_ID)
+  --csp-name <name>      CSP legal corporate name for the monthly report. (env: CLOUD_EVIDENCE_CSP_NAME)
+  --conmon-strategy-href <h>  Href of the ConMon Strategy doc (C.C6) cited in the report header.
+                         (env: CLOUD_EVIDENCE_CONMON_STRATEGY_HREF)
+  --sampling-pct <0-100> Internal-only scan sampling percentage (default 100 — the FedRAMP MUST).
+                         (env: CLOUD_EVIDENCE_SAMPLING_PCT)
+  --ssp-last-reviewed <ISO>  Date the SSP was last reviewed (annual cycle). (env: CLOUD_EVIDENCE_SSP_LAST_REVIEWED)
+  --authorization-date <YYYY-MM-DD>  Authorization date anchoring the report's annual-cycle math.
+                         (env: CLOUD_EVIDENCE_AUTHORIZATION_DATE)
   --oscal-ap             Emit an OSCAL 1.1.2 Assessment Plan / SAP draft (out/ap.json + .xml).
                          Import-SSP href defaults to "ssp.json" (override with --ap-ssp-href via env).
                          reviewed-controls enumerates the full FedRAMP baseline at the impact tier;
@@ -2195,6 +2273,59 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`Prohibited-vendor catalog emission failed: ${e.message}`);
       log.error({ event: 'prohibited_vendors.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Monthly ConMon analysis report (LOOP-E.E1) — aggregate the run's own
+  // artifacts (poam.json, KSI-*.json, inventory.json, diff-report.json,
+  // scn-classification.json) + CISA KEV + the pinned ConMon Playbook into the
+  // human-readable monthly report (json/md/pdf) the agency POC expects attached
+  // to the USDA Connect.gov upload. Runs AFTER POA&M / VDR / inventory but
+  // BEFORE signing so the report is covered by the run manifest. ----
+  if (args.conmonMonthly) {
+    try {
+      const month = args.conmonMonth ?? new Date().toISOString().slice(0, 7);
+      const r = await emitConmonMonthlyReport({
+        outDir: args.outDir,
+        runId,
+        reportMonth: month,
+        frmrVersion: config.frmr_version,
+        system: {
+          name: args.systemName ?? undefined,
+          id: args.systemId ?? undefined,
+          impactLevel,
+          csp: args.cspName ?? undefined,
+          fedrampId: args.fedrampPackageId ?? undefined,
+        },
+        samplingPct: args.samplingPct ?? undefined,
+        conmonStrategyHref: args.conmonStrategyHref ?? undefined,
+        sspLastReviewed: args.sspLastReviewed ?? undefined,
+        authorizationDate: args.authorizationDate ?? undefined,
+        playbookPath: existsSync(resolve(PROJECT_ROOT, 'docs/fedramp-conmon-playbook.generated.json'))
+          ? resolve(PROJECT_ROOT, 'docs/fedramp-conmon-playbook.generated.json')
+          : undefined,
+        kevPath: process.env.CLOUD_EVIDENCE_KEV_PATH
+          ?? (existsSync(resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json'))
+            ? resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json')
+            : undefined),
+      });
+      const p = r.report.posture;
+      console.log(
+        `ConMon monthly report (${month}): ${r.jsonPath} + .md + .pdf ` +
+          `(KSI pass ${(p.ksi_pass_rate * 100).toFixed(0)}%, ${p.open_poam_count} open POA&M, ` +
+          `${p.past_deadline_count} past deadline, ${p.kev_exposure_count} KEV)`,
+      );
+      ledger.record('conmon_monthly.emit', {
+        status: 'info',
+        report_month: month,
+        open_poam_count: p.open_poam_count,
+        past_deadline_count: p.past_deadline_count,
+        kev_exposure_count: p.kev_exposure_count,
+        warnings: r.report.provenance.warnings?.length ?? 0,
+      });
+    } catch (e: any) {
+      console.error(`ConMon monthly report failed: ${e.message}`);
+      log.error({ event: 'conmon_monthly.fail', err_message: e?.message });
     }
   }
 
