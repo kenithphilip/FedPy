@@ -448,7 +448,34 @@ authorization-relevant + implementation-relevant risks across all three.
 - Mitigation: Sheet names are constants in the emitter, all ≤22 chars.
   Add a defensive assertion `name.length <= 31` in the multi-sheet
   writer (J.J1's sub-task).
-- Status: open
+- Status: open (J.J3 shipped its own `multiSheetXlsx` in
+  core/supply-chain-risk.ts — all 8 sheet names ≤17 chars; the defensive
+  length assertion remains a follow-on with the J.J1 shared writer)
+
+**J3-R-EXT-1 — tier-2-significant subprocessors not entered in the register** [discovered impl-j-j3, 2026-06-11]
+- Description: Resolution of open question Q9 — tier-2-significant
+  subprocessors are counted in `subprocessor_summary` but do NOT generate a
+  `RiskEntry`. A 3PAO scanning only `entries[]` could miss a significant
+  supplier that warrants attention short of tier-1.
+- Severity: low
+- Mitigation: Deliberate scope cut for the initial register (entries focus on
+  the highest-attention items: tier-1 + SOC2-expired). LOOP-B.B5 may later
+  cross-tab tier-2 with other signals into a distinct category. The count is
+  always visible in `subprocessor_summary.tier_2_significant`.
+- Status: open (deferred follow-on)
+
+**J3-R-EXT-2 — POA&M deadline via props; deadline_overdue deferred** [discovered impl-j-j3, 2026-06-11]
+- Description: The supply-chain POA&M items carry the remediation deadline as
+  poam-item `props` (`first-seen` + `remediation-deadline` + `kev-due-date`)
+  rather than an OSCAL `risk` remediation-tracking block (Risk J3-R-N/A), and
+  `deadline_overdue` (per Risk 3) is NOT stamped — to keep the POA&M
+  deterministic (an overdue flag is time-dependent).
+- Severity: low
+- Mitigation: The deadline VALUE is anchored at `entry.first_seen` (Critical
+  +30d / High +60d), so a reviewer (or LOOP-B/E consumer) can compute overdue
+  against the current date. A follow-on can add a full remediation-tracking
+  block + an overdue derivation in the tracker UI (LOOP-B consumer).
+- Status: open (deferred follow-on)
 
 ## External dependencies that may change
 

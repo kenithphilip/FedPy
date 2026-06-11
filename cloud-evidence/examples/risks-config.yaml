@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# EXAMPLE operator --risks-config for the LOOP-J.J3 supply-chain risk register.
+#
+# This is an EXAMPLE template, not real data. Copy it, replace the values with
+# your real advisory events + mitigation overrides, and point the orchestrator
+# at it:
+#
+#   npm run collect -- --sbom-dir ../sbom \
+#       --subprocessors-config ./subprocessors.yaml \
+#       --supply-chain-risk --risks-config ./risks-config.yaml \
+#       --oscal-ssp --oscal-poam --sign --submission-bundle
+#
+# `risks[]`  — operator-asserted supply-chain risks (vendor advisories etc.) that
+#              are not yet reflected in the SBOM/NVD/KEV feeds. Each becomes a
+#              RiskEntry in supply-chain-risk-register.json.
+# `mitigations[]` — overrides that set an existing entry's `status` +
+#              `mitigation_summary` by `entry_id_match` (the RiskEntry.id, e.g.
+#              an SBOM-CVE entry's deterministic id, or an operator risk's id).
+#              Severity is NEVER operator-overridable here — a downgrade requires
+#              a Deviation Request (LOOP-E.E5).
+#
+# NIST SP 800-53 Rev 5 SR-3 / SR-4 / SR-6 + NIST SP 800-161r1 Tier-3 C-SCRM Plan.
+# ─────────────────────────────────────────────────────────────────────────────
+
+risks:
+  - id: vendor-advisory-2026-cve-12345
+    category: vendor-advisory             # vendor-advisory | operator-asserted-risk
+    title: "Vendor X advisory CVE-2026-12345"
+    description: "Upstream advisory not yet reflected in NVD."
+    severity: high                        # critical | high | medium | low | info
+    status: monitoring                    # open | monitoring | mitigated | accepted
+    affected_components: ["lib-x@1.2.3"]
+    mitigation_summary: "Pinned to 1.2.4 in the CI pipeline; awaiting NVD publication."
+    first_seen: "2026-05-01"              # YYYY-MM-DD (quote it)
+    related_nist_controls: ["sr-3", "sr-6", "si-2"]
+
+mitigations:
+  # Override an existing entry's status + mitigation_summary by its RiskEntry.id.
+  - entry_id_match: "vendor-advisory-2026-cve-12345"
+    mitigation_summary: "Patched in image rebuild 2026-05-15; verified in staging."
+    status: mitigated

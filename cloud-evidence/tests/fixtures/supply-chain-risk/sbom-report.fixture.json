@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-06-01T00:00:00.000Z",
+  "sboms": [
+    {
+      "path": "/fixtures/image-a.cdx.json",
+      "format": "cyclonedx",
+      "image": "registry.example.com/app-a:1.0.0",
+      "bytes": 4096,
+      "components": [
+        { "name": "log4j-core", "version": "2.14.1", "type": "library", "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1" },
+        { "name": "lib-x", "version": "1.2.3", "type": "library", "purl": "pkg:npm/lib-x@1.2.3" }
+      ],
+      "signature_status": "unverified"
+    },
+    {
+      "path": "/fixtures/image-b.spdx.json",
+      "format": "spdx",
+      "image": "registry.example.com/app-b:2.0.0",
+      "bytes": 2048,
+      "components": [
+        { "name": "openssl", "version": "3.0.0", "type": "library" }
+      ],
+      "signature_status": "verified"
+    }
+  ],
+  "vulnerabilities": [
+    { "cve_id": "CVE-2021-44228", "severity": "CRITICAL", "affected_components": ["log4j-core@2.14.1"], "fix_available": true },
+    { "cve_id": "CVE-2026-11111", "severity": "HIGH", "affected_components": ["lib-x@1.2.3"], "fix_available": true },
+    { "cve_id": "CVE-2026-22222", "severity": "UNKNOWN", "affected_components": ["openssl@3.0.0"], "fix_available": false }
+  ],
+  "summary": {
+    "sbom_count": 2,
+    "total_components": 3,
+    "unique_components": 3,
+    "signed_sboms": 1,
+    "unsigned_sboms": 0,
+    "critical_vulns": 1,
+    "high_vulns": 1,
+    "medium_vulns": 0
+  }
+}

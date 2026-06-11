@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-06-01T00:00:00.000Z",
+  "system_id": "sys-jj3",
+  "run_id": "fixture-run",
+  "rows": [
+    {
+      "name": "AcmeCloud Infrastructure",
+      "role": "Underlying IaaS",
+      "fedramp_authorized": "yes",
+      "risk_tier": "tier-1-critical",
+      "last_audit_date": "2025-09-01",
+      "soc2_expiry": "2027-03-31",
+      "source": "yaml-config",
+      "source_ref": "/fixtures/subs.yaml"
+    },
+    {
+      "name": "DataPipe Analytics",
+      "role": "Managed analytics",
+      "fedramp_authorized": "no",
+      "risk_tier": "tier-3-routine",
+      "soc2_expiry": "2027-03-15",
+      "source": "yaml-config",
+      "source_ref": "/fixtures/subs.yaml"
+    },
+    {
+      "name": "LegacyVault Backup",
+      "role": "Offsite backup custodian",
+      "fedramp_authorized": "no",
+      "risk_tier": "tier-3-routine",
+      "soc2_expiry": "2024-01-01",
+      "source": "yaml-config",
+      "source_ref": "/fixtures/subs.yaml"
+    }
+  ],
+  "coverage": {
+    "total_rows": 3,
+    "rows_with_risk_tier": 3,
+    "rows_missing_risk_tier": [],
+    "rows_with_expired_soc2": ["LegacyVault Backup"],
+    "rows_with_fedramp_authorization": 1,
+    "tier_1_critical_count": 1,
+    "tier_2_significant_count": 0,
+    "tier_3_routine_count": 2
+  },
+  "warnings": [],
+  "requires_operator_input": [],
+  "provenance": {
+    "emitter": "core/subprocessor-inventory.ts",
+    "emittedAt": "2026-06-01T00:00:00.000Z",
+    "sourceCalls": ["fs.readFileSync(/fixtures/subs.yaml)"],
+    "sourceFiles": ["/fixtures/subs.yaml"],
+    "signingKeyId": "0000000000000000"
+  }
+}

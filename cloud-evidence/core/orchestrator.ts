@@ -69,6 +69,7 @@ import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
+import { emitSupplyChainRiskRegister } from './supply-chain-risk.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -229,6 +230,16 @@ interface Args {
    * for leveraged-authorizations) and BEFORE signing.
    */
   subprocessorsConfig: string | null;
+  /**
+   * When true (LOOP-J.J3), emit the signed supply-chain risk register
+   * (out/supply-chain-risk-register.json + .xlsx) joining SBOM CVEs + CISA KEV
+   * exposure + subprocessor risk tiers + operator-asserted risks. Runs AFTER
+   * the SBOM + subprocessor passes and BEFORE the OSCAL SSP/POA&M (which consume
+   * it) and signing.
+   */
+  supplyChainRisk: boolean;
+  /** Path to an operator --risks-config (YAML/JSON) for supply-chain risks. */
+  risksConfig: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -288,6 +299,8 @@ function parseArgs(argv: string[]): Args {
     riskConfigPath: process.env.CLOUD_EVIDENCE_RISK_CONFIG ?? null,
     riskNoEpss: process.env.CLOUD_EVIDENCE_RISK_NO_EPSS === '1',
     subprocessorsConfig: process.env.CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG ?? null,
+    supplyChainRisk: process.env.CLOUD_EVIDENCE_SUPPLY_CHAIN_RISK === '1',
+    risksConfig: process.env.CLOUD_EVIDENCE_RISKS_CONFIG ?? null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -413,6 +426,14 @@ function parseArgs(argv: string[]): Args {
       case '--subprocessors-config':
         // LOOP-J.J2: operator subprocessor config (YAML/JSON) for the SA-9 inventory.
         args.subprocessorsConfig = argv[++i] ?? null;
+        break;
+      case '--supply-chain-risk':
+        // LOOP-J.J3: emit the signed SR-3 supply-chain risk register.
+        args.supplyChainRisk = true;
+        break;
+      case '--risks-config':
+        // LOOP-J.J3: operator-asserted supply-chain risks + mitigation overrides.
+        args.risksConfig = argv[++i] ?? null;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -1856,6 +1877,48 @@ export async function main(): Promise<void> {
         console.error(`Subprocessor inventory failed: ${e.message}`);
         log.error({ event: 'subprocessor_inventory.fail', err_message: e?.message });
       }
+    }
+  }
+
+  // ---- Supply-chain risk register (LOOP-J.J3) — SR-3 / NIST SP 800-161r1
+  // C-SCRM Plan. Joins SBOM CVEs (sbom-report.json) + CISA KEV exposure +
+  // subprocessor risk tiers (subprocessor-inventory.json) + operator-asserted
+  // risks (--risks-config). Runs AFTER the SBOM + subprocessor passes and
+  // BEFORE the OSCAL SSP/POA&M (which consume it) and before signing. ----
+  if (args.supplyChainRisk && !args.dryRun) {
+    try {
+      const kevPath = process.env.CLOUD_EVIDENCE_KEV_PATH
+        ?? (existsSync(resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json'))
+          ? resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json')
+          : undefined);
+      const r = await emitSupplyChainRiskRegister({
+        outDir: args.outDir,
+        runId,
+        systemId: args.systemId ?? undefined,
+        kevCatalogPath: kevPath,
+        risksConfigPath: args.risksConfig
+          ? resolve(process.cwd(), args.risksConfig)
+          : undefined,
+      });
+      const c = r.register.coverage;
+      console.log(
+        `Supply-chain risk: ${r.json_path} (${c.total_entries} entries · ` +
+          `${c.open_critical + c.open_high} open C/H · ${c.kev_exposed} kev-exposed · ` +
+          `${c.unsigned_sboms} unsigned-sbom · ${c.tier_1_critical_subprocessors} tier-1-subproc` +
+          `${r.requires_operator_input.length ? ` · ${r.requires_operator_input.length} requires-operator-input` : ''})`,
+      );
+      ledger.record('supply_chain_risk.emit', {
+        status: 'info',
+        entries: c.total_entries,
+        open_critical: c.open_critical,
+        open_high: c.open_high,
+        kev_exposed: c.kev_exposed,
+        unsigned_sboms: c.unsigned_sboms,
+        requires_operator_input: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`Supply-chain risk register failed: ${e.message}`);
+      log.error({ event: 'supply_chain_risk.fail', err_message: e?.message });
     }
   }
 

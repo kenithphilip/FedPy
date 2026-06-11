@@ -99,7 +99,9 @@ type Role =
   | 'epss-cache'
   | 'ssdf-practice-catalog-json'
   | 'subprocessor-inventory-json'
-  | 'subprocessor-inventory-xlsx';
+  | 'subprocessor-inventory-xlsx'
+  | 'supply-chain-risk-register-json'
+  | 'supply-chain-risk-register-xlsx';
 
 interface WellKnownArtifact {
   role: Role;
@@ -140,6 +142,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'ssdf-practice-catalog-json', filename: 'ssdf-800-218-v1.1.json', description: 'NIST SP 800-218 v1.1 (SSDF) practice catalog — 19 practices, 42 tasks, 800-53 Rev 5 + FedRAMP KSI crosswalk (LOOP-T.T1); included when --include-ssdf-catalog is set (T.T2)' },
   { role: 'subprocessor-inventory-json', filename: 'subprocessor-inventory.json', description: 'SA-9 Subprocessor Inventory — risk-tiered, signed; feeds SSP leveraged-authorizations (LOOP-J.J2)' },
   { role: 'subprocessor-inventory-xlsx', filename: 'subprocessor-inventory.xlsx', description: 'SA-9 Subprocessor Inventory — FedRAMP-style Excel format (LOOP-J.J2)' },
+  { role: 'supply-chain-risk-register-json', filename: 'supply-chain-risk-register.json', description: 'SR-3 / NIST SP 800-161r1 supply chain risk register (per-system C-SCRM Plan) — signed (LOOP-J.J3)' },
+  { role: 'supply-chain-risk-register-xlsx', filename: 'supply-chain-risk-register.xlsx', description: 'Supply chain risk register — FedRAMP-style Excel (one sheet per category) (LOOP-J.J3)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

@@ -6,6 +6,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-J.J3: Supply chain risk register (SR-3) + SBOM integration
+
+Shipped the supply-chain risk register slice of LOOP-J. A new
+`core/supply-chain-risk.ts` builds a signed, canonical
+`out/supply-chain-risk-register.json` + a multi-sheet
+`out/supply-chain-risk-register.xlsx` (one sheet per RiskCategory + Summary +
+SBOM-Provenance) — the NIST SP 800-53 Rev 5 SR-3 "supply chain processes and
+controls" document and the NIST SP 800-161r1 Tier-3 per-system C-SCRM Plan. The
+builder joins: SBOM-derived CVEs (parsed from `core/sbom.ts` output, severity
+flowing through the existing NVD correlation — `UNKNOWN` mapped to `medium` and
+FLAGGED, never silently downgraded); CISA KEV exposure (`core/kev-feed.ts`,
+elevating matched CVEs to `sbom-cve-kev` / `critical` and stamping the published
+`dueDate`, deduped so a KEV-matched CVE never double-emits); unsigned SBOMs
+(distinguishing cosign-`unverified` from signature-`absent`); J.J2 subprocessor
+risk tiers (tier-1-critical + expired-SOC2 entries); and operator-asserted risks
+from a `--risks-config` (REO Rule 4 input) with `status`/`mitigation_summary`
+mitigation overrides (severity is never operator-overridable). Coverage reports
+open critical/high/medium/low, kev_exposed, unsigned_sboms, tier-1 counts, and
+`entries_missing_mitigation`; a per-SBOM `sbom_provenance[]` block records the
+seven NTIA SBOM minimum-element flags computed from the real parse.
+
+The register feeds two existing emitters: `core/oscal-poam.ts` now emits a
+`poam-item` per open critical/high register entry with
+`props.risk-source=supply-chain` and a remediation deadline anchored at the
+entry's `first_seen` (Critical +30d, High +60d) — NOT the run timestamp — and
+the POA&M now emits even when there are no failing KSI findings but open
+supply-chain risks exist; `core/oscal-ssp.ts` adds a `back-matter.resources[]`
+reference to the register (`.json` + `.xlsx` rlinks). Both register artifacts
+are registered in the submission-bundle `WELL_KNOWN` catalogue, and a
+`--supply-chain-risk` flag + `--risks-config <path>` (+
+`CLOUD_EVIDENCE_SUPPLY_CHAIN_RISK` / `CLOUD_EVIDENCE_RISKS_CONFIG` envs) schedule
+the emitter after the SBOM + subprocessor passes and before the SSP/POA&M +
+signing.
+
+New files: `core/supply-chain-risk.ts` (≈760 lines),
+`tests/core/supply-chain-risk.test.ts` (20 tests), four fixtures under
+`tests/fixtures/supply-chain-risk/`, and `examples/risks-config.yaml`. Modified:
+`core/oscal-poam.ts` (supply-chain poam-items + pre-flight), `core/oscal-ssp.ts`
+(back-matter resource), `core/submission-bundle.ts` (2 WELL_KNOWN roles),
+`core/orchestrator.ts` (flags + env + emit step). Verification: `npm run
+typecheck` clean; `vitest` 1004/1004 (was 984, +20 — incl. POA&M + SSP
+integration tests confirming the SSP still validates against the committed NIST
+OSCAL 1.1.2 schema); `npm run check:reo` returns 0. The register JSON carries a
+G3 provenance block (`emitter`/`emittedAt`/`sourceCalls`/`signingKeyId`) + a
+self-contained detached Ed25519 signature. New risks J3-R-EXT-1 (tier-2
+subprocessors register-omitted) + J3-R-EXT-2 (POA&M deadline via props;
+`deadline_overdue` deferred) added to LOOP-J-RISKS.md.
+
+Statutory / regulatory drivers (verbatim from `docs/slices/J/J.J3.md` §2): NIST
+SP 800-53 Rev 5 §SR-3.a/.b/.c (establish a process to identify/address supply
+chain weaknesses; employ controls; document them in a security/SCRM plan),
+§SR-4 (Provenance), §SR-6 (Supplier Assessments and Reviews); NIST SP 800-161r1
+§1.5 (C-SCRM Document Set) + §2.3.5 (Tier-3 system-level C-SCRM Plan); the NTIA
+"Minimum Elements For a Software Bill of Materials (SBOM)" seven baseline fields
+(per EO 14028 §4(f), July 12 2021); the CISA SBOM program + CISA Known Exploited
+Vulnerabilities Catalog (reading the published `dueDate`); and CycloneDX 1.5 /
+SPDX 2.3 as the ingested SBOM formats.
+
 ### Added — LOOP-J.J2: Subprocessor inventory expansion (SA-9)
 
 Shipped the SA-9 Subprocessor Inventory slice of LOOP-J. The existing

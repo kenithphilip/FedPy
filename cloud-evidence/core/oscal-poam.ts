@@ -59,12 +59,13 @@
  * Pure builder (`buildOscalPoam`) + disk reader/emitter (`emitOscalPoam`).
  * Read-only with respect to evidence inputs; only writes to `outPath`.
  */
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { EvidenceFile, Finding, ProviderBlock, RawEvidence, AffectedResource, Severity } from './envelope.ts';
 import { deterministicUuid } from './oscal.ts';
 import { oscalJsonToXml } from './oscal-xml.ts';
 import { log } from './log.ts';
+import { addDaysIso, type SupplyChainRiskRegister } from './supply-chain-risk.ts';
 
 const OSCAL_VERSION = '1.1.2';
 const TOOL_NAME = 'fedramp-20x-cloud-evidence';
@@ -263,6 +264,13 @@ export interface PoamEmitOptions {
     'oscal-version'?: string;
     remarks?: string;
   }>;
+  /**
+   * Supply-chain POA&M items (LOOP-J.J3). Derived from
+   * out/supply-chain-risk-register.json by emitOscalPoam() and appended to the
+   * findings-derived items. Open critical/high register entries only; deadline
+   * anchored at the entry's first_seen.
+   */
+  supplyChainItems?: OscalPoamItem[];
 }
 
 export interface PoamEmitResult {
@@ -466,6 +474,54 @@ function poamItemRemarks(f: Finding): string {
 }
 
 // ─── Builder (pure) ──────────────────────────────────────────────────────────
+// ─── LOOP-J.J3: supply-chain POA&M items from the risk register ──────────────
+//
+// Open critical/high entries in out/supply-chain-risk-register.json become
+// poam-items with props.risk-source='supply-chain'. The remediation deadline is
+// anchored at the entry's first_seen (Critical = +30d, High = +60d) — NOT the
+// run timestamp — so a CVE first seen months ago shows a deadline already past.
+const SUPPLY_CHAIN_DEADLINE_DAYS: Record<'critical' | 'high', number> = { critical: 30, high: 60 };
+
+export function supplyChainPoamItems(outDir: string): OscalPoamItem[] {
+  const path = resolve(outDir, 'supply-chain-risk-register.json');
+  if (!existsSync(path)) return [];
+  let reg: SupplyChainRiskRegister;
+  try {
+    reg = JSON.parse(readFileSync(path, 'utf8')) as SupplyChainRiskRegister;
+  } catch (e) {
+    log.warn({ err: String(e) }, 'poam: skipping unreadable supply-chain-risk-register.json');
+    return [];
+  }
+  if (!Array.isArray(reg.entries)) return [];
+  const seen = new Set<string>();
+  const items: OscalPoamItem[] = [];
+  for (const e of reg.entries) {
+    if (e.status !== 'open') continue;
+    if (e.severity !== 'critical' && e.severity !== 'high') continue;
+    const uuid = deterministicUuid(`poam:item:supply-chain:${e.id}`);
+    if (seen.has(uuid)) continue; // idempotent by deterministic uuid
+    seen.add(uuid);
+    const days = SUPPLY_CHAIN_DEADLINE_DAYS[e.severity];
+    const deadline = addDaysIso(e.first_seen, days);
+    const props: OscalProp[] = [
+      { name: 'risk-source', ns: CE_NS, value: 'supply-chain' },
+      { name: 'severity', ns: CE_NS, value: e.severity },
+      { name: 'category', ns: CE_NS, value: e.category },
+      { name: 'first-seen', ns: CE_NS, value: e.first_seen },
+      { name: 'remediation-deadline', ns: CE_NS, value: deadline },
+    ];
+    if (e.kev_due_date) props.push({ name: 'kev-due-date', ns: CE_NS, value: e.kev_due_date });
+    items.push({
+      uuid,
+      title: `[${e.severity.toUpperCase()}] ${e.title}`,
+      description: e.description,
+      props,
+      remarks: `Supply-chain risk (${e.category}). Remediation deadline ${deadline} = first_seen ${e.first_seen} + ${days} days.`,
+    });
+  }
+  return items;
+}
+
 export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions): {
   doc: { 'plan-of-action-and-milestones': OscalPoam };
   result: Omit<PoamEmitResult, 'path' | 'xml_path'>;
@@ -614,6 +670,16 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
     }
   }
 
+  // LOOP-J.J3: append supply-chain POA&M items (open critical/high register
+  // entries), counting them into the severity histogram.
+  if (opts.supplyChainItems?.length) {
+    for (const it of opts.supplyChainItems) {
+      poamItems.push(it);
+      const sev = it.props?.find((p) => p.name === 'severity')?.value as Severity | undefined;
+      if (sev && sev in bySeverity) bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
+    }
+  }
+
   const totalFailing = poamItems.length;
   const totalAssessed = envelopes.reduce(
     (n, e) => n + ((e as any).providers as ProviderBlock[]).reduce((m, p) => m + ((p as any).findings?.length ?? 0), 0),
@@ -685,16 +751,20 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
 // ─── Disk reader + writer ────────────────────────────────────────────────────
 export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
   const envelopes = readEvidenceFiles(opts.outDir);
+  // LOOP-J.J3: supply-chain register items count toward "is there anything to
+  // emit" — a run with no failing KSI findings but open supply-chain risks
+  // still produces a POA&M.
+  const supplyChainItems = opts.supplyChainItems ?? supplyChainPoamItems(opts.outDir);
 
-  // Pre-flight: if there are zero failing findings across all envelopes, the
-  // OSCAL POA&M schema (poam-items.minItems=1) cannot represent the state.
-  // We skip emission and surface the reason — the orchestrator + ConMon
-  // pipeline log this as "clean state; nothing to submit this cycle" rather
-  // than mistaking it for a missing-evidence failure.
+  // Pre-flight: if there are zero failing findings across all envelopes AND no
+  // supply-chain items, the OSCAL POA&M schema (poam-items.minItems=1) cannot
+  // represent the state. We skip emission and surface the reason — the
+  // orchestrator + ConMon pipeline log this as "clean state; nothing to submit
+  // this cycle" rather than mistaking it for a missing-evidence failure.
   const totalFailing = envelopes.reduce((n, e) => n + ((e as any).providers as ProviderBlock[]).reduce(
     (m, p) => m + ((p as any).findings ?? []).filter((f: Finding) => !f.passed).length, 0,
   ), 0);
-  if (envelopes.length === 0 || totalFailing === 0) {
+  if ((envelopes.length === 0 || totalFailing === 0) && supplyChainItems.length === 0) {
     const reason: 'no-failing-findings' | 'no-evidence-files' =
       envelopes.length === 0 ? 'no-evidence-files' : 'no-failing-findings';
     log.info(
@@ -712,7 +782,7 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
     };
   }
 
-  const { doc, result } = buildOscalPoam(envelopes, opts);
+  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems });
   const path = opts.outPath ?? resolve(opts.outDir, 'poam.json');
   writeFileSync(path, JSON.stringify(doc, null, 2));
 

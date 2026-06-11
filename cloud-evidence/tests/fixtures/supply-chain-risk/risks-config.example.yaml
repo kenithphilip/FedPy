@@ -1,0 +1,16 @@
+# Test fixture — operator --risks-config (LOOP-J.J3). REO-allowed (tests/).
+risks:
+  - id: vendor-advisory-2026-cve-12345
+    category: vendor-advisory
+    title: "Vendor X advisory CVE-2026-12345"
+    description: "Upstream advisory not yet reflected in NVD."
+    severity: high
+    status: monitoring
+    affected_components: ["lib-x@1.2.3"]
+    mitigation_summary: "Pinned to 1.2.4 in the CI pipeline; awaiting NVD publication."
+    first_seen: "2026-05-01"
+    related_nist_controls: ["sr-3", "sr-6", "si-2"]
+mitigations:
+  - entry_id_match: "vendor-advisory-2026-cve-12345"
+    mitigation_summary: "Patched in image rebuild 2026-05-15; verified in staging."
+    status: mitigated

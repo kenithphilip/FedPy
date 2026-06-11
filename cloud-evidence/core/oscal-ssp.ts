@@ -31,7 +31,7 @@
  * Pure builder (`buildOscalSsp`) + a disk reader/emitter (`emitOscalSsp`).
  * Read-only; reuses the committed NIST baseline membership and control names.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ImpactTier } from './envelope.ts';
 import {
@@ -181,6 +181,14 @@ interface OscalSsp {
     description: string;
     'implemented-requirements': OscalImplementedRequirement[];
   };
+  'back-matter'?: {
+    resources: Array<{
+      uuid: string;
+      title?: string;
+      description?: string;
+      rlinks?: Array<{ href: string; 'media-type'?: string }>;
+    }>;
+  };
 }
 
 export interface SspSystemOptions {
@@ -217,6 +225,12 @@ export interface SspSystemOptions {
    * omitted rather than emitted with a fabricated date-authorized.
    */
   leveragedSubprocessors?: LeveragedSubprocessorRow[];
+  /**
+   * When set (LOOP-J.J3), add a `back-matter.resources[]` entry pointing at the
+   * supply-chain risk register artifacts. emitOscalSsp() sets this when
+   * out/supply-chain-risk-register.json is present.
+   */
+  supplyChainRegister?: { jsonHref: string; xlsxHref: string };
 }
 
 export interface SspBuildContext {
@@ -376,6 +390,27 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
     ...subprocessorParties,
   ];
 
+  // LOOP-J.J3: SSP back-matter reference to the supply-chain risk register.
+  const backMatter = opts.supplyChainRegister
+    ? {
+        resources: [
+          {
+            uuid: deterministicUuid(`ssp:back-matter:supply-chain-risk-register:${systemId}`),
+            title: 'Supply Chain Risk Register (SR-3, NIST SP 800-161r1)',
+            description:
+              'Per-system C-SCRM Plan / supplier-risk register joining SBOM-derived CVEs, CISA KEV exposure, subprocessor risk tiers, and operator-asserted advisories. Signed (Ed25519).',
+            rlinks: [
+              { href: opts.supplyChainRegister.jsonHref, 'media-type': 'application/json' },
+              {
+                href: opts.supplyChainRegister.xlsxHref,
+                'media-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              },
+            ],
+          },
+        ],
+      }
+    : undefined;
+
   const ssp: OscalSsp = {
     uuid: deterministicUuid(`ssp:${systemId}:${level}`),
     metadata: {
@@ -473,6 +508,7 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
         `evidence yet and need manual assessment or inheritance documentation.`,
       'implemented-requirements': irs,
     },
+    'back-matter': backMatter,
   };
 
   return {
@@ -509,7 +545,14 @@ export function emitOscalSsp(opts: SspEmitOptions): SspEmitResult {
   // LOOP-J.J2: fold subprocessor-inventory.json (if present) into the SSP's
   // leveraged-authorizations. Explicit opts.leveragedSubprocessors win.
   const leveragedSubprocessors = opts.leveragedSubprocessors ?? readLeveragedSubprocessors(opts.outDir);
-  const { doc, result } = buildOscalSsp(benchmark, { ...opts, leveragedSubprocessors });
+  // LOOP-J.J3: add a back-matter reference to the supply-chain risk register
+  // when it is present in outDir.
+  const supplyChainRegister =
+    opts.supplyChainRegister ??
+    (existsSync(resolve(opts.outDir, 'supply-chain-risk-register.json'))
+      ? { jsonHref: 'supply-chain-risk-register.json', xlsxHref: 'supply-chain-risk-register.xlsx' }
+      : undefined);
+  const { doc, result } = buildOscalSsp(benchmark, { ...opts, leveragedSubprocessors, supplyChainRegister });
   const outPath = opts.outPath ?? resolve(opts.outDir, 'ssp.json');
   writeFileSync(outPath, JSON.stringify(doc, null, 2));
 

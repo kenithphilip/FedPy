@@ -235,6 +235,8 @@ are set.
 | `--risk-score` | `out/risk-scores.json` (+ `.epss-cache.json`) | LOOP-B.B1. Compute a per-finding composite risk score (CVSS 3.1/4.0 + FIRST EPSS + inventory-derived criticality + exposure), rewrite each `KSI-*.json` envelope in place with a `risk_score` block, and surface the score as OSCAL props on every POA&M risk/poam-item. Runs BEFORE `--oscal-poam` and before signing. |
 | `--risk-config <path>` | (config input) | Path to `risk-config.yaml` (weights, EPSS settings, CVE→CVSS overrides, band thresholds). Defaults: auto-discover `./risk-config.yaml`, else built-in defaults. See `risk-config.example.yaml`. |
 | `--subprocessors-config <path>` | `out/subprocessor-inventory.json` + `out/subprocessor-inventory.xlsx` | LOOP-J.J2. Emit the signed SA-9 Subprocessor Inventory from an operator YAML/JSON config (and/or the `config.yaml` `subprocessors` Google-Sheet block; both merge, config wins on a name conflict). Adds SA-9 fields (risk_tier, monitoring_methods, contracted_controls, incident_notification_sla_hours, data_residency, subprocessor_subprocessors, oversight_party_uuid). Runs BEFORE `--oscal-ssp` (which reads it for `leveraged-authorizations[]`) and before signing. See `examples/subprocessors.yaml`. |
+| `--supply-chain-risk` | `out/supply-chain-risk-register.json` + `out/supply-chain-risk-register.xlsx` | LOOP-J.J3. Emit the signed SR-3 / NIST SP 800-161r1 supply-chain risk register (per-system C-SCRM Plan) joining SBOM-derived CVEs (`--sbom-dir`), CISA KEV exposure, J.J2 subprocessor risk tiers, and operator-asserted risks (`--risks-config`). Open critical/high entries flow to the POA&M (`props.risk-source=supply-chain`, deadline anchored at first_seen) and an SSP back-matter resource. Runs AFTER the SBOM + subprocessor passes and BEFORE `--oscal-ssp`/`--oscal-poam` + signing. Requires ≥1 source (`--sbom-dir`, `--subprocessors-config`, `--risks-config`, or a KEV catalog). |
+| `--risks-config <path>` | (config input) | LOOP-J.J3. Operator-asserted supply-chain risks (vendor advisories) + mitigation overrides (`status` + `mitigation_summary` by entry id). Severity is not operator-overridable. See `examples/risks-config.yaml`. |
 | `--risk-no-epss` | (flag) | Disable the live FIRST EPSS feed for this run (offline / air-gapped). The EPSS term is dropped and every finding's `epss_source` prop reads `REQUIRES-OPERATOR-INPUT`. |
 | `--oscal-ap` | `out/ap.json` | OSCAL 1.1.2 Assessment Plan. |
 | `--ssp-docx` | `out/ssp.docx` | FedRAMP-style Word render of the SSP (implies `--oscal-ssp`). Dependency-free OOXML. |
@@ -371,6 +373,8 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_SCG_OBSERVED_PATH` | (none) | Observed config map for SCG comparator. |
 | `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` | `0` | Emit the LOOP-W.W1 prohibited-vendor catalog (equivalent to `--prohibited-vendors-catalog`). |
 | `CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG` | (none) | Path to an operator subprocessor config (YAML/JSON) for the LOOP-J.J2 SA-9 Subprocessor Inventory (equivalent to `--subprocessors-config`). Can also be set via the `config.yaml` `subprocessors.config_path` / `subprocessors.spreadsheet_id` block. |
+| `CLOUD_EVIDENCE_SUPPLY_CHAIN_RISK` | `0` | Emit the LOOP-J.J3 supply-chain risk register (equivalent to `--supply-chain-risk`). |
+| `CLOUD_EVIDENCE_RISKS_CONFIG` | (none) | Path to an operator `--risks-config` (YAML/JSON) for LOOP-J.J3 operator-asserted supply-chain risks + mitigation overrides. |
 | `SAM_GOV_API_KEY` | (none) | SAM.gov Entity Management API key; required only on the network fetch path (`scripts/extract-prohibited-vendors.mjs`). Obtain at https://sam.gov/data-services. |
 | `PROHIBITED_VENDORS_SIGNING_KEY_ID` | (none) | Optional expected Ed25519 key fingerprint for the prohibited-vendor catalog; validated against the actual signing key when set. |
 
@@ -579,6 +583,7 @@ Files emitted depend on the flags you pass.
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
 | `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 | `subprocessor-inventory.json` + `subprocessor-inventory.xlsx` | No | `--subprocessors-config` (or `config.yaml` `subprocessors`) | JSON + detached Ed25519 / XLSX | yes (detached sig + run manifest) |
+| `supply-chain-risk-register.json` + `supply-chain-risk-register.xlsx` | No | `--supply-chain-risk` | JSON + detached Ed25519 / multi-sheet XLSX | yes (detached sig + run manifest) |
 
 ### 7.1 Committed reference catalogs (built offline, not per-run)
 
