@@ -66,29 +66,23 @@ import { deterministicUuid } from './oscal.ts';
 import { oscalJsonToXml } from './oscal-xml.ts';
 import { log } from './log.ts';
 import { addDaysIso, type SupplyChainRiskRegister } from './supply-chain-risk.ts';
+import { computeDeadline, type DeadlineContext, type DeadlineResult } from './deadline-engine.ts';
+import type { KevEntry } from './kev-feed.ts';
+import { canonicalize, signDetached, type DetachedSignature } from './sign.ts';
 
 const OSCAL_VERSION = '1.1.2';
 const TOOL_NAME = 'fedramp-20x-cloud-evidence';
 const CE_NS = 'urn:fedramp:cloud-evidence';
 const FEDRAMP_NS = 'https://fedramp.gov/ns/oscal';
 
-// ─── FedRAMP remediation deadlines per severity ──────────────────────────────
-// Source: FedRAMP Continuous Monitoring Strategy & Guide (Rev5) — the canonical
-// table operators are held to. KEV-listed vulnerabilities use the CISA BOD
-// 22-01 deadline (21 days); we surface that as a separate "kev" severity-like
-// classification handled by the VDR pipeline upstream of this emitter.
-//
-// Days are counted from the date the finding was first observed (we use
-// envelope.collected_at as the proxy). LOOP-B.B2 will further refine this with
-// PAIN / IRV / LEV math from the VDR ledger; this baseline is for non-VDR
-// findings.
-const REMEDIATION_DEADLINE_DAYS: Record<Severity, number> = {
-  critical: 30,
-  high: 60,
-  medium: 90,
-  low: 180,
-  info: 365, // info-only findings still get tracked; long horizon
-};
+// ─── Remediation deadlines ────────────────────────────────────────────────────
+// LOOP-B.B2 replaced the single hardcoded `Severity → days` map with the
+// priority-cascading computeDeadline() engine (core/deadline-engine.ts):
+// operator override → CISA KEV dueDate → PAIN/IRV/LEV → FedRAMP CMP table →
+// observable severity-fallback. The FedRAMP CMP + severity-fallback tables now
+// live in core/deadline-table.ts (single source of truth). Each emitted risk +
+// poam-item carries a `deadline-source` prop so a 3PAO can audit which table
+// drove every deadline; the per-finding audit log is out/deadline-audit.json.
 
 // ─── OSCAL type interfaces ───────────────────────────────────────────────────
 interface OscalProp { name: string; ns?: string; value: string; class?: string }
@@ -271,6 +265,19 @@ export interface PoamEmitOptions {
    * anchored at the entry's first_seen.
    */
   supplyChainItems?: OscalPoamItem[];
+  /**
+   * LOOP-B.B2 deadline engine inputs. The CISA KEV index (CVE-ID upper-case →
+   * entry) drives the KEV branch of the priority cascade; the orchestrator loads
+   * it (async) and passes it here. When absent, the cascade simply skips the KEV
+   * branch (FedRAMP CMP table applies).
+   */
+  kevIndex?: Map<string, KevEntry>;
+  /** Override the FedRAMP CMP severity→days table (defaults to FEDRAMP_CMP_DEADLINES). */
+  cmpTable?: Partial<Record<Severity, number>>;
+  /** PAIN/IRV/LEV composite threshold (default 9.0). */
+  painIrvLevThreshold?: number;
+  /** Injectable clock for the deadline engine (deterministic tests). */
+  deadlineNow?: () => Date;
 }
 
 export interface PoamEmitResult {
@@ -290,6 +297,10 @@ export interface PoamEmitResult {
   finding_count: number;
   /** Severity histogram of poam-items. */
   by_severity: Record<Severity, number>;
+  /** LOOP-B.B2 per-finding deadline audit rows. */
+  deadline_audit?: DeadlineAuditRow[];
+  /** Count of findings whose deadline fell through to severity-fallback (--strict-risk gate). */
+  deadline_fallback_count?: number;
   /**
    * Reason emission was skipped. Populated only when path === null.
    * Tracker / orchestrator log this so the operator sees why no file
@@ -333,15 +344,17 @@ function severityToRiskStatus(sev: Severity, passed: boolean): OscalRisk['status
   return 'open';
 }
 
-function deadlineFromCollected(collected: string, sev: Severity): string {
-  const days = REMEDIATION_DEADLINE_DAYS[sev] ?? 90;
-  const base = new Date(collected);
-  if (Number.isNaN(base.getTime())) {
-    // Defensive: if envelope's collected_at is malformed, fall back to now.
-    base.setTime(Date.now());
-  }
-  base.setUTCDate(base.getUTCDate() + days);
-  return base.toISOString();
+/** One row of the LOOP-B.B2 per-finding deadline audit log (out/deadline-audit.json). */
+export interface DeadlineAuditRow {
+  poam_item_uuid: string;
+  risk_uuid: string;
+  ksi_id: string;
+  rule: string;
+  severity: Severity;
+  source: DeadlineResult['source'];
+  deadline: string;
+  days_from_collected: number;
+  rationale: string;
 }
 
 function asciiPreview(s: unknown, max = 240): string {
@@ -382,13 +395,30 @@ function affectedResourceToSubject(r: AffectedResource): OscalSubject {
  * Map a finding to the props array we record on its poam-item, finding, and
  * risk. Centralized so JSON, XML, and any future consumer see the same shape.
  */
-function findingProps(f: Finding, prov: ProviderBlock, ksiId: string): OscalProp[] {
+function findingProps(f: Finding, prov: ProviderBlock, ksiId: string, dl?: DeadlineResult): OscalProp[] {
   const props: OscalProp[] = [
     { name: 'severity', ns: CE_NS, value: f.severity },
     { name: 'rule', ns: CE_NS, value: f.rule },
     { name: 'ksi-id', ns: CE_NS, value: ksiId },
     { name: 'provider', ns: CE_NS, value: prov.provider },
   ];
+  // LOOP-B.B2: deadline provenance — which table drove this finding's deadline.
+  if (dl) {
+    props.push({ name: 'deadline-source', ns: CE_NS, value: dl.source });
+    if (dl.kev_entry) {
+      props.push({ name: 'kev-cve-id', ns: CE_NS, value: dl.kev_entry.cveID });
+      props.push({ name: 'kev-due-date', ns: CE_NS, value: dl.kev_entry.dueDate });
+    }
+    if (dl.pain_irv_lev) {
+      if (typeof dl.pain_irv_lev.pain === 'number') props.push({ name: 'pain', ns: CE_NS, value: String(dl.pain_irv_lev.pain) });
+      props.push({ name: 'irv', ns: CE_NS, value: String(dl.pain_irv_lev.irv ?? false) });
+      props.push({ name: 'lev', ns: CE_NS, value: String(dl.pain_irv_lev.lev ?? false) });
+      props.push({ name: 'pain-irv-lev-rationale', ns: CE_NS, value: dl.rationale });
+    }
+    if (dl.operator_override) {
+      props.push({ name: 'operator-override-acceptance-uuid', ns: CE_NS, value: dl.operator_override.uuid });
+    }
+  }
   if (f.applicable_key_word) props.push({ name: 'key-word', ns: CE_NS, value: f.applicable_key_word });
   if (f.nist_controls?.length) {
     for (const c of f.nist_controls) props.push({ name: 'nist-control', ns: CE_NS, value: c });
@@ -535,6 +565,14 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
   const findings: OscalFindingEntry[] = [];
   const poamItems: OscalPoamItem[] = [];
   const bySeverity: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  // LOOP-B.B2: priority-cascading deadline engine context + per-finding audit log.
+  const deadlineCtx: DeadlineContext = {
+    kevIndex: opts.kevIndex,
+    cmpTable: opts.cmpTable,
+    painIrvLevThreshold: opts.painIrvLevThreshold,
+    now: opts.deadlineNow,
+  };
+  const deadlineAudit: DeadlineAuditRow[] = [];
 
   for (const env of envelopes) {
     const ksiId = env.ksi_id;
@@ -548,6 +586,9 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
         // recorded in the AR but don't create remediation obligations.
         if (f.passed) continue;
         bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + 1;
+
+        // LOOP-B.B2: compute the remediation deadline via the priority cascade.
+        const dl = computeDeadline(f, deadlineCtx, collected);
 
         // 1. Observations — one per RawEvidence cited in the provider block.
         //    We attach them all to this finding via related-observations, so
@@ -640,8 +681,8 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
             description: f.gap?.description ?? f.current_state?.summary ?? `Failing finding for ${ksiId} rule ${f.rule}.`,
             statement: f.gap?.description ?? f.current_state?.summary ?? `Risk: ${ksiId} rule ${f.rule} failing.`,
             status: severityToRiskStatus(f.severity, false),
-            deadline: deadlineFromCollected(collected, f.severity),
-            props: findingProps(f, prov, ksiId),
+            deadline: dl.deadline,
+            props: findingProps(f, prov, ksiId, dl),
             remediations: remediations.length ? remediations : undefined,
             'related-observations': obsUuids.length ? obsUuids.map((u) => ({ 'observation-uuid': u })) : undefined,
           });
@@ -660,11 +701,24 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
           uuid: itemUuid,
           title: `[${f.severity.toUpperCase()}] ${ksiId} / ${f.rule}`,
           description: poamItemDescription(f, ksiId, ksiName),
-          props: findingProps(f, prov, ksiId),
+          props: findingProps(f, prov, ksiId, dl),
           'related-findings': findingUuids.map((u) => ({ 'finding-uuid': u })),
           'related-observations': obsUuids.length ? obsUuids.map((u) => ({ 'observation-uuid': u })) : undefined,
           'related-risks': riskUuid ? [{ 'risk-uuid': riskUuid }] : undefined,
           remarks: poamItemRemarks(f),
+        });
+
+        // LOOP-B.B2: per-finding deadline audit row.
+        deadlineAudit.push({
+          poam_item_uuid: itemUuid,
+          risk_uuid: riskUuid ?? '',
+          ksi_id: ksiId,
+          rule: f.rule,
+          severity: f.severity,
+          source: dl.source,
+          deadline: dl.deadline,
+          days_from_collected: dl.days_from_collected,
+          rationale: dl.rationale,
         });
       }
     }
@@ -744,6 +798,8 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
       risk_count: risks.length,
       finding_count: findings.length,
       by_severity: bySeverity,
+      deadline_audit: deadlineAudit,
+      deadline_fallback_count: deadlineAudit.filter((d) => d.source === 'severity-fallback').length,
     },
   };
 }
@@ -797,10 +853,57 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
     }
   }
 
+  // LOOP-B.B2: per-finding deadline audit log (signed, G3-provenanced).
+  if (result.deadline_audit && result.deadline_audit.length > 0) {
+    try {
+      writeDeadlineAudit(opts.outDir, opts.runId, result.deadline_audit, opts.deadlineNow);
+    } catch (e: any) {
+      log.warn({ err: String(e) }, 'poam: deadline-audit.json emission failed; POA&M still written');
+    }
+  }
+
   log.info(
-    { path, poam_item_count: result.poam_item_count, observation_count: result.observation_count, risk_count: result.risk_count },
+    { path, poam_item_count: result.poam_item_count, observation_count: result.observation_count, risk_count: result.risk_count, deadline_fallback_count: result.deadline_fallback_count },
     'OSCAL POA&M emitted',
   );
 
   return { path, xml_path: xmlPath, ...result };
+}
+
+export const DEADLINE_AUDIT_FILENAME = 'deadline-audit.json';
+
+/** Write a signed out/deadline-audit.json with a G3 provenance block (LOOP-B.B2). */
+function writeDeadlineAudit(
+  outDir: string,
+  runId: string,
+  rows: DeadlineAuditRow[],
+  now?: () => Date,
+): void {
+  const emittedAt = (now ? now() : new Date()).toISOString();
+  const bySource: Record<string, number> = {};
+  for (const r of rows) bySource[r.source] = (bySource[r.source] ?? 0) + 1;
+  const doc: {
+    schema_version: '1.0.0';
+    run_id: string;
+    rows: DeadlineAuditRow[];
+    summary: { total: number; by_source: Record<string, number>; severity_fallback: number };
+    provenance: { emitter: string; emittedAt: string; sourceCalls: string[]; signingKeyId: string };
+    signature?: DetachedSignature;
+  } = {
+    schema_version: '1.0.0',
+    run_id: runId,
+    rows,
+    summary: { total: rows.length, by_source: bySource, severity_fallback: bySource['severity-fallback'] ?? 0 },
+    provenance: {
+      emitter: 'core/oscal-poam.ts',
+      emittedAt,
+      sourceCalls: ['core/deadline-engine.ts:computeDeadline', 'core/deadline-table.ts:FEDRAMP_CMP_DEADLINES', 'core/kev-feed.ts'],
+      signingKeyId: '',
+    },
+  };
+  const canonical = canonicalize(JSON.parse(JSON.stringify({ ...doc, provenance: { ...doc.provenance, signingKeyId: '' }, signature: undefined })));
+  const sig = signDetached(Buffer.from(canonical, 'utf8'), outDir);
+  doc.provenance.signingKeyId = sig.keyId;
+  doc.signature = sig;
+  writeFileSync(resolve(outDir, DEADLINE_AUDIT_FILENAME), JSON.stringify(doc, null, 2));
 }

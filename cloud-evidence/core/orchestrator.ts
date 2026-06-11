@@ -70,6 +70,7 @@ import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
 import { emitSupplyChainRiskRegister } from './supply-chain-risk.ts';
+import { loadKevCatalog } from './kev-feed.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -240,6 +241,13 @@ interface Args {
   supplyChainRisk: boolean;
   /** Path to an operator --risks-config (YAML/JSON) for supply-chain risks. */
   risksConfig: string | null;
+  /**
+   * When true (LOOP-B.B2), fail the run (non-zero exit) if any POA&M finding's
+   * remediation deadline fell through to `severity-fallback` — a sign the
+   * FedRAMP CMP table was not loaded. CI sets this so a fallback can never reach
+   * origin/main / a submission package.
+   */
+  strictRisk: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -301,6 +309,7 @@ function parseArgs(argv: string[]): Args {
     subprocessorsConfig: process.env.CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG ?? null,
     supplyChainRisk: process.env.CLOUD_EVIDENCE_SUPPLY_CHAIN_RISK === '1',
     risksConfig: process.env.CLOUD_EVIDENCE_RISKS_CONFIG ?? null,
+    strictRisk: process.env.CLOUD_EVIDENCE_STRICT_RISK === '1',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -434,6 +443,10 @@ function parseArgs(argv: string[]): Args {
       case '--risks-config':
         // LOOP-J.J3: operator-asserted supply-chain risks + mitigation overrides.
         args.risksConfig = argv[++i] ?? null;
+        break;
+      case '--strict-risk':
+        // LOOP-B.B2: fail the run if any deadline falls through to severity-fallback.
+        args.strictRisk = true;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -2090,6 +2103,13 @@ export async function main(): Promise<void> {
   // poam-items.minItems=1 — emitter returns a structured "skipped" result). ----
   if (args.oscalPoam) {
     try {
+      // LOOP-B.B2: load the CISA KEV catalog so the deadline engine can honour
+      // per-CVE BOD 22-01 dueDates. Offline-first (committed catalog / env path).
+      const kevPathPoam = process.env.CLOUD_EVIDENCE_KEV_PATH
+        ?? (existsSync(resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json'))
+          ? resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json')
+          : undefined);
+      const kevCatPoam = await loadKevCatalog({ path: kevPathPoam });
       const r = emitOscalPoam({
         outDir: args.outDir,
         runId,
@@ -2101,7 +2121,23 @@ export async function main(): Promise<void> {
         // back-matter reference to the signed manifest. After signing runs
         // below, the manifest path is well-known.
         signedManifestHref: args.noSign ? undefined : 'manifest.json',
+        // LOOP-B.B2: KEV index for the priority-cascading deadline engine.
+        kevIndex: kevCatPoam.count > 0 ? kevCatPoam.byCve : undefined,
       });
+      // LOOP-B.B2: --strict-risk fails the run if any deadline used the
+      // observable severity-fallback (a sign the FedRAMP CMP table didn't load).
+      if (r.path !== null && args.strictRisk && (r.deadline_fallback_count ?? 0) > 0) {
+        console.error(
+          `--strict-risk: ${r.deadline_fallback_count} finding(s) fell through to deadline severity-fallback ` +
+            `(FedRAMP CMP table not loaded — see deadline-audit.json). Failing the run.`,
+        );
+        log.error({ event: 'strict_risk.fallback', count: r.deadline_fallback_count });
+        process.exitCode = 5;
+      }
+      if (r.path !== null && (r.deadline_fallback_count ?? 0) === 0) {
+        const auditN = r.deadline_audit?.length ?? 0;
+        if (auditN > 0) console.log(`  Deadline audit: ${auditN} finding(s) → deadline-audit.json (0 severity-fallback)`);
+      }
       if (r.path === null) {
         console.log(`OSCAL POA&M: skipped — ${r.skipped_reason} (this is a clean state, not a failure).`);
         ledger.record('oscal_poam.skip', { status: 'info', reason: r.skipped_reason ?? 'unknown' });

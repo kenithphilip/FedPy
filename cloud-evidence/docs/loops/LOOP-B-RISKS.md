@@ -14,7 +14,13 @@
 - **Description**: The FedRAMP Continuous Monitoring Strategy & Guide (Rev 5) PDF — the authoritative source for the severity → days table B.B2 needs and for the Deviation Request fields B.B3 mirrors — returns HTTP 403 to anonymous HTTPS fetches. The PDF must be downloaded manually by an operator into `cloud-evidence/docs/sources/fedramp-conmon-strategy-guide.pdf` before B.B2 or B.B3 can pin verbatim quotes.
 - **Severity**: high (B.B2 blocker; B.B3 partial blocker).
 - **Mitigation**: Each affected slice (B.B2, B.B3) carries a `REQUIRES-OPERATOR-INPUT: confirm-against-fedramp-cmp-pdf` marker on its constants until the PDF is downloaded; `--strict-risk` orchestrator mode fails the build if the marker remains; CHANGELOG entry for B.B2 quotes the table values verbatim with PDF page + section, atomically.
-- **Status**: open.
+- **Status**: open. **(B.B2 shipped 2026-06-11 with the published values in `core/deadline-table.ts` — High=30/Moderate=90/Low=180 (well-established FedRAMP-published constants), Critical=15/Info=365 per the per-slice doc — and a `REQUIRES-OPERATOR-INPUT` docstring note + a pinning test (`deadline-table.test.ts`). The PDF download into `docs/sources/fedramp-conmon-strategy-guide.pdf` + verbatim re-quotation of the `critical` value remains the open operator step.)**
+
+### B-X-EXT-1 — IRV signal not yet plumbed from vdr-ledger to POA&M findings [discovered impl-b-b2, 2026-06-11]
+- **Description**: B.B2's deadline engine reads PAIN/IRV/LEV from optional per-finding fields on the envelope `Finding` (`irv`/`lev`/`pain`) and derives LEV from `risk_score.epss.percentile ≥ 0.95` / KEV membership. The Internet-Reachable Verdict (IRV) lives in `core/vdr-ledger.ts` `LedgerEntry` and is NOT yet written onto the KSI envelope findings the POA&M reads — so the PAIN/IRV/LEV deadline override only fires for findings that already carry `irv: true`. In practice today that is rare, so most non-KEV findings take the FedRAMP CMP path.
+- **Severity**: medium.
+- **Mitigation**: A follow-on (extend `core/vdr-ledger.ts` or the VDR collector) should stamp `irv`/`lev`/`pain` onto the findings it evaluates (or emit an `out/vdr-signals.json` snapshot the POA&M joins on). The engine + props + tests already support the full override; only the per-finding IRV plumbing is deferred. Open-question Q4 documents the decision.
+- **Status**: open (deferred follow-on).
 
 ### B-X2 — OSCAL POA&M v1.1.2 schema constraints on props
 - **Description**: All LOOP-B slices attach new props to `risk.props[]` and `poam-item.props[]` arrays. OSCAL v1.1.2 requires every prop to have a `name`, optional `ns`, optional `value`. The schema allows arbitrary `ns`-namespaced props but `ajv` strict mode rejects unknown property names without `ns` set. A typo (missing `ns: CE_NS`) would silently fail the bundle.

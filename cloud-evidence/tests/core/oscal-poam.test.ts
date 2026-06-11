@@ -196,7 +196,7 @@ describe('OSCAL POA&M emitter — buildOscalPoam', () => {
     expect(result.risk_count).toBe(1);
   });
 
-  it('computes the FedRAMP severity-based deadline correctly', () => {
+  it('computes the FedRAMP CMP severity-based deadline correctly (LOOP-B.B2)', () => {
     // Use a fixed collected_at so the deadline is deterministic.
     const env = makeEnvelope();
     (env as any).collected_at = '2026-01-01T00:00:00Z';
@@ -205,8 +205,10 @@ describe('OSCAL POA&M emitter — buildOscalPoam', () => {
       outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
     });
     const risk = doc['plan-of-action-and-milestones'].risks![0]!;
-    // Critical → 30 days from 2026-01-01 → 2026-01-31.
-    expect(risk.deadline).toBe('2026-01-31T00:00:00.000Z');
+    // LOOP-B.B2: Critical → FedRAMP CMP 15 days from 2026-01-01 → 2026-01-16
+    // (replaces LOOP-A.A1's hardcoded 30-day critical). source = fedramp-cmp.
+    expect(risk.deadline).toBe('2026-01-16T00:00:00.000Z');
+    expect(risk.props!.some((p: any) => p.name === 'deadline-source' && p.value === 'fedramp-cmp')).toBe(true);
   });
 
   it('builder produces a clean-state doc when zero failing findings (with explicit remarks)', () => {
@@ -348,5 +350,67 @@ describe('OSCAL POA&M emitter — emitOscalPoam (disk)', () => {
     writeFileSync(join(d, 'ssp.docx'), 'binary');
     const r = emitOscalPoam({ outDir: d, runId: 'r-1', frmrVersion: 'v', systemId: 'x' });
     expect(r.poam_item_count).toBe(1); // only the one KSI envelope contributed
+  });
+});
+
+// ─── LOOP-B.B2: deadline engine integration ──────────────────────────────────
+describe('POA&M deadline engine integration (LOOP-B.B2)', () => {
+  it('attaches a deadline-source prop on every emitted OSCAL risk', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], { outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x' });
+    const risks = doc['plan-of-action-and-milestones'].risks ?? [];
+    expect(risks.length).toBeGreaterThan(0);
+    for (const risk of risks) {
+      expect(risk.props!.some((p: any) => p.name === 'deadline-source')).toBe(true);
+    }
+  });
+
+  it('attaches kev-cve-id + kev-due-date props and uses the KEV dueDate when a finding cites a KEV CVE', () => {
+    const f = makeFinding({ severity: 'high' });
+    (f as any).references = [{ title: 'Log4Shell', url: 'https://nvd', cve_id: 'CVE-2021-44228' }];
+    const env = makeEnvelope({ findings: [f] });
+    (env as any).collected_at = '2026-01-01T00:00:00Z';
+    const kevIndex = new Map([['CVE-2021-44228', { cveID: 'CVE-2021-44228', dateAdded: '2021-12-10', dueDate: '2021-12-24' } as any]]);
+    const { doc } = buildOscalPoam([env], { outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x', kevIndex });
+    const risk = doc['plan-of-action-and-milestones'].risks![0]!;
+    expect(risk.deadline).toBe('2021-12-24T00:00:00.000Z');
+    expect(risk.props!.some((p: any) => p.name === 'deadline-source' && p.value === 'kev')).toBe(true);
+    expect(risk.props!.some((p: any) => p.name === 'kev-cve-id' && p.value === 'CVE-2021-44228')).toBe(true);
+    expect(risk.props!.some((p: any) => p.name === 'kev-due-date' && p.value === '2021-12-24')).toBe(true);
+  });
+
+  it('attaches pain + irv + lev props on a PAIN/IRV/LEV-override finding', () => {
+    const f = makeFinding({ severity: 'medium' });
+    Object.assign(f, {
+      irv: true, lev: true, pain: 5,
+      risk_score: {
+        composite_score: 9.6, criticality: 5, exposure: 5, formula_version: 'v1',
+        sources: { cvss_source: 'operator', epss_source: 'feed', criticality_source: 'inventory', exposure_source: 'inventory' },
+      },
+    });
+    const { doc } = buildOscalPoam([makeEnvelope({ findings: [f] })], { outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x' });
+    const risk = doc['plan-of-action-and-milestones'].risks![0]!;
+    expect(risk.props!.some((p: any) => p.name === 'deadline-source' && p.value === 'pain-irv-lev')).toBe(true);
+    expect(risk.props!.some((p: any) => p.name === 'irv' && p.value === 'true')).toBe(true);
+    expect(risk.props!.some((p: any) => p.name === 'lev' && p.value === 'true')).toBe(true);
+    expect(risk.props!.some((p: any) => p.name === 'pain' && p.value === '5')).toBe(true);
+  });
+
+  it('emits a signed deadline-audit.json with one row per finding + a provenance block', () => {
+    const d = tmp();
+    writeFileSync(join(d, 'KSI-IAM-MFA.json'), JSON.stringify(makeEnvelope()));
+    emitOscalPoam({ outDir: d, runId: 'r-audit', frmrVersion: 'v', systemId: 'x' });
+    const auditPath = join(d, 'deadline-audit.json');
+    expect(existsSync(auditPath)).toBe(true);
+    const audit = JSON.parse(readFileSync(auditPath, 'utf8'));
+    expect(audit.rows.length).toBe(1);
+    expect(audit.rows[0].source).toBeTruthy();
+    expect(audit.provenance.emitter).toBe('core/oscal-poam.ts');
+    expect(audit.provenance.signingKeyId).toMatch(/^[0-9a-f]{16}$/);
+    expect(audit.signature).toBeTruthy();
+  });
+
+  it('reports deadline_fallback_count = 0 when the FedRAMP CMP table covers every severity', () => {
+    const { result } = buildOscalPoam([makeEnvelope()], { outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x' });
+    expect(result.deadline_fallback_count).toBe(0);
   });
 });

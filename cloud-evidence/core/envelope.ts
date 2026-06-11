@@ -183,6 +183,17 @@ export interface Finding {
    * envelopes produced before B.B1 or when --risk-score is not enabled.
    */
   risk_score?: RiskScore;
+  /**
+   * VDR-pipeline per-finding signals (LOOP-B.B2 deadline acceleration). Emitted
+   * by the VDR collector when a finding carries a vulnerability the VDR ledger
+   * evaluated. Backward compatible — absent on non-VDR findings.
+   *   - irv: Internet-Reachable Verdict (security-group / NACL / route-table analysis).
+   *   - lev: Likely-Exploitable Verdict (EPSS percentile ≥ 0.95 OR KEV membership).
+   *   - pain: Possible Adverse Impact Number (operator-supplied, 1-5).
+   */
+  irv?: boolean;
+  lev?: boolean;
+  pain?: number;
 }
 
 /** A 3rd-party tool / vendor recognized by signatures in IAM, audit log, or org config. */

@@ -15,7 +15,7 @@ and not on the implementation queue.
 ## Overall (Core only)
 - Total core slices: 102 base + 1 SEC 8-K overlay = 103 counting overlay
   - 5 LOOP-A done
-  - 3 LOOP-B–K base done (B.B1, J.J2, J.J3), 47 LOOP-B-K pending
+  - 4 LOOP-B–K base done (B.B1, B.B2, J.J2, J.J3), 46 LOOP-B-K pending
   - 25 LOOP-L-Q pending
   - 6 LOOP-R+S pending
   - 1 LOOP-W done, 3 LOOP-W pending
@@ -24,9 +24,9 @@ and not on the implementation queue.
   - 2 CIRCIA-extension slices pending
   - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
 - Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
-- Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (1 of 4 slices done); LOOP-T in progress (1 of 5 slices done); LOOP-B in progress (1 of 5 slices done); LOOP-J in progress (2 of 3 slices done — J.J2, J.J3; J.J1 pending)
-- Last shipped: LOOP-J.J3 (commit `a635da4`)
-- Next priority: **LOOP-B.B2 (Remediation deadline math — KEV / PAIN / IRV / LEV / FedRAMP CMP)** — now unblocked (B.B1 was its only blocker; `depends_on: [LOOP-A.A1 ✅, B.B1 ✅]`). B.B2 replaces the hardcoded `REMEDIATION_DEADLINE_DAYS` severity table with a priority-cascading `computeDeadline()` (operator override → CISA KEV `dueDate` → PAIN/IRV/LEV acceleration → FedRAMP CMP table → severity fallback). It `blocks: [B.B3, E.E1, E.E2, I.I2]` — and **E.E2 is on the HIGHEST-PRIORITY LOOP-W critical path** (W.W2 needs E.E2 + J.J3 ✅). So after B.B2, ship **E.E2 → W.W2 → W.W3 → W.W4** to close LOOP-W. Then **LOOP-T.T2-T.T5** (CISA SSDF Common Form; T.T2 is now closer — J.J2 ✅ + J.J3 ✅ clear two of its deps, though it still needs broad B-K KSI envelopes). LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
+- Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (1 of 4 slices done); LOOP-T in progress (1 of 5 slices done); LOOP-B in progress (2 of 5 slices done — B.B1, B.B2); LOOP-J in progress (2 of 3 slices done — J.J2, J.J3; J.J1 pending)
+- Last shipped: LOOP-B.B2 (commit `TBD-B2`)
+- Next priority: **LOOP-E.E1 (Monthly ConMon Analysis Report)** — already unblocked (`depends_on: [A.A1 ✅, A.A4 ✅]`) and the head of the ConMon chain **E.E1 → E.E2 → W.W2**, the route into the HIGHEST-PRIORITY LOOP-W (W.W2 needs E.E2 + J.J3 ✅). So ship **E.E1 → E.E2 → W.W2 → W.W3 → W.W4** to close LOOP-W. **B.B3 (Risk acceptance workflow)** is now ALSO unblocked (B.B2 was its last blocker; `depends_on: [A.A1 ✅, A.A3 ✅, B.B1 ✅, B.B2 ✅]`) — B.B2 already shipped the `acceptanceOverride` hook in the deadline engine for B.B3 to plug into; it is the natural LOOP-B continuation and unblocks B.B4/B.B5/E.E5/F.F1/C.C7. Then **LOOP-T.T2-T.T5** (CISA SSDF Common Form; T.T2 is closer — J.J2 ✅ + J.J3 ✅ cleared two of its deps, though it still needs broad B-K KSI envelopes). LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
   - **Dependency-metadata note (discovered 2026-06-10):** the W.W2 row's `Dependencies` column below (W.W1, J.J2) is inconsistent with the W.W2 per-slice-doc frontmatter (W.W1, E.E2, J.J3, A.A1, A.A5, B.B1). Reconcile before scheduling W.W2. See `docs/loops/LOOP-B-RISKS.md` risk B.B1-EXT-1.
 
 ## Out-of-Core / Roadmap (NOT on the implementation queue)
@@ -93,7 +93,7 @@ rationale.
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
 |---|---|---|---|---|---|---|
 | B.B1 | Per-finding CVSS+EPSS+criticality+exposure scoring | done | `22b6590` | 2026-06-10 | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B1.md` |
-| B.B2 | Remediation deadline math (KEV/PAIN/IRV/LEV) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B2.md` |
+| B.B2 | Remediation deadline math (KEV/PAIN/IRV/LEV) | done | `TBD-B2` | 2026-06-11 | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B2.md` |
 | B.B3 | Risk acceptance workflow in tracker | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B3.md` |
 | B.B4 | Compensating-controls registry | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B4.md` |
 | B.B5 | Central Risk Register (RA-3) | pending | — | — | `docs/loops/LOOP-B-SPEC.md` | `docs/slices/B/B.B5.md` |

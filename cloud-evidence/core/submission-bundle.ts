@@ -101,7 +101,8 @@ type Role =
   | 'subprocessor-inventory-json'
   | 'subprocessor-inventory-xlsx'
   | 'supply-chain-risk-register-json'
-  | 'supply-chain-risk-register-xlsx';
+  | 'supply-chain-risk-register-xlsx'
+  | 'deadline-audit-json';
 
 interface WellKnownArtifact {
   role: Role;
@@ -144,6 +145,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'subprocessor-inventory-xlsx', filename: 'subprocessor-inventory.xlsx', description: 'SA-9 Subprocessor Inventory — FedRAMP-style Excel format (LOOP-J.J2)' },
   { role: 'supply-chain-risk-register-json', filename: 'supply-chain-risk-register.json', description: 'SR-3 / NIST SP 800-161r1 supply chain risk register (per-system C-SCRM Plan) — signed (LOOP-J.J3)' },
   { role: 'supply-chain-risk-register-xlsx', filename: 'supply-chain-risk-register.xlsx', description: 'Supply chain risk register — FedRAMP-style Excel (one sheet per category) (LOOP-J.J3)' },
+  { role: 'deadline-audit-json', filename: 'deadline-audit.json', description: 'Per-finding remediation-deadline-source audit log — KEV / FedRAMP CMP / PAIN-IRV-LEV / operator-override / severity-fallback (LOOP-B.B2)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

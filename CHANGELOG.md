@@ -6,6 +6,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-B.B2: Remediation deadline math (KEV / PAIN-IRV-LEV / FedRAMP CMP)
+
+Replaced LOOP-A.A1's single hardcoded `Severity → days` map in `core/oscal-poam.ts`
+with a priority-cascading deadline engine (`core/deadline-engine.ts`
+`computeDeadline()`) that honours, in order: (1) an operator risk-acceptance
+override (B.B3 hook) — capped by a CISA KEV federal mandate so an override may
+make a deadline stricter but never extend it past the KEV dueDate; (2) a CISA
+KEV match — BOD 22-01 requires remediation by the catalog's per-entry `dueDate`,
+read VERBATIM (earliest when several CVEs match), no synthetic +21d math;
+(3) a PAIN/IRV/LEV acceleration — when `risk_score.composite_score ≥ 9.0` AND
+IRV (internet-reachable) AND LEV (likely-exploitable, derived from EPSS
+percentile ≥ 0.95 or KEV membership), treat as critical-equivalent;
+(4) the FedRAMP Continuous Monitoring Strategy & Guide severity table; and
+(5) an observable severity-fallback. Every emitted OSCAL risk + poam-item now
+carries a `deadline-source` prop (plus `kev-cve-id`/`kev-due-date`,
+`pain`/`irv`/`lev`, or `operator-override-acceptance-uuid` as applicable) so a
+3PAO can audit WHICH table drove every deadline, and a signed, G3-provenanced
+`out/deadline-audit.json` logs the source + rationale per finding. A new
+`--strict-risk` flag (`CLOUD_EVIDENCE_STRICT_RISK`) fails the run (exit 5) if any
+finding fell through to severity-fallback — a sign the FedRAMP CMP table was not
+loaded — so an unverified gap can never reach a submission package. The
+orchestrator loads the CISA KEV catalog and passes the index into the POA&M
+emitter.
+
+The FedRAMP CMP table (`core/deadline-table.ts` `FEDRAMP_CMP_DEADLINES`, REO
+Rule 3 FedRAMP-published constants) is: **Critical = 15 days, High = 30 days,
+Moderate = 90 days, Low = 180 days, Info = 365 days** — notably High = 30
+(NOT LOOP-A.A1's 60). Source: FedRAMP Continuous Monitoring Strategy & Guide
+(Rev 5) §3.3 "Vulnerability Scanning" — "High vulnerabilities — 30 days.
+Moderate vulnerabilities — 90 days. Low vulnerabilities — 180 days." (the source
+PDF returns HTTP 403 to anonymous fetches; the `critical: 15` value carries a
+`REQUIRES-OPERATOR-INPUT` docstring note to confirm against a manually
+downloaded copy at `docs/sources/fedramp-conmon-strategy-guide.pdf`, pinned by
+`deadline-table.test.ts`). The original A.A1 values are retained as
+`SEVERITY_FALLBACK_DEADLINES` only for the observable fallback path.
+
+New files: `core/deadline-engine.ts`, `core/deadline-table.ts`,
+`tests/core/deadline-engine.test.ts` (13 tests),
+`tests/core/deadline-table.test.ts` (3 tests). Modified: `core/oscal-poam.ts`
+(engine integration + deadline-audit.json + props), `core/envelope.ts` (Finding
++= optional `irv`/`lev`/`pain` VDR signals), `core/submission-bundle.ts`
+(`deadline-audit-json` WELL_KNOWN role), `core/orchestrator.ts` (`--strict-risk`
++ KEV load), `tests/core/oscal-poam.test.ts` (+5 integration tests; the
+pre-existing critical-deadline assertion updated from A.A1's 30d to the FedRAMP
+CMP 15d — an intended behaviour change). Verification: `npm run typecheck`
+clean; `vitest` 1025/1025 (was 1004, +21); `npm run check:reo` returns 0.
+
+Statutory / regulatory drivers (verbatim from `docs/slices/B/B.B2.md` §2): CISA
+BOD 22-01 ("Remediate each vulnerability according to the timelines set forth in
+the CISA-managed vulnerability catalog … remediated within two weeks unless
+otherwise specified"); the CISA KEV JSON feed (`dueDate`); the FedRAMP ConMon
+Strategy & Guide (Rev 5) §3.3 + Rev5 Playbook ConMon Vulnerability Scanning;
+NIST SP 800-53 Rev 5 RA-5(2) + RA-7 (Risk Response); and FIRST EPSS (consumed
+via B.B1's `risk_score.epss.percentile` for the LEV signal).
+
 ### Added — LOOP-J.J3: Supply chain risk register (SR-3) + SBOM integration
 
 Shipped the supply-chain risk register slice of LOOP-J. A new

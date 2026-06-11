@@ -237,6 +237,7 @@ are set.
 | `--subprocessors-config <path>` | `out/subprocessor-inventory.json` + `out/subprocessor-inventory.xlsx` | LOOP-J.J2. Emit the signed SA-9 Subprocessor Inventory from an operator YAML/JSON config (and/or the `config.yaml` `subprocessors` Google-Sheet block; both merge, config wins on a name conflict). Adds SA-9 fields (risk_tier, monitoring_methods, contracted_controls, incident_notification_sla_hours, data_residency, subprocessor_subprocessors, oversight_party_uuid). Runs BEFORE `--oscal-ssp` (which reads it for `leveraged-authorizations[]`) and before signing. See `examples/subprocessors.yaml`. |
 | `--supply-chain-risk` | `out/supply-chain-risk-register.json` + `out/supply-chain-risk-register.xlsx` | LOOP-J.J3. Emit the signed SR-3 / NIST SP 800-161r1 supply-chain risk register (per-system C-SCRM Plan) joining SBOM-derived CVEs (`--sbom-dir`), CISA KEV exposure, J.J2 subprocessor risk tiers, and operator-asserted risks (`--risks-config`). Open critical/high entries flow to the POA&M (`props.risk-source=supply-chain`, deadline anchored at first_seen) and an SSP back-matter resource. Runs AFTER the SBOM + subprocessor passes and BEFORE `--oscal-ssp`/`--oscal-poam` + signing. Requires ≥1 source (`--sbom-dir`, `--subprocessors-config`, `--risks-config`, or a KEV catalog). |
 | `--risks-config <path>` | (config input) | LOOP-J.J3. Operator-asserted supply-chain risks (vendor advisories) + mitigation overrides (`status` + `mitigation_summary` by entry id). Severity is not operator-overridable. See `examples/risks-config.yaml`. |
+| `--strict-risk` | (gate) + `out/deadline-audit.json` | LOOP-B.B2. Fail the run (exit 5) if any POA&M finding's remediation deadline fell through to `severity-fallback` (a sign the FedRAMP CMP table was not loaded). The deadline engine cascades operator-override → CISA KEV `dueDate` → PAIN/IRV/LEV → FedRAMP CMP table → fallback; each risk/poam-item carries a `deadline-source` prop and `out/deadline-audit.json` logs the source per finding. |
 | `--risk-no-epss` | (flag) | Disable the live FIRST EPSS feed for this run (offline / air-gapped). The EPSS term is dropped and every finding's `epss_source` prop reads `REQUIRES-OPERATOR-INPUT`. |
 | `--oscal-ap` | `out/ap.json` | OSCAL 1.1.2 Assessment Plan. |
 | `--ssp-docx` | `out/ssp.docx` | FedRAMP-style Word render of the SSP (implies `--oscal-ssp`). Dependency-free OOXML. |
@@ -339,6 +340,7 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_OSCAL_SSP` | `0` | Emit draft OSCAL SSP. |
 | `CLOUD_EVIDENCE_OSCAL_POAM` | `0` | Emit OSCAL POA&M. |
 | `CLOUD_EVIDENCE_RISK_SCORE` | `0` | Compute per-finding composite risk scores (equivalent to `--risk-score`, LOOP-B.B1). |
+| `CLOUD_EVIDENCE_STRICT_RISK` | `0` | Fail the run if any POA&M deadline falls through to severity-fallback (equivalent to `--strict-risk`, LOOP-B.B2). |
 | `CLOUD_EVIDENCE_RISK_CONFIG` | (none) | Path to `risk-config.yaml` (equivalent to `--risk-config`). |
 | `CLOUD_EVIDENCE_RISK_NO_EPSS` | `0` | Disable the live FIRST EPSS feed (equivalent to `--risk-no-epss`). |
 | `CLOUD_EVIDENCE_OSCAL_AP` | `0` | Emit OSCAL Assessment Plan. |
@@ -572,6 +574,7 @@ Files emitted depend on the flags you pass.
 | `poam.json` | No | `--oscal-poam` | OSCAL 1.1.2 | Yes |
 | `risk-scores.json` | No | `--risk-score` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 | `.epss-cache.json` | No | `--risk-score` (live EPSS) | JSON (provenance-stamped) | yes (detached sig + run manifest) |
+| `deadline-audit.json` | No | `--oscal-poam` (LOOP-B.B2) | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 | `ap.json` | No | `--oscal-ap` | OSCAL 1.1.2 | Yes |
 | `roe.docx` + `roe.json` | No | `--roe` | OOXML + JSON | Yes |
 | `submission-bundle.tar.gz` | No | `--submission-bundle` | POSIX ustar + gzip | bundle is signed |
