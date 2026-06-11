@@ -25,8 +25,8 @@ and not on the implementation queue.
   - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
 - Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
 - Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (1 of 4 slices done); LOOP-T in progress (1 of 5 slices done); LOOP-B in progress (1 of 5 slices done); LOOP-J in progress (1 of 3 slices done)
-- Last shipped: LOOP-J.J2 (commit `TBD-J2`)
-- Next priority: **LOOP-J.J3 (Supply chain risk register SR-3 + SBOM integration)** — now unblocked by **J.J2 (done `TBD-J2`)**. J.J3 emits `supply-chain-risk-register.json` from the SBOM (`core/sbom.ts`), KEV exposure (`core/kev-feed.ts`), subprocessor risk tiers (J.J2), and build-attestation/cosign-verify state. It unblocks **W.W3** (SBOM crosscheck against the prohibited-vendor list) and is a hard dependency of **T.T2** (which also needs `core/cosign-verify.ts`, produced here). After J.J3, ship **B.B2** (remediation deadline math — now unblocked as the LOOP-B continuation; B.B1 was its only blocker; it unblocks E.E2 on the W path). Then the HIGHEST-PRIORITY LOOP-W critical path **E.E2 → W.W2 → W.W3 → W.W4** (W.W2 needs E.E2 + J.J3). Then **LOOP-T.T2-T.T5** to close the CISA Secure Software Development Attestation Common Form. LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
+- Last shipped: LOOP-J.J2 (commit `3e3d6c5`)
+- Next priority: **LOOP-J.J3 (Supply chain risk register SR-3 + SBOM integration)** — now unblocked by **J.J2 (done `3e3d6c5`)**. J.J3 emits `supply-chain-risk-register.json` from the SBOM (`core/sbom.ts`), KEV exposure (`core/kev-feed.ts`), subprocessor risk tiers (J.J2), and build-attestation/cosign-verify state. It unblocks **W.W3** (SBOM crosscheck against the prohibited-vendor list) and is a hard dependency of **T.T2** (which also needs `core/cosign-verify.ts`, produced here). After J.J3, ship **B.B2** (remediation deadline math — now unblocked as the LOOP-B continuation; B.B1 was its only blocker; it unblocks E.E2 on the W path). Then the HIGHEST-PRIORITY LOOP-W critical path **E.E2 → W.W2 → W.W3 → W.W4** (W.W2 needs E.E2 + J.J3). Then **LOOP-T.T2-T.T5** to close the CISA Secure Software Development Attestation Common Form. LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
   - **Dependency-metadata note (discovered 2026-06-10):** the W.W2 row's `Dependencies` column below (W.W1, J.J2) is inconsistent with the W.W2 per-slice-doc frontmatter (W.W1, E.E2, J.J3, A.A1, A.A5, B.B1). Reconcile before scheduling W.W2. See `docs/loops/LOOP-B-RISKS.md` risk B.B1-EXT-1.
 
 ## Out-of-Core / Roadmap (NOT on the implementation queue)
@@ -169,7 +169,7 @@ rationale.
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc |
 |---|---|---|---|---|---|---|
 | J.J1 | User Roles & Privileges matrix (AC-2 + AC-6) | pending | — | — | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J1.md` |
-| J.J2 | Subprocessor inventory expansion (SA-9) | done | `TBD-J2` | 2026-06-11 | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J2.md` |
+| J.J2 | Subprocessor inventory expansion (SA-9) | done | `3e3d6c5` | 2026-06-11 | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J2.md` |
 | J.J3 | Supply chain risk register (SR-3) + SBOM | pending | — | — | `docs/loops/LOOP-J-SPEC.md` | `docs/slices/J/J.J3.md` |
 
 ## LOOP-K — Test Artifact Ingestion

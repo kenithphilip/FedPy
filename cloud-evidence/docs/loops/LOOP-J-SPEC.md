@@ -1100,7 +1100,7 @@ LOOP-J is complete when ALL of:
 | Slice ID | Status | Commit hash | Completed date |
 |---|---|---|---|
 | J.J1 — Privileges matrix (AC-2/AC-6) | pending | — | — |
-| J.J2 — Subprocessor inventory expansion (SA-9) | done | `TBD-J2` | 2026-06-11 |
+| J.J2 — Subprocessor inventory expansion (SA-9) | done | `3e3d6c5` | 2026-06-11 |
 | J.J3 — Supply chain risk register (SR-3) + SBOM integration | pending | — | — |
 
 ---

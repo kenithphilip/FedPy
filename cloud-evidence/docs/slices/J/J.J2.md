@@ -3,7 +3,7 @@ slice_id: J.J2
 title: Subprocessor inventory expansion (SA-9)
 loop: J
 status: done
-commit: TBD-J2
+commit: 3e3d6c5
 completed_date: 2026-06-11
 depends_on: [A.A4, subprocessors-sheet]
 blocks: [G.G4, H.H3, J.J3, C.C7]
@@ -24,7 +24,7 @@ submission package and consumed by the SSP's
 
 ## Status
 - Status: done
-- Commit: `TBD-J2` (filled by the two-pass close-out)
+- Commit: `3e3d6c5` (filled by the two-pass close-out)
 - Date: 2026-06-11
 - Verification: typecheck=0 errors, tests=984 passing (+20), check:reo=green (G1 ✓ / G2 skip-no-out / G3 ✓)
 
