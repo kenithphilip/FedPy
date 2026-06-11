@@ -155,7 +155,7 @@ interface OscalRiskRemediation {
   remarks?: string;
 }
 
-interface OscalRisk {
+export interface OscalRisk {
   uuid: string;
   title: string;
   description: string;
@@ -196,7 +196,7 @@ interface OscalFindingEntry {
   remarks?: string;
 }
 
-interface OscalPoamItem {
+export interface OscalPoamItem {
   uuid: string;
   title: string;
   description: string;
@@ -216,7 +216,7 @@ interface OscalBackMatterResource {
   remarks?: string;
 }
 
-interface OscalPoam {
+export interface OscalPoam {
   uuid: string;
   metadata: OscalMetadata;
   'import-ssp'?: OscalImportSsp;
@@ -226,6 +226,68 @@ interface OscalPoam {
   findings?: OscalFindingEntry[];
   'poam-items': OscalPoamItem[];
   'back-matter'?: { resources: OscalBackMatterResource[] };
+}
+
+/** The full on-disk POA&M document envelope (what poam.json contains). */
+export interface OscalPoamDocument {
+  'plan-of-action-and-milestones': OscalPoam;
+}
+
+// ─── LOOP-E.E2: revision-history threading ────────────────────────────────────
+//
+// One entry in metadata.revisions[]. The monthly POA&M workflow (E.E2) reads the
+// prior month's document and threads its history forward so any single re-emitted
+// POA&M carries the full version chain a 3PAO needs to reconstruct lineage.
+
+export interface RevisionEntry {
+  title?: string;
+  'last-modified': string;
+  version: string;
+  'oscal-version'?: string;
+  remarks?: string;
+}
+
+/**
+ * Thrown when a revision entry's `last-modified` is not a Z-suffixed (UTC) ISO
+ * timestamp. OSCAL requires ISO 8601, but ambiguous-timezone strings break the
+ * month-over-month diff (LOOP-E.E2 Risk 4) — the emitter always writes `Z`, so a
+ * non-Z value means the prior document was hand-edited or produced by a foreign
+ * tool. We reject rather than silently coerce (REO Rule 1.5).
+ */
+export class RevisionTimezoneError extends Error {
+  constructor(public readonly value: string) {
+    super(
+      `POA&M revision last-modified "${value}" is not a Z-suffixed UTC ISO 8601 timestamp. ` +
+        `The monthly workflow requires UTC ("…Z") timestamps so the version chain stays unambiguous.`,
+    );
+    this.name = 'RevisionTimezoneError';
+  }
+}
+
+/**
+ * Extract the existing `metadata.revisions[]` from a prior POA&M document so the
+ * monthly workflow (LOOP-E.E2) can thread them forward into the next emission.
+ * Each entry's `last-modified` MUST be a Z-suffixed UTC timestamp (we never emit
+ * anything else); a non-Z value raises RevisionTimezoneError rather than being
+ * silently accepted.
+ */
+export function extractRevisionEntries(doc: OscalPoam): RevisionEntry[] {
+  const revs = doc.metadata?.revisions ?? [];
+  const out: RevisionEntry[] = [];
+  for (const r of revs) {
+    const lastModified = r['last-modified'];
+    if (typeof lastModified !== 'string' || !/Z$/.test(lastModified)) {
+      throw new RevisionTimezoneError(String(lastModified));
+    }
+    out.push({
+      title: r.title,
+      'last-modified': lastModified,
+      version: r.version,
+      'oscal-version': r['oscal-version'],
+      remarks: r.remarks,
+    });
+  }
+  return out;
 }
 
 // ─── Public options + result ─────────────────────────────────────────────────

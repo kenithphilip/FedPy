@@ -105,7 +105,10 @@ type Role =
   | 'deadline-audit-json'
   | 'conmon-monthly-report-json'
   | 'conmon-monthly-report-md'
-  | 'conmon-monthly-report-pdf';
+  | 'conmon-monthly-report-pdf'
+  | 'poam-delta-md'
+  | 'poam-ledger'
+  | 'poam-archive';
 
 interface WellKnownArtifact {
   role: Role;
@@ -152,6 +155,9 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'conmon-monthly-report-json', filename: /^conmon-monthly-\d{4}-\d{2}\.json$/, description: 'Monthly ConMon analysis report — machine-readable JSON (signed; posture + scan coverage + POA&M activity + KEV exposure) (LOOP-E.E1)' },
   { role: 'conmon-monthly-report-md', filename: /^conmon-monthly-\d{4}-\d{2}\.md$/, description: 'Monthly ConMon analysis report — Markdown render for operator review (LOOP-E.E1)' },
   { role: 'conmon-monthly-report-pdf', filename: /^conmon-monthly-\d{4}-\d{2}\.pdf$/, description: 'Monthly ConMon analysis report — PDF for the FedRAMP secure-repository upload (LOOP-E.E1)' },
+  { role: 'poam-delta-md', filename: /^poam-delta-\d{4}-\d{2}\.md$/, description: 'Month-over-month POA&M delta (items opened / closed / status + severity flips / past-deadline) for operator review before the monthly upload (LOOP-E.E2)' },
+  { role: 'poam-ledger', filename: 'poam-ledger.jsonl', description: 'Append-only ledger of monthly POA&M emissions (run_id, report_month, version, last-modified, sha256, archive path) — the version-chain index (LOOP-E.E2)' },
+  { role: 'poam-archive', filename: /^archive\/poam-\d{4}-\d{2}\.json$/, description: 'Immutable monthly snapshot of the OSCAL POA&M, hashed in the ledger so the version chain is reconstructable (LOOP-E.E2)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

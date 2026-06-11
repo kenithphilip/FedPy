@@ -88,12 +88,24 @@ function sha256Hex(buf: Buffer): string {
 const SIGNED_EXTENSIONS = ['.json', '.xml', '.pem', '.md', '.pdf'];
 
 function listSignedFiles(dir: string): string[] {
-  return readdirSync(dir)
+  const files = readdirSync(dir)
     .filter((f) => SIGNED_EXTENSIONS.some((ext) => f.endsWith(ext)) && f !== MANIFEST_NAME)
     .filter((f) => {
       try { return statSync(resolve(dir, f)).isFile(); } catch { return false; }
-    })
-    .sort();
+    });
+  // LOOP-E.E2: the monthly POA&M workflow archives each month's document under
+  // archive/poam-<YYYY-MM>.json. Cover that subdirectory so archived POA&Ms are
+  // part of the signed manifest (chain-of-custody for the POA&M version chain).
+  const archiveDir = resolve(dir, 'archive');
+  if (existsSync(archiveDir)) {
+    try {
+      for (const f of readdirSync(archiveDir)) {
+        if (!SIGNED_EXTENSIONS.some((ext) => f.endsWith(ext))) continue;
+        try { if (statSync(resolve(archiveDir, f)).isFile()) files.push(`archive/${f}`); } catch { /* ignore */ }
+      }
+    } catch { /* archive unreadable → skip; top-level files still signed */ }
+  }
+  return files.sort();
 }
 
 function loadOrGenerateKeyPair(outDir: string): { privateKey: KeyObject; publicKey: KeyObject; ephemeral: boolean } {

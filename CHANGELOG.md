@@ -6,6 +6,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-E.E2: Monthly POA&M Delta Workflow
+
+Closed the monthly POA&M re-emission loop. The FedRAMP Rev5 ConMon cadence is a
+**full re-upload** each month with a bumped `metadata.last-modified` and an
+appended `metadata.revisions[]` entry; until now `core/oscal-poam.ts` accepted a
+`revisionsHistory` option but nothing computed the prior history, so each
+monthly POA&M shipped as a "fresh" document with no version chain — a
+regulator-facing chain-of-custody break. With `--conmon-monthly --oscal-poam`,
+the POA&M pass now routes through the new `runPoamMonthly()` workflow: it loads
+the prior month's document from a durable ledger + archive, threads its
+`metadata.revisions[]` forward (the prior month becomes a revision entry,
+`priorAsRevision.version = prior.metadata.version`), re-emits the full OSCAL
+POA&M, computes a month-over-month delta keyed on the A.A1 deterministic
+poam-item UUIDs, renders an operator-review Markdown delta
+(`out/poam-delta-<YYYY-MM>.md`, six sections — header/provenance, summary counts,
+added, closed, status changes, past-deadline — plus a severity-changes section),
+archives the document to `out/archive/poam-<YYYY-MM>.json`, and appends
+`out/poam-ledger.jsonl`.
+
+New modules: `core/poam-ledger.ts` (append-only JSONL ledger + monthly archive
+loader; `appendPoamLedger` is idempotent by `(run_id, report_month)`;
+`loadPriorMonthPoam` verifies the archived file's sha256 against the ledger and
+that it parses, raising typed `PoamLedgerCorruptError` / `PoamArchiveTamperedError`
+/ `PriorPoamCorruptError` — never a silent "first month" fallback) and
+`core/poam-monthly.ts` (`runPoamMonthly` + the pure `computePoamDelta` /
+`renderPoamDeltaMarkdown`; `past_deadline_items` are evaluated against the current
+document's `metadata.last-modified`, deterministically; the first month of
+operation renders the real true statement *"First month of ConMon operation; no
+prior POA&M to compare against."*, not a marker). Extended `core/oscal-poam.ts`
+(exported `OscalPoam` / `OscalPoamItem` / `OscalRisk` / `OscalPoamDocument`; added
+`RevisionEntry`, `extractRevisionEntries(doc)` which rejects non-`Z` timestamps via
+`RevisionTimezoneError`, and NO schema change), `core/orchestrator.ts` (route the
+POA&M pass through `runPoamMonthly()` in monthly mode; the underlying
+`PoamEmitResult` drives the existing validation/logging; added `poam_monthly.delta`
+/ `poam_monthly.skip` run-ledger records), `core/submission-bundle.ts` (three new
+`WELL_KNOWN` roles: `poam-delta-md`, `poam-ledger`, `poam-archive`), and
+`core/sign.ts` (`listSignedFiles()` now also walks `out/archive/` so archived
+POA&Ms join the signed run manifest — chain-of-custody for the version chain;
+resolves LOOP-E risk CC-12's open item for `archive/`).
+
+Verification: `npm run typecheck` clean; **1073/1073 tests passing (was 1050,
++23: 8 `poam-ledger` + 15 `poam-monthly`)**; `npm run check:reo` green (G1
+lint:no-stubs 0 violations across 145 files; G3 check:provenance satisfied; G2
+check-coverage-regression SKIP — no local `out/` report, the documented expected
+state). No new CLI flags or env vars (reuses `--conmon-monthly` / `--oscal-poam` /
+`--month`). New output files documented in OPERATOR-GUIDE §7. Open questions
+Q1–Q5 resolved in `docs/slices/E/E.E2.md`; new risk E.E2-R6 (`out/archive/`
+signing-scope coupling, low) recorded in `docs/loops/LOOP-E-RISKS.md`.
+
+Statutory / regulatory drivers (verbatim): OSCAL v1.1.2 POA&M JSON reference —
+*"metadata [1]: title [1], last-modified [1], version [1], oscal-version [1];
+revisions [0 or 1]: an array of revision entries, each with version [1] and
+last-modified [1]."* FedRAMP Rev5 Playbook — Continuous Monitoring Overview:
+*"Each month, the CSP uploads an up-to-date POA&M and inventory, along with raw
+vulnerability scan files (when required by agreements with agency customers) and
+reports to the secure repository."* FedRAMP Rev5 Playbook — POA&M: *"FedRAMP
+requires Critical and High risks to be remediated within 30 days of discovery,
+Moderate risks within 90 days of discovery, and Low risks within 180 days of
+discovery."* NIST SP 800-53 Rev5 CA-5: *"Develop a plan of action and milestones
+for the system … and Update existing plan of action and milestones [Assignment:
+organization-defined frequency] based on the findings from control assessments,
+independent audits or reviews, and continuous monitoring activities."* OSCAL POA&M
+concept layer: *"The plan of action and milestones, often known as POA&M, … shows
+progress over time as findings are remediated."*
+
+REO compliance: the delta is derived entirely from two real OSCAL POA&M documents
+(the archived prior + the freshly-emitted current) — no shadow diff database;
+poam-item UUIDs are the deterministic, traceable diff key. The archive is part of
+the signed run manifest. Zero-failing-findings propagates the structured emitter
+skip without writing an archive, delta, or ledger line (no fabricated "empty"
+month). A corrupt/tampered prior archive raises a typed error rather than being
+treated as the first month.
+
 ### Added — LOOP-E.E1: Monthly ConMon Analysis Report
 
 Shipped the monthly Continuous Monitoring analysis report — the human-readable

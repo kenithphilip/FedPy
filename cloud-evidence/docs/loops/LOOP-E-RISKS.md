@@ -86,7 +86,7 @@ Severity scale: **high** (could block the slice or invalidate emitted artifacts)
 - **Severity**: high
 - **Description**: LOOP-E creates new output paths: `outDir/archive/`, `outDir/deviation-requests/`, `outDir/scn-notice-*.docx`, `outDir/iscp-test-*.docx`, etc. If `core/sign.ts`'s manifest glob is hardcoded `out/*.{json,md,xml}`, new files won't be signed.
 - **Mitigation**: First slice (E.E1) audits `core/sign.ts` and extends the glob if needed. Subsequent slices verify in their tests.
-- **Status**: partially resolved [2026-06-11, E.E1] — `SIGNED_EXTENSIONS` extended from `{.json,.xml,.pem}` to also cover `{.md,.pdf}`, so the monthly report's `.md`/`.pdf` (and, as a bonus, the pre-existing top-level `scn-notice-draft.md`) are now in the run manifest. **Still open**: `listSignedFiles()` is top-level-only, so subdirectory outputs introduced by later slices (`out/archive/`, `out/deviation-requests/`, etc.) are NOT yet covered — E.E2/E.E5 must extend the walk to recurse (or sign per-subdir) and verify in their tests.
+- **Status**: partially resolved [2026-06-11, E.E1] — `SIGNED_EXTENSIONS` extended from `{.json,.xml,.pem}` to also cover `{.md,.pdf}`, so the monthly report's `.md`/`.pdf` (and, as a bonus, the pre-existing top-level `scn-notice-draft.md`) are now in the run manifest. **Update [2026-06-11, E.E2]** — `listSignedFiles()` now also walks the `out/archive/` subdirectory, so `archive/poam-<YYYY-MM>.json` is covered by the run manifest (chain-of-custody for the POA&M version chain). **Still open**: other subdirectory outputs introduced by later slices (`out/deviation-requests/`, `out/iscp-test-*`, etc.) remain top-level-uncovered — E.E5/E.E6/E.E7 must extend the walk for their own subdirs and verify in their tests.
 
 ### CC-13: Calendar-year vs fiscal-year ambiguity
 - **Severity**: medium
@@ -120,10 +120,11 @@ Severity scale: **high** (could block the slice or invalidate emitted artifacts)
 
 ### E.E2 — Monthly POA&M Delta Workflow
 - **E.E2-R1: Deterministic UUID drift if `core/oscal-poam.ts` changes the UUID derivation (high)** — A change to the `deterministicUuid()` salt would re-key every prior month's items, breaking the diff. Mitigation: add a regression test that locks the UUID derivation algorithm.
-- **E.E2-R2: Archive directory not in signed scope (high)** — Covered by CC-12.
-- **E.E2-R3: Concurrent monthly runs (medium)** — Two operators running `--conmon-monthly --month 2026-07` simultaneously. Mitigation: file lock around archive directory.
-- **E.E2-R4: Corrupt prior POA&M (medium)** — Typed `PriorPoamCorruptError`; never silent fallback.
-- **E.E2-R5: First-month case (low)** — Real true statement, not a marker.
+- **E.E2-R2: Archive directory not in signed scope (high)** — Covered by CC-12. [resolved 2026-06-11, E.E2: `listSignedFiles()` extended to walk `out/archive/`; `archive/poam-<YYYY-MM>.json` is now in the signed run manifest.]
+- **E.E2-R3: Concurrent monthly runs (medium)** — Two operators running `--conmon-monthly --month 2026-07` simultaneously. Mitigation: the orchestrator already holds the directory-level run lock (`core/run-lock.ts`) for the whole run; `appendPoamLedger` is additionally idempotent by `(run_id, report_month)`, so a same-month re-run overwrites the archive without growing the ledger.
+- **E.E2-R4: Corrupt prior POA&M (medium)** — Typed `PriorPoamCorruptError` / `PoamArchiveTamperedError`; never silent fallback. [resolved 2026-06-11, E.E2: `loadPriorMonthPoam` verifies on-disk sha256 vs the ledger and that the doc parses; tests `poam-ledger.test.ts` #6 locks the tamper path.]
+- **E.E2-R5: First-month case (low)** — Real true statement ("First month of ConMon operation; no prior POA&M to compare against."), not a marker. [resolved 2026-06-11, E.E2: test `poam-monthly.test.ts` "first-month case emits the 'no prior POA&M' delta cleanly" locks it.]
+- **E.E2-R6: `out/archive/` signing-scope coupling (low)** — Because `listSignedFiles()` now sweeps the entire `out/archive/` subdirectory into the signed run manifest, any future writer to `out/archive/` (e.g. LOOP-H.H1 immutable evidence archive) inherits manifest coverage automatically. This is generally desirable (more integrity protection), but it is an implicit cross-slice coupling: a slice that writes large or transient files under `out/archive/` will bloat the manifest and the `verifyRun` rehash. Mitigation: keep `out/archive/` reserved for immutable, manifest-worthy snapshots; route scratch output elsewhere. Revisit when LOOP-H.H1 lands.
 
 ### E.E3 — Annual Assessment Package Generator
 - **E.E3-R1: 12-month aggregation requires all 12 monthly bundles (high)** — If even one month is missing, the rollup is incomplete. Mitigation: `--strict-annual` mode throws; non-strict warns + continues with a `provenance.warnings: ["months-missing:[2026-03,2026-09]"]` entry.

@@ -62,7 +62,8 @@ import { signRun, verifyRun } from './sign.ts';
 import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
-import { emitOscalPoam } from './oscal-poam.ts';
+import { emitOscalPoam, type PoamEmitResult } from './oscal-poam.ts';
+import { runPoamMonthly, type PoamMonthlyResult } from './poam-monthly.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
@@ -2188,7 +2189,7 @@ export async function main(): Promise<void> {
           ? resolve(PROJECT_ROOT, 'docs/cisa-kev.generated.json')
           : undefined);
       const kevCatPoam = await loadKevCatalog({ path: kevPathPoam });
-      const r = emitOscalPoam({
+      const poamEmitArgs = {
         outDir: args.outDir,
         runId,
         frmrVersion: config.frmr_version,
@@ -2201,7 +2202,21 @@ export async function main(): Promise<void> {
         signedManifestHref: args.noSign ? undefined : 'manifest.json',
         // LOOP-B.B2: KEV index for the priority-cascading deadline engine.
         kevIndex: kevCatPoam.count > 0 ? kevCatPoam.byCve : undefined,
-      });
+      };
+      // LOOP-E.E2: in monthly ConMon mode, route through runPoamMonthly() — it
+      // threads the prior month's metadata.revisions[] forward, re-emits the
+      // POA&M, computes the month-over-month delta (poam-delta-<YYYY-MM>.md),
+      // archives the document, and appends the poam-ledger. The underlying
+      // PoamEmitResult drives the same downstream validation/logging below.
+      let monthly: PoamMonthlyResult | null = null;
+      let r: PoamEmitResult;
+      if (args.conmonMonthly) {
+        const month = args.conmonMonth ?? new Date().toISOString().slice(0, 7);
+        monthly = runPoamMonthly({ ...poamEmitArgs, reportMonth: month });
+        r = monthly.emit;
+      } else {
+        r = emitOscalPoam(poamEmitArgs);
+      }
       // LOOP-B.B2: --strict-risk fails the run if any deadline used the
       // observable severity-fallback (a sign the FedRAMP CMP table didn't load).
       if (r.path !== null && args.strictRisk && (r.deadline_fallback_count ?? 0) > 0) {
@@ -2235,6 +2250,29 @@ export async function main(): Promise<void> {
           log.warn({ event: 'oscal_poam.invalid', error_count: v.errors.length });
           if (args.strictSchema && v.schema_found) process.exitCode = 2;
         }
+      }
+      // LOOP-E.E2: report the monthly delta + version-chain threading.
+      if (monthly && monthly.delta) {
+        const d = monthly.delta;
+        console.log(
+          `POA&M monthly delta (${monthly.delta.report_month}` +
+            `${monthly.priorMonth ? ` vs ${monthly.priorMonth}` : ', first month'}): ` +
+            `${d.added.length} added, ${d.closed.length} closed, ${d.status_changed.length} status, ` +
+            `${d.past_deadline_items.length} past deadline → ${monthly.deltaPath}`,
+        );
+        ledger.record('poam_monthly.delta', {
+          status: 'info',
+          report_month: d.report_month,
+          prior_month: monthly.priorMonth ?? 'none',
+          added: d.added.length,
+          closed: d.closed.length,
+          status_changed: d.status_changed.length,
+          severity_changed: d.severity_changed.length,
+          past_deadline: d.past_deadline_items.length,
+        });
+      } else if (monthly && monthly.poamPath === null) {
+        console.log(`POA&M monthly: skipped — ${monthly.skipped_reason} (clean state; no ledger entry written).`);
+        ledger.record('poam_monthly.skip', { status: 'info', reason: monthly.skipped_reason ?? 'unknown' });
       }
     } catch (e: any) {
       console.error(`OSCAL POA&M emission failed: ${e.message}`);

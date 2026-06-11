@@ -224,7 +224,7 @@ are set.
 | `--csv-export` | `out/findings.csv` | Spreadsheet-friendly findings export. |
 | `--diff-report` | `out/diff-report.json` | Diff vs the previous baseline run. |
 | `--all-reports` | (above three) | Convenience flag — all three. |
-| `--conmon-monthly` | `out/conmon-monthly-<YYYY-MM>.{json,md,pdf}` | LOOP-E.E1. Emit the monthly ConMon analysis report — KSI posture, vulnerability-scan coverage (with internet-reachable 100%-scanned compliance), POA&M activity (opened/closed/status-changes from `diff-report.json`), past-deadline items, KEV exposure, deviation-request + SCN-event rollups, and annual-cycle progress — aggregated from the run's own artifacts (`poam.json`, `KSI-*.json`, `inventory.json`, `diff-report.json`, `scn-classification.json`) + CISA KEV + the pinned ConMon Playbook. JSON is detached-Ed25519-signed; MD + PDF are renders. Runs AFTER POA&M/VDR/inventory but BEFORE signing (the report is covered by the run manifest). |
+| `--conmon-monthly` | `out/conmon-monthly-<YYYY-MM>.{json,md,pdf}` | LOOP-E.E1. Emit the monthly ConMon analysis report — KSI posture, vulnerability-scan coverage (with internet-reachable 100%-scanned compliance), POA&M activity (opened/closed/status-changes from `diff-report.json`), past-deadline items, KEV exposure, deviation-request + SCN-event rollups, and annual-cycle progress — aggregated from the run's own artifacts (`poam.json`, `KSI-*.json`, `inventory.json`, `diff-report.json`, `scn-classification.json`) + CISA KEV + the pinned ConMon Playbook. JSON is detached-Ed25519-signed; MD + PDF are renders. Runs AFTER POA&M/VDR/inventory but BEFORE signing (the report is covered by the run manifest). **LOOP-E.E2:** when combined with `--oscal-poam`, the POA&M pass routes through the monthly workflow — it threads the prior month's `metadata.revisions[]` forward, re-emits the POA&M, writes a month-over-month delta (`out/poam-delta-<YYYY-MM>.md`), archives the document to `out/archive/poam-<YYYY-MM>.json`, and appends `out/poam-ledger.jsonl`. |
 | `--month <YYYY-MM>` | (input) | Report month for `--conmon-monthly` (default: current UTC month). Rejected when not strict `YYYY-MM`. |
 | `--fedramp-package-id <id>` | (input) | FedRAMP-assigned package id for the report header (emits `REQUIRES-OPERATOR-INPUT` when absent). |
 | `--csp-name <name>` | (input) | CSP legal corporate name for the report header. |
@@ -600,6 +600,9 @@ Files emitted depend on the flags you pass.
 | `anomaly-report.json` | No | `--anomaly` | JSON | — |
 | `scn-classification.json` + `scn-notice-draft.md` | No | `--scn` | JSON + markdown | yes |
 | `conmon-monthly-<YYYY-MM>.json` + `.md` + `.pdf` | No | `--conmon-monthly` (LOOP-E.E1) | JSON + detached Ed25519 / Markdown / PDF 1.4 | yes (JSON: detached sig + run manifest; MD + PDF: run manifest — `.md`/`.pdf` are now in the signed set) |
+| `poam-delta-<YYYY-MM>.md` | No | `--conmon-monthly` + `--oscal-poam` (LOOP-E.E2) | Markdown | yes (run manifest — `.md` is in the signed set) |
+| `poam-ledger.jsonl` | No | `--conmon-monthly` + `--oscal-poam` (LOOP-E.E2) | JSONL append-only | — (append-only audit index; like `run-ledger.jsonl`) |
+| `archive/poam-<YYYY-MM>.json` | No | `--conmon-monthly` + `--oscal-poam` (LOOP-E.E2) | OSCAL 1.1.2 | yes (run manifest — `archive/` is in the signed set) |
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
 | `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 | `subprocessor-inventory.json` + `subprocessor-inventory.xlsx` | No | `--subprocessors-config` (or `config.yaml` `subprocessors`) | JSON + detached Ed25519 / XLSX | yes (detached sig + run manifest) |
