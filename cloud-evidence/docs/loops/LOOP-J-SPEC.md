@@ -1101,7 +1101,7 @@ LOOP-J is complete when ALL of:
 |---|---|---|---|
 | J.J1 — Privileges matrix (AC-2/AC-6) | pending | — | — |
 | J.J2 — Subprocessor inventory expansion (SA-9) | done | `3e3d6c5` | 2026-06-11 |
-| J.J3 — Supply chain risk register (SR-3) + SBOM integration | done | `TBD-J3` | 2026-06-11 |
+| J.J3 — Supply chain risk register (SR-3) + SBOM integration | done | `a635da4` | 2026-06-11 |
 
 ---
 

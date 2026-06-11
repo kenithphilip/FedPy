@@ -3,7 +3,7 @@ slice_id: J.J3
 title: Supply chain risk register (SR-3) + SBOM integration
 loop: J
 status: done
-commit: TBD-J3
+commit: a635da4
 completed_date: 2026-06-11
 depends_on: [A.A1, A.A4, J.J2, SSP-1, INV-P4, E.2-SBOM-depth]
 blocks: [B.B5, C.C7, I.I1]
@@ -25,7 +25,7 @@ also flow back as POA&M `risk-source = supply-chain` items.
 
 ## Status
 - Status: done
-- Commit: `TBD-J3` (filled by the two-pass close-out)
+- Commit: `a635da4` (filled by the two-pass close-out)
 - Date: 2026-06-11
 - Verification: typecheck=0 errors, tests=1004 passing (+20), check:reo=green (G1 ✓ / G2 skip-no-out / G3 ✓)
 
