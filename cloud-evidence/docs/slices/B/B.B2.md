@@ -3,7 +3,7 @@ slice_id: B.B2
 title: Remediation deadline math (KEV / PAIN / IRV / LEV / FedRAMP CMP)
 loop: B
 status: done
-commit: TBD-B2
+commit: f25255d
 completed_date: 2026-06-11
 depends_on: [LOOP-A.A1, B.B1]
 blocks: [B.B3, E.E1, E.E2, I.I2]
@@ -18,7 +18,7 @@ Replace the LOOP-A.A1 `REMEDIATION_DEADLINE_DAYS` hardcoded severity table with 
 
 ## Status
 - Status: done
-- Commit: `TBD-B2` (filled by the two-pass close-out)
+- Commit: `f25255d` (filled by the two-pass close-out)
 - Date: 2026-06-11
 - Verification: typecheck=0 errors, tests=1025 passing (+21), check:reo=green (G1 ✓ / G2 skip-no-out / G3 ✓)
 
