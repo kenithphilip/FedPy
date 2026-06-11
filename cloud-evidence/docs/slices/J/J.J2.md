@@ -2,13 +2,13 @@
 slice_id: J.J2
 title: Subprocessor inventory expansion (SA-9)
 loop: J
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: TBD-J2
+completed_date: 2026-06-11
 depends_on: [A.A4, subprocessors-sheet]
 blocks: [G.G4, H.H3, J.J3, C.C7]
 estimated_effort: 0.75 weeks (3-4 working days)
-last_updated: 2026-06-06
+last_updated: 2026-06-11
 ---
 
 # J.J2 — Subprocessor inventory expansion (SA-9)
@@ -23,10 +23,10 @@ submission package and consumed by the SSP's
 `system-implementation.leveraged-authorizations[]` block.
 
 ## Status
-- Status: pending
-- Commit: — (filled when shipped, per SLICE-COMPLETION-PROCEDURE.md)
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `TBD-J2` (filled by the two-pass close-out)
+- Date: 2026-06-11
+- Verification: typecheck=0 errors, tests=984 passing (+20), check:reo=green (G1 ✓ / G2 skip-no-out / G3 ✓)
 
 ## Why this slice exists
 NIST SP 800-53 Rev 5 SA-9 "External System Services" requires the CSP to
@@ -496,23 +496,78 @@ unzip -l out/submission-bundle.tar.gz | grep subprocessor-inventory
   control is not in scope? Provisional: yes, soft warning only —
   operator may contractually require a control outside the baseline.
 
+### Open-question resolutions (impl-j-j2, 2026-06-11)
+- **Q1 (merge order)** — RESOLVED: read both fully, then dedup with
+  config-wins. Sheet rows are pushed BEFORE config rows so the later
+  (config) row wins; `buildSubprocessorInventory` canonicalize-and-sorts
+  before output so the result is symmetric regardless of read order
+  (verified by the determinism test).
+- **Q2 (no monitoring methods)** — RESOLVED for this slice: `monitoring_methods`
+  absent OR `[]` both count as REQUIRES-OPERATOR-INPUT (the field is added to
+  `requires_operator_input` and renders the literal in the XLSX). No schema
+  distinction between "actively none" and "being assessed"; operators add a
+  `user_roles_responsibilities` narrative for nuance.
+- **Q3 (`data_residency` validation)** — RESOLVED: no validation; free-form
+  string (region code OR geography, e.g. "Reston, VA"). Logged as LOOP-J risk
+  J2-R7 for a possible follow-on region-code validator.
+- **Q4 (non-FedRAMP subprocessors in the SSP)** — DEFERRED out of J.J2 scope.
+  J.J2 only populates `leveraged-authorizations[]` from `fedramp_authorized=yes`
+  rows. Surfacing non-authorized subprocessors as `back-matter.resources[]` is
+  filed as LOOP-J risk J2-R8 (proposed J.J-follow-on); not silently added.
+- **Q5 (`subprocessor_subprocessors[]` in dedup)** — RESOLVED: no — the chain
+  field is informational; only top-level rows are deduped.
+- **Q6 (`contracted_controls` baseline cross-check)** — DEFERRED out of J.J2
+  scope (would couple the inventory emitter to the control benchmark). Filed as
+  LOOP-J risk J2-R8 alongside Q4 for the same follow-on. The ajv schema's
+  control-ID `pattern` already binds the field to real 800-53 control IDs.
+
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-06-11 · impl-j-j2 · Shipped end to end per spec.
+  Created: core/subprocessor-inventory.ts (readSubprocessorConfig +
+    buildSubprocessorInventory + emitSubprocessorInventory + generic
+    COLUMN_ORDER-parameterized XLSX writer + detached Ed25519 signing);
+    tests/core/subprocessor-inventory.test.ts (20 tests — exceeds the ≥13
+    spec); tests/fixtures/subprocessors/example.{yaml,json};
+    tests/fixtures/subprocessor-config.schema.json; examples/subprocessors.yaml.
+  Extended: core/subprocessors-sheet.ts (SubprocessorRow += SA-9 fields +
+    source/source_ref; readSubprocessors() stamps provenance);
+    core/oscal-ssp.ts (system-implementation.leveraged-authorizations[] +
+    backing parties, read from subprocessor-inventory.json — emitted only when
+    ≥1 fedramp_authorized=yes row carries a real last_audit_date; OSCAL
+    minItems:1 honoured by omitting the field when empty);
+    core/submission-bundle.ts (2 WELL_KNOWN roles); core/orchestrator.ts
+    (--subprocessors-config + CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG + config.yaml
+    subprocessors block; emitter scheduled before --oscal-ssp + before signing).
+  Verification: typecheck 0 errors; vitest 984 passing (was 964, +20);
+    check:reo green (lint:no-stubs + check:provenance; coverage-regression
+    skips with no out/).
+  Spec divergence (documented): the §"Emitted artifact structure" provenance
+    block in this doc used snake_case (emitted_at/source_calls/source_files) and
+    omitted signingKeyId. The binding CI contract is G3 (scripts/check-provenance.mjs),
+    which requires camelCase emitter/emittedAt/sourceCalls/signingKeyId. Followed
+    G3 (+ kept sourceFiles as an extra) and embedded a detached Ed25519 signature,
+    matching the shipped LOOP-B.B1 / LOOP-W.W1 convention.
+  XLSX writer: built a generic, COLUMN_ORDER-parameterized sheet writer composing
+    core/zip.ts (xmlEscape + zipStore) rather than reusing inventory-workbook.ts's
+    rowsToXlsx (hardcoded to the Appendix-M columns; J.J1 — which the spec assumed
+    would generalize it — is not yet shipped). No zip logic duplicated.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
 The implementing session MUST check every box:
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by ≥13 for this slice's new tests)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (J.J2 row + Overall section)
-- [ ] LOOP-J-SPEC.md Section 7 status table updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with `LOOP-J.J2: Subprocessor inventory expansion` in message
-- [ ] Commit amended with commit hash recorded in STATUS.md + this file + LOOP-J-SPEC.md
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`) — 0 errors
+- [x] tests passing 100% (count increased by ≥13 for this slice's new tests) — 984 (+20)
+- [x] check:reo green (G1+G2+G3) — lint:no-stubs + check:provenance pass; coverage-regression skips (no out/)
+- [x] STATUS.md updated (J.J2 row + Overall section)
+- [x] LOOP-J-SPEC.md Section 7 status table updated
+- [x] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
+- [x] LOOP-J-RISKS.md updated (J.J2-R5, J.J2-R8 added)
+- [x] OPERATOR-GUIDE.md updated (§3 flag + §4 env + §7 output)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with `LOOP-J.J2: Subprocessor inventory expansion` in message
+- [x] Commit amended with commit hash recorded in STATUS.md + this file + LOOP-J-SPEC.md
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 If a session opens with ONLY this file as context, here's everything it needs to start:

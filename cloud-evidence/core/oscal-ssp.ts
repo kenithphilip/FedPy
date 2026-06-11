@@ -105,6 +105,34 @@ interface OscalSystemUser {
   description?: string;
 }
 
+/**
+ * OSCAL `leveraged-authorization` — another authorized system from which this
+ * system inherits capabilities (a common-control provider). Required fields per
+ * the NIST OSCAL 1.1.2 SSP schema: uuid, title, party-uuid, date-authorized.
+ */
+interface OscalLeveragedAuthorization {
+  uuid: string;
+  title: string;
+  'party-uuid': string;
+  'date-authorized': string;
+  props?: OscalProp[];
+  links?: Array<{ href: string; rel?: string; text?: string }>;
+  remarks?: string;
+}
+
+/**
+ * Minimal subprocessor row the SSP needs to derive leveraged-authorizations
+ * (from subprocessor-inventory.json, LOOP-J.J2). Only FedRAMP-authorized rows
+ * with a real ISO date become leveraged-authorizations — a date is never
+ * fabricated (REO).
+ */
+export interface LeveragedSubprocessorRow {
+  name: string;
+  fedramp_authorized?: 'yes' | 'no' | 'equivalency-attest';
+  last_audit_date?: string;
+  risk_tier?: string;
+}
+
 interface OscalInformationType {
   uuid: string;
   title: string;
@@ -144,6 +172,7 @@ interface OscalSsp {
     props?: OscalProp[];
   };
   'system-implementation': {
+    'leveraged-authorizations'?: OscalLeveragedAuthorization[];
     users: OscalSystemUser[];
     components: OscalComponent[];
     remarks?: string;
@@ -180,6 +209,14 @@ export interface SspSystemOptions {
    * making the gap visible rather than substituting fake user data.
    */
   userRoles?: Array<{ uuid?: string; title: string; roleIds: string[]; description: string }>;
+  /**
+   * Subprocessor rows (from subprocessor-inventory.json, LOOP-J.J2). Rows with
+   * `fedramp_authorized === 'yes'` AND a real `last_audit_date` (YYYY-MM-DD)
+   * become OSCAL `system-implementation.leveraged-authorizations[]` entries,
+   * each with a backing organization party. Rows without a real date are
+   * omitted rather than emitted with a fabricated date-authorized.
+   */
+  leveragedSubprocessors?: LeveragedSubprocessorRow[];
 }
 
 export interface SspBuildContext {
@@ -308,6 +345,37 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
     };
   });
 
+  // ── LOOP-J.J2: subprocessor-derived leveraged authorizations ──
+  // Only FedRAMP-authorized subprocessors with a REAL authorization date become
+  // OSCAL leveraged-authorizations; we never fabricate a date-authorized. Each
+  // gets a backing organization party so the OSCAL party-uuid reference resolves.
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const subprocessorParties: Array<{ uuid: string; type: 'organization'; name: string }> = [];
+  const leveragedAuths: OscalLeveragedAuthorization[] = [];
+  for (const s of opts.leveragedSubprocessors ?? []) {
+    if (s.fedramp_authorized !== 'yes') continue;
+    const dateAuthorized = (s.last_audit_date ?? '').trim();
+    if (!ISO_DATE_RE.test(dateAuthorized)) continue;
+    const partyUuid = deterministicUuid(`ssp:party:subprocessor:${systemId}:${s.name}`);
+    subprocessorParties.push({ uuid: partyUuid, type: 'organization', name: s.name });
+    const props: OscalProp[] = [];
+    if (s.risk_tier) props.push({ name: 'risk-tier', ns: FEDRAMP_NS, value: s.risk_tier });
+    props.push({ name: 'fedramp-authorization-status', ns: FEDRAMP_NS, value: s.fedramp_authorized });
+    leveragedAuths.push({
+      uuid: deterministicUuid(`ssp:leveraged-auth:${systemId}:${s.name}`),
+      title: s.name,
+      'party-uuid': partyUuid,
+      'date-authorized': dateAuthorized,
+      props,
+    });
+  }
+  const parties = [
+    ...(opts.organizationName
+      ? [{ uuid: deterministicUuid(`org:${opts.organizationName}`), type: 'organization' as const, name: opts.organizationName }]
+      : []),
+    ...subprocessorParties,
+  ];
+
   const ssp: OscalSsp = {
     uuid: deterministicUuid(`ssp:${systemId}:${level}`),
     metadata: {
@@ -320,9 +388,7 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
         { id: 'admin', title: 'System Administrator' },
         { id: 'assessor', title: 'Assessor' },
       ],
-      parties: opts.organizationName
-        ? [{ uuid: deterministicUuid(`org:${opts.organizationName}`), type: 'organization', name: opts.organizationName }]
-        : undefined,
+      parties: parties.length > 0 ? parties : undefined,
       props: [
         { name: 'tool', ns: CE_NS, value: TOOL_NAME },
         { name: 'frmr-version', ns: CE_NS, value: opts.frmrVersion },
@@ -375,6 +441,8 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
       },
     },
     'system-implementation': {
+      // Only present when ≥1 qualifying subprocessor exists (OSCAL minItems: 1).
+      ...(leveragedAuths.length > 0 ? { 'leveraged-authorizations': leveragedAuths } : {}),
       users: (opts.userRoles && opts.userRoles.length > 0)
         ? opts.userRoles.map((u) => ({
             uuid: u.uuid ?? deterministicUuid(`ssp:user:${systemId}:${u.title}`),
@@ -413,12 +481,35 @@ export function buildOscalSsp(benchmark: ControlBenchmark, opts: SspEmitOptions)
   };
 }
 
+/**
+ * Read the LOOP-J.J2 subprocessor inventory from `outDir`, returning the rows
+ * the SSP needs to build leveraged-authorizations. Returns [] when the file is
+ * absent or unreadable — the SSP simply omits leveraged-authorizations then.
+ */
+function readLeveragedSubprocessors(outDir: string): LeveragedSubprocessorRow[] {
+  try {
+    const doc = JSON.parse(readFileSync(resolve(outDir, 'subprocessor-inventory.json'), 'utf8'));
+    if (!doc || !Array.isArray(doc.rows)) return [];
+    return doc.rows.map((r: any) => ({
+      name: String(r.name),
+      fedramp_authorized: r.fedramp_authorized,
+      last_audit_date: r.last_audit_date,
+      risk_tier: r.risk_tier,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /** Read evidence from `outDir`, build the SSP, and write it to disk. */
 export function emitOscalSsp(opts: SspEmitOptions): SspEmitResult {
   // An SSP documents the WHOLE baseline, so we always benchmark against the full
   // FedRAMP Rev5 baseline for the level (independent of the run's --framework).
   const benchmark = buildControlBenchmark(opts.outDir, { framework: 'rev5', level: opts.impactLevel });
-  const { doc, result } = buildOscalSsp(benchmark, opts);
+  // LOOP-J.J2: fold subprocessor-inventory.json (if present) into the SSP's
+  // leveraged-authorizations. Explicit opts.leveragedSubprocessors win.
+  const leveragedSubprocessors = opts.leveragedSubprocessors ?? readLeveragedSubprocessors(opts.outDir);
+  const { doc, result } = buildOscalSsp(benchmark, { ...opts, leveragedSubprocessors });
   const outPath = opts.outPath ?? resolve(opts.outDir, 'ssp.json');
   writeFileSync(outPath, JSON.stringify(doc, null, 2));
 

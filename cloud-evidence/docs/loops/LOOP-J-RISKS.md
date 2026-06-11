@@ -291,7 +291,39 @@ authorization-relevant + implementation-relevant risks across all three.
   interface (using `typescript-json-schema` or similar) at test time
   and compares to the committed fixture. OR: commit the schema as
   the source of truth and generate the TS type from it.
-- Status: open
+- Status: open (J.J2 ships an ajv positive + negative test over the
+  committed fixture; the derive-from-TS meta-test remains a follow-on)
+
+**J2-R7 — `data_residency` free-form (no region-code validation)** [discovered impl-j-j2, 2026-06-11]
+- Description: Resolution of open question Q3 — `data_residency` is a
+  free-form string (region code OR geography). A typo (`us-east-2` vs
+  `us-east-1`, or a misspelled city) passes silently, so the SA-9(5)
+  processing/storage-location field can be wrong without any signal.
+- Severity: low
+- Mitigation: Out of J.J2 scope by design (a geography can't be enumerated).
+  A follow-on slice could add a soft warning when the value looks like a
+  cloud region code but matches no known AWS/GCP/Azure region. Until then,
+  the operator is responsible for accuracy; the value flows verbatim to the
+  inventory + XLSX where a 3PAO can eyeball it.
+- Status: open (deferred follow-on)
+
+**J2-R8 — SSP coverage of non-FedRAMP subprocessors + control-baseline cross-check** [discovered impl-j-j2, 2026-06-11]
+- Description: Resolution of open questions Q4 + Q6, both deferred out of
+  J.J2 scope. (Q4) The SSP only emits `leveraged-authorizations[]` for
+  `fedramp_authorized=yes` rows; non-authorized subprocessors that still
+  process federal data are NOT surfaced in the SSP (they appear only in
+  `subprocessor-inventory.json`/`.xlsx`). (Q6) `contracted_controls[]` is
+  not cross-checked against the active Low/Moderate/High baseline, so a
+  contractually-referenced control outside the baseline is not flagged.
+- Severity: medium (Q4 — a PMO reviewer may expect every data-touching
+  subprocessor represented somewhere in the SSP back-matter)
+- Mitigation: Follow-on slice (J.J-follow-on or L-loop CRM work): add
+  non-authorized subprocessors as `back-matter.resources[]` with
+  `props.subservice-type='non-fedramp'`, and a soft warning when a
+  `contracted_controls` ID is not in the current baseline. J.J2 deliberately
+  scopes these out to avoid coupling the inventory emitter to the control
+  benchmark and to avoid SSP back-matter drift (see CC-8).
+- Status: open (deferred follow-on)
 
 ### J.J3 — Supply chain risk register (SR-3) + SBOM integration
 

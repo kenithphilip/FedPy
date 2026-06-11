@@ -234,6 +234,7 @@ are set.
 | `--oscal-poam` | `out/poam.json` | OSCAL 1.1.2 Plan of Action and Milestones. |
 | `--risk-score` | `out/risk-scores.json` (+ `.epss-cache.json`) | LOOP-B.B1. Compute a per-finding composite risk score (CVSS 3.1/4.0 + FIRST EPSS + inventory-derived criticality + exposure), rewrite each `KSI-*.json` envelope in place with a `risk_score` block, and surface the score as OSCAL props on every POA&M risk/poam-item. Runs BEFORE `--oscal-poam` and before signing. |
 | `--risk-config <path>` | (config input) | Path to `risk-config.yaml` (weights, EPSS settings, CVE→CVSS overrides, band thresholds). Defaults: auto-discover `./risk-config.yaml`, else built-in defaults. See `risk-config.example.yaml`. |
+| `--subprocessors-config <path>` | `out/subprocessor-inventory.json` + `out/subprocessor-inventory.xlsx` | LOOP-J.J2. Emit the signed SA-9 Subprocessor Inventory from an operator YAML/JSON config (and/or the `config.yaml` `subprocessors` Google-Sheet block; both merge, config wins on a name conflict). Adds SA-9 fields (risk_tier, monitoring_methods, contracted_controls, incident_notification_sla_hours, data_residency, subprocessor_subprocessors, oversight_party_uuid). Runs BEFORE `--oscal-ssp` (which reads it for `leveraged-authorizations[]`) and before signing. See `examples/subprocessors.yaml`. |
 | `--risk-no-epss` | (flag) | Disable the live FIRST EPSS feed for this run (offline / air-gapped). The EPSS term is dropped and every finding's `epss_source` prop reads `REQUIRES-OPERATOR-INPUT`. |
 | `--oscal-ap` | `out/ap.json` | OSCAL 1.1.2 Assessment Plan. |
 | `--ssp-docx` | `out/ssp.docx` | FedRAMP-style Word render of the SSP (implies `--oscal-ssp`). Dependency-free OOXML. |
@@ -369,6 +370,7 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_SCG_GUIDE_PATH` | (none) | Path to Secure Configuration Guide JSON. |
 | `CLOUD_EVIDENCE_SCG_OBSERVED_PATH` | (none) | Observed config map for SCG comparator. |
 | `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` | `0` | Emit the LOOP-W.W1 prohibited-vendor catalog (equivalent to `--prohibited-vendors-catalog`). |
+| `CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG` | (none) | Path to an operator subprocessor config (YAML/JSON) for the LOOP-J.J2 SA-9 Subprocessor Inventory (equivalent to `--subprocessors-config`). Can also be set via the `config.yaml` `subprocessors.config_path` / `subprocessors.spreadsheet_id` block. |
 | `SAM_GOV_API_KEY` | (none) | SAM.gov Entity Management API key; required only on the network fetch path (`scripts/extract-prohibited-vendors.mjs`). Obtain at https://sam.gov/data-services. |
 | `PROHIBITED_VENDORS_SIGNING_KEY_ID` | (none) | Optional expected Ed25519 key fingerprint for the prohibited-vendor catalog; validated against the actual signing key when set. |
 
@@ -576,6 +578,7 @@ Files emitted depend on the flags you pass.
 | `scn-classification.json` + `scn-notice-draft.md` | No | `--scn` | JSON + markdown | yes |
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
 | `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
+| `subprocessor-inventory.json` + `subprocessor-inventory.xlsx` | No | `--subprocessors-config` (or `config.yaml` `subprocessors`) | JSON + detached Ed25519 / XLSX | yes (detached sig + run manifest) |
 
 ### 7.1 Committed reference catalogs (built offline, not per-run)
 

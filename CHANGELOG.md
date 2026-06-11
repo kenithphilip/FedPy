@@ -6,6 +6,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-J.J2: Subprocessor inventory expansion (SA-9)
+
+Shipped the SA-9 Subprocessor Inventory slice of LOOP-J. The existing
+Google-Sheets-only subprocessor reader (`core/subprocessors-sheet.ts`) is
+extended with first-class operator YAML/JSON config and the FedRAMP SA-9 fields
+(`risk_tier`, `data_residency`, `last_audit_date`, `monitoring_methods`,
+`incident_notification_sla_hours`, `subprocessor_subprocessors`,
+`contracted_controls`, `oversight_party_uuid`, `user_roles_responsibilities`,
+plus `source`/`source_ref` provenance). A new emitter
+(`core/subprocessor-inventory.ts`) reads both surfaces (sheet rows first, config
+rows win on a canonical-name conflict — recorded as a warning), computes SA-9
+coverage (risk-tier gaps, expired SOC2, tier-1/2/3 counts, FedRAMP-auth count),
+and writes a signed, canonical `out/subprocessor-inventory.json` plus a
+FedRAMP-style `out/subprocessor-inventory.xlsx` (single sheet, parameterized
+`COLUMN_ORDER`). When neither source yields a row, a single explicit
+`REQUIRES-OPERATOR-INPUT` row names both surfaces rather than masking the gap;
+missing SA-9 fields render the `REQUIRES-OPERATOR-INPUT` literal in the XLSX.
+The OSCAL SSP emitter (`core/oscal-ssp.ts`) now reads the inventory and
+populates `system-implementation.leveraged-authorizations[]` (plus backing
+`metadata.parties[]`) for every `fedramp_authorized: yes` row carrying a real
+`last_audit_date` — never fabricating a `date-authorized`, and omitting the
+field entirely when empty to honour the OSCAL `minItems: 1` constraint. The two
+artifacts are registered in the submission-bundle `WELL_KNOWN` catalogue, and a
+`--subprocessors-config <path>` flag + `CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG`
+env var + `config.yaml` `subprocessors` block wire the emitter to run before the
+SSP and before signing (so both are covered by the run manifest).
+
+New files: `core/subprocessor-inventory.ts` (≈430 lines),
+`tests/core/subprocessor-inventory.test.ts` (20 tests),
+`tests/fixtures/subprocessors/example.{yaml,json}`,
+`tests/fixtures/subprocessor-config.schema.json`, `examples/subprocessors.yaml`.
+Modified: `core/subprocessors-sheet.ts` (+SA-9 fields + provenance stamping),
+`core/oscal-ssp.ts` (leveraged-authorizations integration),
+`core/submission-bundle.ts` (2 WELL_KNOWN roles), `core/orchestrator.ts` (flag +
+env + config block + emit step). Verification: `npm run typecheck` clean;
+`vitest` 984/984 passing (was 964, +20 — the SSP integration test confirms the
+output still validates against the committed NIST OSCAL 1.1.2 SSP schema);
+`npm run check:reo` returns 0 (lint:no-stubs + check:provenance; the
+coverage-regression check skips with no `out/` present). The emitted JSON carries
+a G3 provenance block (`emitter`/`emittedAt`/`sourceCalls`/`signingKeyId`) and a
+self-contained detached Ed25519 signature composed from the run signing key.
+
+Statutory / regulatory drivers (verbatim from `docs/slices/J/J.J2.md` §2):
+NIST SP 800-53 Rev 5 §SA-9.a ("Require that providers of external system
+services comply with organizational security and privacy requirements and
+employ the following controls: [Assignment: organization-defined controls]."),
+§SA-9.b ("Define and document organizational oversight and user roles and
+responsibilities with regard to external system services."), §SA-9.c ("Employ
+the following processes, methods, and techniques to monitor control compliance
+by external service providers on an ongoing basis: [Assignment: …]."),
+§SA-9(5) Processing/Storage/Service Location (drives `data_residency`); NIST SP
+800-161 Rev 1 §2.3.5 tiered supplier identification (drives `risk_tier`); the
+FedRAMP Rev 5 SSP Leveraged Authorizations / Subservice Organizations section;
+the OSCAL 1.1.2 `leveraged-authorization` model (required fields uuid / title /
+party-uuid / date-authorized); and NTIA SBOM Minimum Elements "Supplier Name".
+
 ### Added — LOOP-T.T1: NIST SP 800-218 v1.1 (SSDF) practice catalog + 800-53 + KSI crosswalk emitter
 
 Shipped the foundation slice of LOOP-T (NIST SSDF self-attestation via the CISA

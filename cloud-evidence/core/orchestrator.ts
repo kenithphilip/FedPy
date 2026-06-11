@@ -68,6 +68,7 @@ import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
+import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
 import { emitSspDocx } from './ssp-docx.ts';
 import { validateOscalFile } from './oscal-validate.ts';
 import { buildCrosswalkReport } from './crosswalk.ts';
@@ -220,6 +221,14 @@ interface Args {
   riskConfigPath: string | null;
   /** When true, disable the live EPSS feed for this run (overrides config). */
   riskNoEpss: boolean;
+  /**
+   * Path to an operator subprocessor config (YAML/JSON) for the SA-9
+   * Subprocessor Inventory (LOOP-J.J2). When set (or when the config.yaml
+   * `subprocessors` block is present), the orchestrator emits a signed
+   * subprocessor-inventory.json + .xlsx BEFORE the OSCAL SSP (which consumes it
+   * for leveraged-authorizations) and BEFORE signing.
+   */
+  subprocessorsConfig: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -278,6 +287,7 @@ function parseArgs(argv: string[]): Args {
     riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
     riskConfigPath: process.env.CLOUD_EVIDENCE_RISK_CONFIG ?? null,
     riskNoEpss: process.env.CLOUD_EVIDENCE_RISK_NO_EPSS === '1',
+    subprocessorsConfig: process.env.CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG ?? null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -399,6 +409,10 @@ function parseArgs(argv: string[]): Args {
       case '--risk-no-epss':
         // Disable the live EPSS feed for this run (offline / air-gapped).
         args.riskNoEpss = true;
+        break;
+      case '--subprocessors-config':
+        // LOOP-J.J2: operator subprocessor config (YAML/JSON) for the SA-9 inventory.
+        args.subprocessorsConfig = argv[++i] ?? null;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -820,6 +834,17 @@ interface Config {
   gcp: { enabled: boolean; organization_id: string | null; projects: string[]; prod_label?: { key: string; values: string[] } };
   azure?: { enabled: boolean; subscriptions: string[]; tenant_id?: string | null; prod_tag?: { key: string; values: string[] } };
   output_dir: string;
+  /**
+   * SA-9 Subprocessor Inventory source (LOOP-J.J2). Either-or, not exclusive:
+   * a Google-Sheet (`spreadsheet_id` + `sheet_range` + `columns`) and/or a local
+   * YAML/JSON `config_path`. Both can run and merge (config wins on a name conflict).
+   */
+  subprocessors?: {
+    config_path?: string;
+    spreadsheet_id?: string;
+    sheet_range?: string;
+    columns?: { name: number } & Record<string, number>;
+  };
 }
 
 function loadConfig(path: string): Config {
@@ -1780,6 +1805,57 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL emission failed: ${e.message}`);
       log.error({ event: 'oscal.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- SA-9 Subprocessor Inventory (LOOP-J.J2) — normalized, signed inventory
+  // from an operator YAML/JSON config and/or the Google-Sheet reader. Runs
+  // BEFORE the OSCAL SSP emitter (which reads subprocessor-inventory.json to
+  // populate system-implementation.leveraged-authorizations[]) and BEFORE
+  // signing so the inventory JSON + XLSX are covered by the run manifest. ----
+  {
+    const subCfgPath = args.subprocessorsConfig ?? config.subprocessors?.config_path ?? null;
+    const subSheet = config.subprocessors?.spreadsheet_id
+      ? {
+          spreadsheet_id: config.subprocessors.spreadsheet_id,
+          sheet_range: config.subprocessors.sheet_range ?? 'Sheet1!A1:Z',
+          columns: config.subprocessors.columns ?? { name: 0 },
+        }
+      : undefined;
+    if (!args.dryRun && (subCfgPath || subSheet)) {
+      try {
+        const resolvedCfg = subCfgPath ? resolve(process.cwd(), subCfgPath) : undefined;
+        if (resolvedCfg && !existsSync(resolvedCfg)) {
+          console.error(`Subprocessor inventory: config ${resolvedCfg} not found — skipping.`);
+        } else {
+          const r = await emitSubprocessorInventory({
+            outDir: args.outDir,
+            runId,
+            configPath: resolvedCfg,
+            sheetConfig: subSheet,
+            systemId: args.systemId ?? undefined,
+          });
+          const c = r.inventory.coverage;
+          console.log(
+            `Subprocessor inventory: ${r.json_path} (${c.total_rows} row(s) · ` +
+              `${c.tier_1_critical_count} T1 · ${c.tier_2_significant_count} T2 · ` +
+              `${c.tier_3_routine_count} T3 · ${c.rows_with_fedramp_authorization} FedRAMP-auth` +
+              `${c.rows_with_expired_soc2.length ? ` · ${c.rows_with_expired_soc2.length} expired-SOC2` : ''}` +
+              `${r.requires_operator_input ? ' · ⚠ requires-operator-input' : ''})`,
+          );
+          ledger.record('subprocessor_inventory.emit', {
+            status: 'info',
+            rows: c.total_rows,
+            tier_1: c.tier_1_critical_count,
+            fedramp_authorized: c.rows_with_fedramp_authorization,
+            expired_soc2: c.rows_with_expired_soc2.length,
+            requires_operator_input: r.requires_operator_input,
+          });
+        }
+      } catch (e: any) {
+        console.error(`Subprocessor inventory failed: ${e.message}`);
+        log.error({ event: 'subprocessor_inventory.fail', err_message: e?.message });
+      }
     }
   }
 

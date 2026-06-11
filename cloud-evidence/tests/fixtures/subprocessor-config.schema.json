@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fedramp.gov/cloud-evidence/subprocessor-config.schema.json",
+  "title": "SA-9 Subprocessor Inventory operator config (LOOP-J.J2)",
+  "type": "object",
+  "required": ["subprocessors"],
+  "additionalProperties": false,
+  "properties": {
+    "system_id": { "type": "string" },
+    "cso_id": { "type": "string" },
+    "subprocessors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "data_categories": { "type": "array", "items": { "type": "string" } },
+          "fedramp_authorized": { "enum": ["yes", "no", "equivalency-attest"] },
+          "attestation_doc_url": { "type": "string", "format": "uri" },
+          "soc2_expiry": { "type": "string", "format": "date" },
+          "contract_review_date": { "type": "string", "format": "date" },
+          "in_scope_for_csi": { "type": "boolean" },
+          "risk_tier": { "enum": ["tier-1-critical", "tier-2-significant", "tier-3-routine"] },
+          "data_residency": { "type": "string" },
+          "last_audit_date": { "type": "string", "format": "date" },
+          "monitoring_methods": { "type": "array", "items": { "type": "string" } },
+          "incident_notification_sla_hours": { "type": "integer", "minimum": 1 },
+          "subprocessor_subprocessors": { "type": "array", "items": { "type": "string" } },
+          "contracted_controls": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z]{2}-[0-9]+(\\([0-9]+\\))?$" }
+          },
+          "oversight_party_uuid": { "type": "string", "format": "uuid" },
+          "user_roles_responsibilities": { "type": "string" }
+        }
+      }
+    }
+  }
+}

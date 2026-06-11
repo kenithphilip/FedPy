@@ -23,6 +23,7 @@
 import * as gcpAuth from './auth/gcp.ts';
 
 export interface SubprocessorRow {
+  // ── existing fields (preserve) ──
   name: string;
   role?: string;
   data_categories?: string[];
@@ -31,6 +32,29 @@ export interface SubprocessorRow {
   soc2_expiry?: string;
   contract_review_date?: string;
   in_scope_for_csi?: boolean;
+  // ── LOOP-J.J2 SA-9 additions (NIST SP 800-53 Rev 5 SA-9 + 800-161 Rev 1) ──
+  /** Supplier risk tier (NIST SP 800-161 Rev 1 §2.3.5 tiered supplier identification). */
+  risk_tier?: 'tier-1-critical' | 'tier-2-significant' | 'tier-3-routine';
+  /** Processing/storage/service location (SA-9(5)). Free-form (region code or geography). */
+  data_residency?: string;
+  /** Date of the most recent oversight audit (drives the SSP leveraged-authorization date-authorized). */
+  last_audit_date?: string;
+  /** Ongoing-monitoring processes/methods/techniques (SA-9.c). */
+  monitoring_methods?: string[];
+  /** Contractual incident-notification SLA in hours. */
+  incident_notification_sla_hours?: number;
+  /** Immediate downstream subprocessors-of-this-subprocessor (flat list of names). */
+  subprocessor_subprocessors?: string[];
+  /** NIST 800-53 control IDs the provider contractually implements (SA-9.a). */
+  contracted_controls?: string[];
+  /** UUID of the organizational party that owns oversight of this provider (SA-9.b). */
+  oversight_party_uuid?: string;
+  /** Operator narrative of organizational oversight roles/responsibilities (SA-9.b). */
+  user_roles_responsibilities?: string;
+  /** Which surface this row came from (provenance). */
+  source?: 'google-sheet' | 'yaml-config' | 'json-config';
+  /** Source locator: `<spreadsheet_id>!<sheet_range>` for sheets, absolute path for files. */
+  source_ref?: string;
 }
 
 export interface SheetConfig {
@@ -75,6 +99,9 @@ export async function readSubprocessors(cfg: SheetConfig): Promise<{ rows: Subpr
           contract_review_date: get(cfg.columns.contract_review_date),
           in_scope_for_csi: inScope === 'true' || inScope === 'yes' || inScope === '1' ? true :
                             inScope === 'false' || inScope === 'no' || inScope === '0' ? false : undefined,
+          // LOOP-J.J2: stamp provenance so every emitted row is self-describing.
+          source: 'google-sheet',
+          source_ref: `${cfg.spreadsheet_id}!${cfg.sheet_range}`,
         };
       });
     return { rows, warnings };

@@ -97,7 +97,9 @@ type Role =
   | 'prohibited-vendors-catalog'
   | 'risk-scores-json'
   | 'epss-cache'
-  | 'ssdf-practice-catalog-json';
+  | 'ssdf-practice-catalog-json'
+  | 'subprocessor-inventory-json'
+  | 'subprocessor-inventory-xlsx';
 
 interface WellKnownArtifact {
   role: Role;
@@ -136,6 +138,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'risk-scores-json', filename: 'risk-scores.json', description: 'Per-finding CVSS+EPSS+criticality+exposure composite scores (LOOP-B.B1)' },
   { role: 'epss-cache', filename: '.epss-cache.json', description: 'On-disk FIRST EPSS API response cache (24h TTL) — provenance-stamped (LOOP-B.B1)' },
   { role: 'ssdf-practice-catalog-json', filename: 'ssdf-800-218-v1.1.json', description: 'NIST SP 800-218 v1.1 (SSDF) practice catalog — 19 practices, 42 tasks, 800-53 Rev 5 + FedRAMP KSI crosswalk (LOOP-T.T1); included when --include-ssdf-catalog is set (T.T2)' },
+  { role: 'subprocessor-inventory-json', filename: 'subprocessor-inventory.json', description: 'SA-9 Subprocessor Inventory — risk-tiered, signed; feeds SSP leveraged-authorizations (LOOP-J.J2)' },
+  { role: 'subprocessor-inventory-xlsx', filename: 'subprocessor-inventory.xlsx', description: 'SA-9 Subprocessor Inventory — FedRAMP-style Excel format (LOOP-J.J2)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

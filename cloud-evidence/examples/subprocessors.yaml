@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# EXAMPLE SA-9 Subprocessor Inventory operator config (LOOP-J.J2).
+#
+# This is an EXAMPLE template, not real data. Copy it, replace every value with
+# your real subprocessors, and point the orchestrator at it:
+#
+#   npm run collect -- --subprocessors-config ./subprocessors.yaml \
+#       --oscal-ssp --sign --submission-bundle
+#
+# or set it in config.yaml:
+#
+#   subprocessors:
+#     config_path: ./subprocessors.yaml
+#
+# Drives:
+#   - out/subprocessor-inventory.json  (signed, canonical; manifest-covered)
+#   - out/subprocessor-inventory.xlsx  (FedRAMP-style Excel)
+#   - the SSP system-implementation.leveraged-authorizations[] block, for every
+#     row with fedramp_authorized: yes AND a real last_audit_date.
+#
+# NIST SP 800-53 Rev 5 SA-9 + SA-9(5) + NIST SP 800-161 Rev 1 §2.3.5.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Optional system identity (falls back to the orchestrator's --system-id).
+system_id: REPLACE-WITH-YOUR-SYSTEM-ID
+cso_id: REPLACE-WITH-YOUR-CSO-ID
+
+subprocessors:
+  - name: Example Cloud Provider Inc.
+    # Plain-language function the subprocessor performs for your system.
+    role: Underlying IaaS / managed database
+    # Categories of data the subprocessor touches.
+    data_categories: [federal-customer-data, system-metadata]
+    # yes | no | equivalency-attest
+    fedramp_authorized: yes
+    # Marketplace listing or attestation URL.
+    attestation_doc_url: https://marketplace.fedramp.gov/products/EXAMPLE
+    # SOC2 report expiry (YYYY-MM-DD) — an expired date is flagged in coverage.
+    soc2_expiry: "2027-03-31"
+    contract_review_date: "2026-01-15"
+    in_scope_for_csi: true
+    # Supplier risk tier (NIST SP 800-161 Rev 1 §2.3.5).
+    risk_tier: tier-1-critical            # tier-1-critical | tier-2-significant | tier-3-routine
+    # SA-9(5) processing/storage/service location. Region code or geography.
+    data_residency: us-east-1
+    # Drives the SSP leveraged-authorization date-authorized (FedRAMP-auth rows).
+    last_audit_date: "2025-09-01"
+    # SA-9.c ongoing monitoring methods.
+    monitoring_methods: [continuous-conmon-feed, quarterly-attestation-review]
+    # Contractual incident-notification SLA in hours.
+    incident_notification_sla_hours: 24
+    # Immediate downstream subprocessors (flat list of names; deeper hierarchies
+    # need their own rows).
+    subprocessor_subprocessors: [Example CDN Partner]
+    # NIST 800-53 control IDs the provider contractually implements (SA-9.a).
+    contracted_controls: [ac-2, au-6, sc-13, sc-28]
+    # UUID of the organizational party that owns oversight (SA-9.b).
+    oversight_party_uuid: 00000000-0000-4000-8000-000000000000
+    user_roles_responsibilities: >-
+      Describe the organizational oversight split: which security
+      responsibilities you retain vs. inherit from this provider.
