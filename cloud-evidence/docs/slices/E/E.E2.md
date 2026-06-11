@@ -3,7 +3,7 @@ slice_id: E.E2
 title: Monthly POA&M Delta Workflow
 loop: E
 status: done
-commit: <TBD-step6>
+commit: fb6831a
 completed_date: 2026-06-11
 depends_on: [A.A1, E.E1]
 blocks: [E.E3, I.I2]
@@ -18,7 +18,7 @@ Closes the monthly POA&M re-emission loop: reads the prior month's POA&M from a 
 
 ## Status
 - Status: done
-- Commit: `<TBD-step6>`
+- Commit: `fb6831a`
 - Date: 2026-06-11
 - Verification: typecheck=clean, tests=1073 passing (+23), check:reo=green (G1+G2+G3)
 
@@ -204,7 +204,7 @@ npm run check:reo
     (G1 lint:no-stubs 0 violations; G3 check:provenance OK; G2 SKIP — no local out/ report).
   Open questions Q1-Q5 resolved (see "Open questions" section above).
   New risk recorded in LOOP-E-RISKS.md: E.E2-1 (archive/ signing-scope coupling, low).
-  Commit: <TBD-step6>
+  Commit: fb6831a
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
