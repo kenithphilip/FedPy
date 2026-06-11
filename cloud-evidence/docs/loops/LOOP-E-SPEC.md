@@ -1499,7 +1499,7 @@ When every slice E.E1–E.E7 is complete:
 
 | Slice ID | Status | Commit hash | Completed date |
 |---|---|---|---|
-| E.E1 — Monthly ConMon Analysis Report | done | TBD-E1 | 2026-06-11 |
+| E.E1 — Monthly ConMon Analysis Report | done | ddfa499 | 2026-06-11 |
 | E.E2 — Monthly POA&M Delta Workflow | pending | — | — |
 | E.E3 — Annual Assessment Package Generator | pending | — | — |
 | E.E4 — Annual SSP Review / Update Workflow | pending | — | — |

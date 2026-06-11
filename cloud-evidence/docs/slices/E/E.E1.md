@@ -3,7 +3,7 @@ slice_id: E.E1
 title: Monthly ConMon Analysis Report
 loop: E
 status: done
-commit: TBD-E1
+commit: ddfa499
 completed_date: 2026-06-11
 depends_on: [A.A1, A.A4]
 blocks: [E.E2, E.E3, G.G6]
@@ -18,7 +18,7 @@ Ships the monthly ConMon analysis report (`out/conmon-monthly-<YYYY-MM>.{json,md
 
 ## Status
 - Status: done
-- Commit: TBD-E1 (recorded in the follow-up `docs(E.E1)` commit per the repo's two-commit hash close-out convention)
+- Commit: ddfa499 (recorded in the follow-up `docs(E.E1)` commit per the repo's two-commit hash close-out convention)
 - Date: 2026-06-11
 - Verification: typecheck=clean, tests=1050 passing (+25: 10 conmon-pdf + 15 conmon-report), check:reo=green (G1 0 violations / G2 skip-no-out / G3 OK)
 
@@ -248,7 +248,7 @@ The implementing session MUST check every box:
 - [x] check:reo green (G1+G2+G3)
 - [x] STATUS.md updated (slice row + Overall section)
 - [x] LOOP-E-SPEC.md status table updated
-- [x] This file's frontmatter updated (status=done, commit=TBD-E1, completed_date=2026-06-11)
+- [x] This file's frontmatter updated (status=done, commit=ddfa499, completed_date=2026-06-11)
 - [x] CHANGELOG.md "Unreleased" entry added
 - [x] Commit with slice ID in message
 - [x] Commit hash recorded in STATUS.md + this file + LOOP-E-SPEC.md (follow-up `docs(E.E1)` commit per repo convention)
