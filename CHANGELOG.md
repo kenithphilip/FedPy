@@ -6,6 +6,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-W.W3: FAR 52.204-25(d) 1-Business-Day Prohibited-Vendor Discovery Reporter
+
+Shipped the operational fulcrum of LOOP-W: the reporter that produces the
+regulatory deliverable FAR 52.204-25(d) obliges a contractor to file within one
+business day of identifying covered telecommunications equipment or services.
+With `--prohibited-vendor-1bd-report` (env
+`CLOUD_EVIDENCE_PROHIBITED_VENDOR_1BD_REPORT`), the orchestrator ingests the
+W.W2 screen result (`out/prohibited-vendors-screen-result.json`), verifies its
+detached Ed25519 signature (a forged screen could fabricate or mask a reportable
+hit), filters the reportable matches (non-suppressed, high-confidence, Section
+889 / NDAA §1634 / operator-addition source), and for each (match × affected
+contract) emits a signed canonical-JSON report plus a rendered `.docx` under
+`out/section889-1bd-reports/`. Each report carries the nine FAR 52.204-25(d)(2)(i)
+data elements (read from the W.W2 match record, with `REQUIRES-OPERATOR-INPUT`
+markers preserved — never auto-filled), the statutory citation array
+(Huawei/ZTE → FAR 52.204-25(a)(1) + NDAA §889(f)(2)(A); Hytera/Hikvision/Dahua →
+(a)(2) + (f)(2)(B); Kaspersky → NDAA §1634 + DHS BOD 17-01, reported under the
+live FAR framework), and the federal-business-day deadline. The reporter NEVER
+auto-transmits to a federal endpoint (REO Rule 4) — it produces the artifact
+pair; the operator transmits.
+
+New modules: `core/section889-clock.ts` (federal-business-hour deadline math —
+Mon–Fri 09:00–17:00 ET, 8 business hours/day, weekends + the 11 observed
+5 U.S.C. §6103 holidays skipped, operator agency-closure overrides, DST-correct
+via IANA `America/New_York`; composes `core/bizdays.ts:usFederalHolidays` so the
+holiday calendar is computed, not maintained as a signed JSON file),
+`core/section889-report-json.ts` (reportable-match filter + statutory-basis
+routing + canonical-JSON composer with a top-level camelCase `provenance` block
+for G3), `core/section889-report-docx.ts` (OOXML/zip-store renderer on
+`core/zip.ts` — cover page, summary table, per-finding section quoting the
+operative FAR 52.204-25(a) / NDAA §889(f)(2) / §1634 / BOD 17-01 text verbatim,
+18 U.S.C. §1001 attestation block, reserved `signature-block` bookmark),
+`core/section889-contacts.ts` + `core/section889-closures.ts` (typed YAML
+loaders), and `core/section889-1bd-reporter.ts` (the end-to-end emit + detached
+Ed25519 signing + `.sig` sidecar + append-only `section889-1bd-reports.jsonl`
+ledger for idempotency/dedupe + inventory-coverage augmentation + injectable
+notification seam + 10-business-day FAR (d)(2)(ii) follow-up composer). Extended
+`core/orchestrator.ts` (flag/env, runs after W.W2 + before signing),
+`core/submission-bundle.ts` (four new `section889-1bd-report-*` WELL_KNOWN roles
++ `listOutDir` scans the report subdir). Added `section889-contacts.example.yaml`
++ `section889-agency-closures.example.yaml`.
+
+Statutory / regulatory drivers (verbatim sources, accessed 2026-06-07):
+FAR 52.204-25(d)(1)–(d)(2)(ii) (https://www.acquisition.gov/far/52.204-25 — the
+one-business-day + ten-business-day reporting clock + the nine (d)(2)(i)
+elements); FAR 4.2105(b) (clause is universal for solicitations/contracts since
+2020-08-13); NDAA FY2019 §889(f)(2)/(f)(3) (Pub. L. 115-232 — covered
+telecommunications equipment + covered foreign country = PRC); NDAA FY2018
+§1634 (Pub. L. 115-91 — Kaspersky prohibition); DHS BOD 17-01 (Kaspersky
+removal directive); 5 U.S.C. §6103 (federal holidays + the in-lieu-of rule —
+the business-day clock).
+
+Verification: typecheck clean; 1172/1172 tests passing (+45 — `section889-clock`
+19, `section889-report-docx` 6, `section889-1bd-reporter` 20, exceeding the
+spec's 20-test target); `npm run check:reo` (G1 lint:no-stubs + G2
+coverage-regression + G3 check:provenance) returns 0. REO compliance: the W.W2
+envelope signature is verified before any output is written; emitted JSON
+carries a camelCase `provenance` block (G3); the nine (d)(2)(i) elements are
+read from real W.W2 evidence with operator markers preserved; no human
+attestation is auto-signed (the operator's name/title flow from
+`config.yaml:section_889.signing` and the `.docx` reserves a wet-signature
+region). Scope reconciliation: the tracker DB / REST routes / React countdown UI
+/ `scheduled_notifications` daemon / pgcrypto-at-rest in the per-slice §5.4/§7
+are deferred — no tracker subsystem exists in this repo (no `pg`/`express`/`react`
+deps); the append-only ledger is the interim idempotency + audit index and
+notification is an injectable seam (see LOOP-W-RISKS W.W3-17..20). The STATUS.md
+row title was reconciled to the per-slice-doc title (the prior "SBOM crosscheck"
+label was stale; SBOM walking is owned by W.W2).
+
 ### Added — LOOP-W.W2: Subprocessor + SBOM + OCI Image Screening against Prohibited-Vendor Catalog
 
 Closed the largest remaining gap in the FedPy supply-chain story: until now

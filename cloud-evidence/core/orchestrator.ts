@@ -69,6 +69,7 @@ import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
+import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -224,6 +225,14 @@ interface Args {
    * every federal acquisition since 2020-08-13 (no opt-out).
    */
   prohibitedVendorScreen: boolean;
+  /**
+   * When true (LOOP-W.W3), ingest the W.W2 screen result and emit a signed FAR
+   * 52.204-25(d) 1-business-day discovery report (JSON + `.docx`) per reportable
+   * (match × affected contract), with the federal-business-day deadline computed
+   * per 5 U.S.C. §6103. Runs AFTER the W.W2 screen (which it consumes) and BEFORE
+   * signing so the reports are covered by the run manifest. NEVER auto-transmits.
+   */
+  prohibitedVendor1bdReport: boolean;
   /** Max SBOM transitive-dependency depth walked by the W.W2 screen (default 8). */
   sbomMaxDepth: number;
   /** Max subsidiary-chain depth walked by the W.W2 screen (default 3). */
@@ -342,6 +351,7 @@ function parseArgs(argv: string[]): Args {
     webhookUrl: process.env.CLOUD_EVIDENCE_WEBHOOK_URL ?? null,
     prohibitedVendorsCatalog: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG === '1',
     prohibitedVendorScreen: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_SCREEN === '1',
+    prohibitedVendor1bdReport: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_1BD_REPORT === '1',
     sbomMaxDepth: Number(process.env.CLOUD_EVIDENCE_SBOM_MAX_DEPTH ?? 8),
     maxSubsidiaryDepth: Number(process.env.CLOUD_EVIDENCE_MAX_SUBSIDIARY_DEPTH ?? 3),
     riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
@@ -473,6 +483,10 @@ function parseArgs(argv: string[]): Args {
       case '--prohibited-vendor-screen':
         // LOOP-W.W2: screen the four surfaces against the W.W1 catalog.
         args.prohibitedVendorScreen = true;
+        break;
+      case '--prohibited-vendor-1bd-report':
+        // LOOP-W.W3: emit FAR 52.204-25(d) 1-business-day reports from W.W2 hits.
+        args.prohibitedVendor1bdReport = true;
         break;
       case '--sbom-max-depth':
         args.sbomMaxDepth = Number(argv[++i] ?? 8);
@@ -2392,6 +2406,48 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`Prohibited-vendor screen failed: ${e.message}`);
       log.error({ event: 'prohibited_vendor_screen.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- FAR 52.204-25(d) 1-business-day reporter (LOOP-W.W3) — ingest the W.W2
+  // screen result, compose a signed report (JSON + .docx) per reportable
+  // (match × affected contract), compute the federal-business-day deadline per
+  // 5 U.S.C. §6103, and record each emission in the append-only ledger. Runs
+  // AFTER the W.W2 screen (which it consumes) and BEFORE signing so the reports
+  // are covered by the run manifest. The reporter NEVER auto-transmits to a
+  // federal endpoint — it produces the artifact pair; the operator transmits. ----
+  if (args.prohibitedVendor1bdReport && !args.dryRun) {
+    try {
+      const s889 = (config as any)?.section_889 ?? {};
+      const signing = s889?.signing ?? {};
+      const contactsPath = resolve(process.cwd(), 'section889-contacts.yaml');
+      const closuresPath = resolve(process.cwd(), 'section889-agency-closures.yaml');
+      const reports = emitSection8891bdReports({
+        outDir: args.outDir,
+        runId,
+        cspName: args.cspName ?? (config as any)?.csp_name ?? 'REQUIRES-OPERATOR-INPUT',
+        cspUei: (config as any)?.csp_uei ?? undefined,
+        cspCageCode: (config as any)?.csp_cage_code ?? undefined,
+        contactsPath: existsSync(contactsPath) ? contactsPath : undefined,
+        closuresPath: existsSync(closuresPath) ? closuresPath : undefined,
+        signingOfficerName: signing?.corporate_signing_officer_name ?? undefined,
+        signingOfficerTitle: signing?.corporate_signing_officer_title ?? undefined,
+        federalBusinessHoursTz: s889?.reporting?.federal_business_hours_tz ?? undefined,
+      });
+      console.log(
+        `FAR 52.204-25(d) 1BD reporter: ${reports.reports_emitted} report(s) emitted ` +
+        `(${reports.reportable_matches} reportable match(es), ${reports.reports_already_present} already present, ` +
+        `${reports.deadline_breached_at_emit} past-deadline at emit).`
+      );
+      ledger.record('section889_1bd_report.emit', {
+        status: 'info',
+        reports_emitted: reports.reports_emitted,
+        reportable_matches: reports.reportable_matches,
+        deadline_breached_at_emit: reports.deadline_breached_at_emit,
+      });
+    } catch (e: any) {
+      console.error(`FAR 52.204-25(d) 1BD reporter failed: ${e.message}`);
+      log.error({ event: 'section889_1bd_report.fail', err_message: e?.message });
     }
   }
 

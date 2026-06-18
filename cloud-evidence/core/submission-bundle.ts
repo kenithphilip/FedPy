@@ -110,7 +110,11 @@ type Role =
   | 'conmon-monthly-report-pdf'
   | 'poam-delta-md'
   | 'poam-ledger'
-  | 'poam-archive';
+  | 'poam-archive'
+  | 'section889-1bd-report-json'
+  | 'section889-1bd-report-docx'
+  | 'section889-1bd-report-sig'
+  | 'section889-1bd-ledger';
 
 interface WellKnownArtifact {
   role: Role;
@@ -162,6 +166,10 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'poam-delta-md', filename: /^poam-delta-\d{4}-\d{2}\.md$/, description: 'Month-over-month POA&M delta (items opened / closed / status + severity flips / past-deadline) for operator review before the monthly upload (LOOP-E.E2)' },
   { role: 'poam-ledger', filename: 'poam-ledger.jsonl', description: 'Append-only ledger of monthly POA&M emissions (run_id, report_month, version, last-modified, sha256, archive path) — the version-chain index (LOOP-E.E2)' },
   { role: 'poam-archive', filename: /^archive\/poam-\d{4}-\d{2}\.json$/, description: 'Immutable monthly snapshot of the OSCAL POA&M, hashed in the ledger so the version chain is reconstructable (LOOP-E.E2)' },
+  { role: 'section889-1bd-report-json', filename: /^section889-1bd-reports\/s889-[0-9a-f]+\.json$/, description: 'FAR 52.204-25(d) 1-business-day prohibited-vendor discovery report — signed canonical-JSON, one per (match × affected contract) (LOOP-W.W3)' },
+  { role: 'section889-1bd-report-docx', filename: /^section889-1bd-reports\/s889-[0-9a-f]+\.docx$/, description: 'OOXML rendering of the FAR 52.204-25(d) 1-business-day report for operator transmission to the Contracting Officer / DIBNet (LOOP-W.W3)' },
+  { role: 'section889-1bd-report-sig', filename: /^section889-1bd-reports\/s889-[0-9a-f]+\.json\.sig$/, description: 'Detached Ed25519 signature sidecar over the FAR 52.204-25(d) report envelope (LOOP-W.W3)' },
+  { role: 'section889-1bd-ledger', filename: 'section889-1bd-reports.jsonl', description: 'Append-only ledger of FAR 52.204-25(d) 1BD report emissions (run_id, match_id, contract, report_kind, deadline, sha256) — the idempotency + audit index (LOOP-W.W3)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────
@@ -249,10 +257,10 @@ function listOutDir(outDir: string): string[] {
     let st;
     try { st = statSync(p); } catch { continue; }
     if (st.isFile()) out.push(n);
-    else if (st.isDirectory() && n === 'summaries') {
+    else if (st.isDirectory() && (n === 'summaries' || n === 'section889-1bd-reports')) {
       for (const m of readdirSync(p)) {
         const sub = resolve(p, m);
-        try { if (statSync(sub).isFile()) out.push(`summaries/${m}`); } catch { /* ignore */ }
+        try { if (statSync(sub).isFile()) out.push(`${n}/${m}`); } catch { /* ignore */ }
       }
     }
   }

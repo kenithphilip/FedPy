@@ -1,0 +1,27 @@
+# section889-contacts.yaml (example) — LOOP-W.W3
+#
+# Maps each federal contract the Cloud Service Offering performs under to the
+# Contracting Officer who receives a FAR 52.204-25(d) prohibited-vendor
+# discovery report (or, for DoD primes, the DIBNet endpoint). The contract
+# number is one of the nine FAR 52.204-25(d)(2)(i) reporting elements, so this
+# file is REQUIRED before the 1-business-day reporter (--prohibited-vendor-1bd-report)
+# can address a report. Copy this file to `section889-contacts.yaml` and fill it
+# in. Per cloud-evidence/CLAUDE.md REO Rule 4 the operator supplies this data;
+# the system invents no Contracting Officer.
+schema_version: '1.0.0'
+contracts:
+  # Civilian agency contract — report by email to the Contracting Officer.
+  - contract_number: 47QFCA22F0001
+    agency: GSA
+    endpoint_type: civilian-co-email      # default; may be omitted
+    contracting_officer_email: contracting.officer@gsa.gov
+    # prime_contractor_uei: set ONLY when the CSP is a subcontractor — the report
+    # then routes up to the prime's Contracting Officer.
+    cage_code: 1A2B3
+
+  # DoD prime contract — report to https://dibnet.dod.mil (email is cc only).
+  - contract_number: HQ0034-22-F-0005
+    agency: DoD
+    endpoint_type: dod-dibnet
+    contracting_officer_email: contracting.officer@dla.mil
+    cage_code: 4C5D6

@@ -1,0 +1,18 @@
+# section889-agency-closures.yaml (example) — LOOP-W.W3
+#
+# One-off federal agency-closure days proclaimed by the President under
+# 5 U.S.C. §6103(c) that are NOT in OPM's standing 11-holiday list (e.g. an
+# Inauguration-Day closure for DC-area federal employees, or a national
+# day-of-mourning proclamation). The 1-business-day reporter's clock
+# (core/section889-clock.ts) excludes these in addition to weekends and the
+# computed §6103 holidays. The standing federal holidays are derived
+# automatically from 5 U.S.C. §6103 (core/bizdays.ts) — list ONLY the
+# extraordinary closures here. A missing file means "no extra closures".
+#
+# Keys of the form `closures_<YEAR>` are merged, so one file can carry several
+# years. Per REO Rule 4 the operator supplies these; the system invents none.
+schema_version: '1.0.0'
+closures_2026:
+  - date: 2026-01-20
+    reason: Inauguration Day (DC-area federal employees)
+    applies_to_federal_business_hours: true

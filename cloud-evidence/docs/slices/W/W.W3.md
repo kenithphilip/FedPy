@@ -2,9 +2,9 @@
 slice_id: W.W3
 title: FAR 52.204-25(d) 1-Business-Day Prohibited-Vendor Discovery Reporter
 loop: W
-status: proposed
-commit: TBD
-completed_date: —
+status: done
+commit: TBD-step6
+completed_date: 2026-06-18
 depends_on:
   - W.W1                                # prohibited-vendor catalog
   - W.W2                                # screen-result envelope (the trigger)
@@ -16,7 +16,7 @@ depends_on:
 blocks:
   - W.W4                                # annual rep references confirmed 1BD reports
 estimated_effort: medium (~5 working days for single implementer)
-last_updated: 2026-06-07
+last_updated: 2026-06-18
 applicable_conditional: true
 condition: Any CSP selling to a Federal agency, prime, or grant recipient — FAR 52.204-25(d) is mandatory disclosure. The 1-business-day clock starts the moment a positive identification is "discovered" — see §2 for the legal definition of discovery and the §6 algorithm for how W.W3 computes it.
 trigger_flag: "--prohibited-vendor-1bd-report"
@@ -1529,6 +1529,7 @@ safe default if missing).
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
 | 2026-06-07 | wevi1ic5b + W.W3 patch workflow | Specification authored via FedPy workflow | TBD | This per-slice doc proposed; sibling files W.W1, W.W2, W.W4 already exist; this fills the missing-from-prior-workflow gap. |
+| 2026-06-18 | impl-w-w3 | Shipped end to end per spec (realizable core). Created `core/section889-clock.ts` (federal-business-hour clock composing `bizdays.ts:usFederalHolidays` + ET/DST/8h layer), `core/section889-contacts.ts`, `core/section889-closures.ts`, `core/section889-report-json.ts` (filter + statutory routing + canonical composer), `core/section889-report-docx.ts` (OOXML report on `zip.ts`), `core/section889-1bd-reporter.ts` (ingest+verify W.W2 envelope → emit signed JSON+`.docx`+`.sig` per (match × contract) → ledger dedupe → coverage → notify seam → follow-up). Wired orchestrator `--prohibited-vendor-1bd-report` (env `CLOUD_EVIDENCE_PROHIBITED_VENDOR_1BD_REPORT`, runs after W.W2) + submission-bundle WELL_KNOWN roles + `listOutDir` subdir scan. Added `section889-contacts.example.yaml` + `section889-agency-closures.example.yaml`. **45 new tests** (clock 19, docx 6, reporter 20) — full suite 1127→1172, typecheck 0, check:reo G1/G2/G3 green. **Scope reconciliation vs reality:** the tracker DB migration / REST routes / React UI / `scheduled_notifications` daemon / pgcrypto-at-rest in §5.4/§7 are NOT implementable in this repo (no `pg`/`express`/`react`; every slice ships as `core/*.ts`+tests) — deferred per LOOP-W-RISKS W.W3-17 (ledger is the interim idempotency+audit index; notify is an injectable seam). Holidays computed via `bizdays` not a signed JSON file (W.W3-18). RFC-3161 recorded `pending`, Ed25519 `.sig` is the integrity mechanism (W.W3-19). POA&M back-referenced via `poam_item_uuid`, not mutated (W.W3-20). §10 resolutions: Q5 tz defaults America/New_York (operator-overridable); Q6 waiver→report regardless (envelope carries `waiver_id`); Q7 dedupe keys `(run_id, match_id, contract, kind)` = discrete-identification reading. Q1/Q2/Q4 remain REQUIRES-RESEARCH (file+operator-transmit fallback shipped). | TBD-step6 | STATUS row title reconciled (was the stale "SBOM crosscheck" label; SBOM walking is owned by W.W2 per §3.2). |
 
 ## 13. Completion checklist
 
