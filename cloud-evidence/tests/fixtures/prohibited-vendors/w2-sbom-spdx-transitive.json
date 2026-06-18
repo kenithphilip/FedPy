@@ -1,0 +1,25 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "app-image",
+  "packages": [
+    { "SPDXID": "SPDXRef-Package-app", "name": "app", "versionInfo": "1.0.0", "supplier": "Organization: Internal Builder" },
+    { "SPDXID": "SPDXRef-Package-a-lib", "name": "a-lib", "versionInfo": "2.1.0", "supplier": "Organization: Acme Open Source" },
+    { "SPDXID": "SPDXRef-Package-b-lib", "name": "b-lib", "versionInfo": "0.9.3", "supplier": "Organization: Beacon Labs" },
+    {
+      "SPDXID": "SPDXRef-Package-huawei-foo",
+      "name": "@huawei-oss/foo",
+      "versionInfo": "3.4.1",
+      "supplier": "Organization: Huawei Technologies Company",
+      "externalRefs": [
+        { "referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": "pkg:npm/%40huawei-oss/foo@3.4.1" }
+      ]
+    }
+  ],
+  "relationships": [
+    { "spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-Package-app" },
+    { "spdxElementId": "SPDXRef-Package-app", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-Package-a-lib" },
+    { "spdxElementId": "SPDXRef-Package-a-lib", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-Package-b-lib" },
+    { "spdxElementId": "SPDXRef-Package-b-lib", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-Package-huawei-foo" }
+  ]
+}

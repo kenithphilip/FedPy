@@ -1,0 +1,11 @@
+{
+  "image": "registry.example.com/surveil@sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "publisher_provenance": {
+    "cosign_keyless_oidc_issuer": "https://oidc.hikvision.com",
+    "cosign_keyless_subject": "ci@hikvision.com",
+    "cosign_key_fingerprint": "sha256:00000000000000000000000000000000000000000000000000000000feedface",
+    "rekor_uuid": "abc123",
+    "rekor_subject": "https://hikvision.com/builders/ci",
+    "builder_id": "https://github.com/hikvision/build/.github/workflows/release.yml@refs/tags/v1"
+  }
+}

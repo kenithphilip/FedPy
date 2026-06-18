@@ -269,6 +269,9 @@ are set.
 | `--inventory-only` | (above) only | Fast inventory-focused run that skips KSI/process evidence. |
 | `--reference-arch` | `out/AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | FedRAMP reference-architecture hardening audit (Coalfire-RAMPpak-derived; clean-room). |
 | `--prohibited-vendors-catalog` | `out/prohibited-vendors-catalog.json` (+ `.sig`) + `data/prohibited-vendors-snapshot-YYYYMMDD/MANIFEST.json` | LOOP-W.W1. Emit the signed prohibited-vendor catalog merged from OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA. Offline-first: ingests a snapshot staged by `scripts/extract-prohibited-vendors.mjs` plus the committed statutory constants under `data/`. Runs before signing (catalog is covered by the run manifest) and is the substrate W.W2/W.W3/W.W4 read. Optional `prohibited-vendors-config.yaml` (see `prohibited-vendors-config.example.yaml`). |
+| `--prohibited-vendor-screen` | `out/prohibited-vendors-screen-result.json` (+ `.sig`) + `out/prohibited-vendors-screen-result.xlsx` + `out/prohibited-vendor-screens.jsonl` | LOOP-W.W2. Screen four surfaces — the subprocessor sheet, the SBOM (transitively, to `--sbom-max-depth`), OCI image publishers (cosign/Rekor attestations under `out/oci-attestations/`), and inventory `provider_tag`/`sku` — against the W.W1 catalog. Emits a signed match envelope (confidence band + provenance chain + FAR 52.204-25(d) data elements per match), an operator `.xlsx`, and an append-only ledger. Requires `--prohibited-vendors-catalog` to have produced the catalog first. Runs before signing. Honours `prohibited-vendors-overrides.yaml` (see `prohibited-vendors-overrides.example.yaml`) for false-positive suppression + manual additions. NEVER auto-submits to a federal endpoint. |
+| `--sbom-max-depth <int>` | (modifies `--prohibited-vendor-screen`) | LOOP-W.W2. Max transitive SBOM dependency depth walked by the screen. Default `8`. Truncation is recorded in the run log + coverage. |
+| `--max-subsidiary-depth <int>` | (modifies `--prohibited-vendor-screen`) | LOOP-W.W2. Max operator-supplied subsidiary-chain depth walked by the screen. Default `3`. |
 
 ### 3.5 Multi-account / fan-out flags (AWS Organizations)
 
@@ -390,6 +393,9 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_SCG_GUIDE_PATH` | (none) | Path to Secure Configuration Guide JSON. |
 | `CLOUD_EVIDENCE_SCG_OBSERVED_PATH` | (none) | Observed config map for SCG comparator. |
 | `CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG` | `0` | Emit the LOOP-W.W1 prohibited-vendor catalog (equivalent to `--prohibited-vendors-catalog`). |
+| `CLOUD_EVIDENCE_PROHIBITED_VENDOR_SCREEN` | `0` | Run the LOOP-W.W2 prohibited-vendor screen (equivalent to `--prohibited-vendor-screen`). |
+| `CLOUD_EVIDENCE_SBOM_MAX_DEPTH` | `8` | Max transitive SBOM dependency depth walked by the LOOP-W.W2 screen (equivalent to `--sbom-max-depth`). |
+| `CLOUD_EVIDENCE_MAX_SUBSIDIARY_DEPTH` | `3` | Max operator-supplied subsidiary-chain depth walked by the LOOP-W.W2 screen (equivalent to `--max-subsidiary-depth`). |
 | `CLOUD_EVIDENCE_SUBPROCESSORS_CONFIG` | (none) | Path to an operator subprocessor config (YAML/JSON) for the LOOP-J.J2 SA-9 Subprocessor Inventory (equivalent to `--subprocessors-config`). Can also be set via the `config.yaml` `subprocessors.config_path` / `subprocessors.spreadsheet_id` block. |
 | `CLOUD_EVIDENCE_SUPPLY_CHAIN_RISK` | `0` | Emit the LOOP-J.J3 supply-chain risk register (equivalent to `--supply-chain-risk`). |
 | `CLOUD_EVIDENCE_RISKS_CONFIG` | (none) | Path to an operator `--risks-config` (YAML/JSON) for LOOP-J.J3 operator-asserted supply-chain risks + mitigation overrides. |
@@ -605,6 +611,9 @@ Files emitted depend on the flags you pass.
 | `archive/poam-<YYYY-MM>.json` | No | `--conmon-monthly` + `--oscal-poam` (LOOP-E.E2) | OSCAL 1.1.2 | yes (run manifest — `archive/` is in the signed set) |
 | `AUDIT-REFARCH-AWS.json` + `AUDIT-REFARCH-GCP.json` | No | `--reference-arch` | JSON | yes |
 | `prohibited-vendors-catalog.json` + `.sig` | No | `--prohibited-vendors-catalog` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
+| `prohibited-vendors-screen-result.json` + `.sig` | No | `--prohibited-vendor-screen` (LOOP-W.W2) | JSON + detached Ed25519 | yes (detached sig + run manifest) |
+| `prohibited-vendors-screen-result.xlsx` | No | `--prohibited-vendor-screen` (LOOP-W.W2) | OOXML xlsx (3 sheets: Matches / Surfaces Screened / Summary) | yes (run manifest) |
+| `prohibited-vendor-screens.jsonl` | No | `--prohibited-vendor-screen` (LOOP-W.W2) | JSONL append-only | — (append-only audit ledger; like `run-ledger.jsonl`) |
 | `subprocessor-inventory.json` + `subprocessor-inventory.xlsx` | No | `--subprocessors-config` (or `config.yaml` `subprocessors`) | JSON + detached Ed25519 / XLSX | yes (detached sig + run manifest) |
 | `supply-chain-risk-register.json` + `supply-chain-risk-register.xlsx` | No | `--supply-chain-risk` | JSON + detached Ed25519 / multi-sheet XLSX | yes (detached sig + run manifest) |
 

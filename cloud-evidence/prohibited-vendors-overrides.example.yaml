@@ -1,0 +1,49 @@
+# prohibited-vendors-overrides.yaml — operator overrides for the LOOP-W.W2
+# prohibited-vendor screen. Commit this file (optional) to suppress verified
+# false positives, add operator-discovered off-list vendors, register cosign
+# key fingerprints against catalog rows, and extend the transliteration table.
+#
+# Per cloud-evidence/CLAUDE.md REO Rule 4, everything here is real
+# operator-supplied data. A malformed file throws a typed error and the screen
+# exits non-zero — the override is never silently ignored. Every suppression
+# MUST carry a non-empty justification (a 3PAO can audit the trail).
+schema_version: '1.0.0'
+
+# ── False-positive suppression ──────────────────────────────────────────────
+# A vendor matched a catalog row but the operator has verified it is NOT the
+# covered entity. `catalog_uid` is "<source_id>::<source_record_id>" from the
+# W.W1 catalog (e.g. "ofac-sdn::12345", "far-52-204-25::huawei-technologies-company").
+# `expires_at` (optional) forces periodic re-review — after it the match
+# re-surfaces. The justification is required.
+suppressions:
+  - vendor: "Acme Optics LLC"
+    catalog_uid: "ofac-sdn::12345"
+    justification: "Manual review 2026-06-01 by S. Phillips (CISO); distinct entity, no covered affiliation."
+    expires_at: "2027-06-01"
+
+# ── Manual additions ────────────────────────────────────────────────────────
+# Operator wants to screen vendors that are NOT on any published federal list
+# (FAR 4.2101 reasonable inquiry of entities in the operator's possession).
+# Treated as catalog rows with source = operator-manual-addition. The W.W3
+# report cites the operator's justification rather than a federal source.
+manual_additions:
+  - entity_name: "Example Restricted Vendor"
+    aliases: ["ERV", "Пример"]
+    # Subsidiary names (or "Parent>Child" chains) the operator has discovered.
+    subsidiaries: ["Example Restricted Subsidiary"]
+    # cosign key fingerprints attributable to this entity (OCI publisher surface).
+    fingerprints: ["sha256:0000000000000000000000000000000000000000000000000000000000000000"]
+    justification: "Per CISO 2026-04-15 risk-acceptance memo; off-list supplier of concern."
+
+# ── Fingerprint overrides ───────────────────────────────────────────────────
+# Register cosign public-key fingerprints against an EXISTING catalog row so the
+# OCI publisher surface can make an unambiguous fingerprint-first match.
+fingerprint_overrides:
+  - catalog_uid: "far-52-204-25::huawei-technologies-company"
+    fingerprints: ["sha256:1111111111111111111111111111111111111111111111111111111111111111"]
+
+# ── Transliteration overrides ───────────────────────────────────────────────
+# Whole-token source-script -> Latin overrides applied before the built-in
+# Cyrillic romanization table (e.g. a branded romanization the table misses).
+transliteration_overrides:
+  "пример": "primer"

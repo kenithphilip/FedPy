@@ -347,6 +347,19 @@ export interface CoverageReport {
   /** Prohibited-vendor catalog contribution (LOOP-W.W1), present only when that emitter ran. */
   prohibited_vendors_catalog_entity_count?: number;
   prohibited_vendors_catalog_source_count?: number;
+  /** Prohibited-vendor screen contribution (LOOP-W.W2), present only when the screen ran. */
+  prohibited_vendor_screen_coverage?: ProhibitedVendorScreenCoverage;
+}
+
+/** Per-run prohibited-vendor screen coverage (LOOP-W.W2). Sibling field — never a G2 fillRate cell. */
+export interface ProhibitedVendorScreenCoverage {
+  surfaces_walked: number;
+  subprocessor_rows_screened: number;
+  sbom_packages_screened: number;
+  oci_images_screened: number;
+  inventory_assets_screened: number;
+  total_matches: number;
+  catalog_age_hours: number;
 }
 
 /**
@@ -365,4 +378,17 @@ export function augmentCoverageWithProhibitedVendors<T extends Record<string, un
     prohibited_vendors_catalog_entity_count: counts.entityCount,
     prohibited_vendors_catalog_source_count: counts.sourceCount,
   };
+}
+
+/**
+ * Augment a coverage report with the LOOP-W.W2 prohibited-vendor screen coverage
+ * as a sibling top-level field. Like its W.W1 counterpart this is NOT an
+ * Appendix-M `columns[].fillRate` cell, so the G2 coverage-regression guardrail
+ * (which only compares fillRate) can never flag it. Pure: returns a new object.
+ */
+export function augmentCoverageWithProhibitedVendorScreen<T extends Record<string, unknown>>(
+  report: T,
+  coverage: ProhibitedVendorScreenCoverage,
+): T & { prohibited_vendor_screen_coverage: ProhibitedVendorScreenCoverage } {
+  return { ...report, prohibited_vendor_screen_coverage: coverage };
 }

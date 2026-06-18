@@ -1,0 +1,11 @@
+{
+  "image": "registry.example.com/app@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "publisher_provenance": {
+    "cosign_keyless_oidc_issuer": "https://accounts.google.com",
+    "cosign_keyless_subject": "builder@trustworthy.example.com",
+    "cosign_key_fingerprint": "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    "rekor_uuid": "108e9186e8c5677aabc",
+    "rekor_subject": "https://trustworthy.example.com/builders/ci",
+    "builder_id": "https://github.com/actions/runner/cli@refs/heads/main"
+  }
+}

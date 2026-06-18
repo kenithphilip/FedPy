@@ -1,0 +1,17 @@
+schema_version: '1.0.0'
+suppressions:
+  - vendor: "Acme Optics"
+    catalog_uid: "ofac-sdn::99999"
+    justification: "Reviewed 2026-05-01 by CISO; unrelated entity."
+    expires_at: "2030-01-01"
+manual_additions:
+  - entity_name: "Suspicious Holdings"
+    aliases: ["SusHold", "Сасписиус"]
+    subsidiaries: ["Suspicious Subsidiary"]
+    fingerprints: ["sha256:abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcab"]
+    justification: "Per CISO 2026-04-15 risk-acceptance memo; off-list supplier of concern."
+transliteration_overrides:
+  "сасписиус": "suspicious"
+fingerprint_overrides:
+  - catalog_uid: "far-52-204-25::huawei-technologies-company"
+    fingerprints: ["sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"]

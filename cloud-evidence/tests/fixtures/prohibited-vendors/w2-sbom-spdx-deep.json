@@ -1,0 +1,17 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "deep-image",
+  "packages": [
+    { "SPDXID": "SPDXRef-app", "name": "app", "versionInfo": "1.0.0", "supplier": "Organization: Internal Builder" },
+    { "SPDXID": "SPDXRef-l1", "name": "l1", "versionInfo": "1.0.0", "supplier": "Organization: Acme One" },
+    { "SPDXID": "SPDXRef-l2", "name": "l2", "versionInfo": "1.0.0", "supplier": "Organization: Acme Two" },
+    { "SPDXID": "SPDXRef-l3", "name": "l3", "versionInfo": "1.0.0", "supplier": "Organization: Huawei Technologies Company" }
+  ],
+  "relationships": [
+    { "spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-app" },
+    { "spdxElementId": "SPDXRef-app", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-l1" },
+    { "spdxElementId": "SPDXRef-l1", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-l2" },
+    { "spdxElementId": "SPDXRef-l2", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-l3" }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "metadata": {
+    "component": { "type": "application", "bom-ref": "app@1.0.0", "name": "app", "version": "1.0.0", "purl": "pkg:oci/app@1.0.0" }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/clean-lib@1.0.0",
+      "name": "clean-lib",
+      "version": "1.0.0",
+      "publisher": "Trustworthy Open Source",
+      "supplier": { "name": "Trustworthy Open Source" },
+      "purl": "pkg:npm/clean-lib@1.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/surveil-sdk@2.2.0",
+      "name": "surveil-sdk",
+      "version": "2.2.0",
+      "publisher": "Hangzhou Hikvision Digital Technology Company",
+      "purl": "pkg:npm/surveil-sdk@2.2.0"
+    }
+  ],
+  "dependencies": [
+    { "ref": "app@1.0.0", "dependsOn": ["pkg:npm/clean-lib@1.0.0", "pkg:npm/surveil-sdk@2.2.0"] }
+  ]
+}

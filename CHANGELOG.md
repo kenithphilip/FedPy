@@ -6,6 +6,92 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-W.W2: Subprocessor + SBOM + OCI Image Screening against Prohibited-Vendor Catalog
+
+Closed the largest remaining gap in the FedPy supply-chain story: until now
+FedPy emitted zero artifacts demonstrating the "reasonable inquiry" of FAR
+4.2101 — operators hand-screened vendors against the Section 889 clause. With
+`--prohibited-vendor-screen`, the orchestrator screens four surfaces — the
+operator's subprocessor sheet, every package in the SBOM (transitively, to
+`--sbom-max-depth`, default 8), every OCI image publisher attested by
+cosign/Rekor under `out/oci-attestations/`, and every inventory asset's
+`provider_tag`/`sku` — against the W.W1 prohibited-vendor catalog. It emits a
+signed `out/prohibited-vendors-screen-result.json` envelope (one match record
+per hit, carrying a confidence band, the catalog→surface provenance chain, the
+FAR 52.204-25(d)(1) report data elements pre-filled for W.W3 with
+`REQUIRES-OPERATOR-INPUT` markers where the operator must supply UEI/CAGE/brand/
+model, a deterministic `discovered_at` that drives the W.W3 one-business-day
+clock, and `reportable_under_far_52_204_25_d` / `reportable_under_ndaa_1634` /
+`reasonable_inquiry_attested` roll-up flags), an operator-readable 3-sheet
+`.xlsx`, and an append-only `prohibited-vendor-screens.jsonl` ledger. The screen
+NEVER auto-submits anything to a federal endpoint — it produces the evidence;
+the operator submits (W.W3/W.W4 own the report + the FAR 52.204-26 annual
+representation).
+
+New modules: `core/vendor-name-normalizer.ts` (NFKC + Cyrillic→Latin
+transliteration + corporate-suffix strip + diacritics), `core/prohibited-vendors-screen.ts`
+(boundary-respecting token-subsequence matcher index + subprocessor/inventory
+walkers + dedupe/suppression/assembly + reportable flags), `core/sbom-prohibited-screen.ts`
+(SPDX/CycloneDX dependency-graph walk + maintainer-field extraction with a
+per-hop depth penalty), `core/oci-publisher-screen.ts` (cosign fingerprint →
+OIDC registrable-domain → subject identity, fingerprint-first),
+`core/prohibited-vendors-overrides.ts` (typed `prohibited-vendors-overrides.yaml`
+loader — false-positive suppression with mandatory justification + expiry,
+operator manual additions, fingerprint + transliteration overrides),
+`core/prohibited-vendors-screen-emit.ts` (load + verify the W.W1 catalog, run
+the four surfaces, sign with a detached Ed25519 signature over the canonical
+signature-blanked bytes, write JSON + `.sig` + `.xlsx` + ledger, augment
+inventory-coverage), and `core/prohibited-vendors-screen-xlsx.ts`. Extended
+`core/subprocessors-sheet.ts` (`screenAgainstProhibitedVendors`),
+`core/submission-bundle.ts` (two new `WELL_KNOWN` roles),
+`core/inventory-coverage.ts` (`augmentCoverageWithProhibitedVendorScreen` +
+`prohibited_vendor_screen_coverage` sibling field), `core/oscal-poam.ts`
+(`buildVendorScreenPoamItems` + `vendorScreenItems` option — one high-severity
+"Prohibited Vendor Detected" POA&M item per non-suppressed match citing SR-1/
+SR-3/SR-5/SR-6/SR-11 and a `discovered_at + 1 business day` FAR 52.204-25(d)(2)
+deadline), and `core/orchestrator.ts` (`--prohibited-vendor-screen` +
+`--sbom-max-depth` + `--max-subsidiary-depth` flags, `CLOUD_EVIDENCE_*` env
+vars, and the emit pass that runs after the W.W1 catalog and before signing).
+
+Verification: `npm run typecheck` clean; `npm test` 1127/1127 passing (+54 new —
+`vendor-name-normalizer` 11, `prohibited-vendors-overrides` 7,
+`sbom-prohibited-screen` 6, `oci-publisher-screen` 5, `prohibited-vendors-screen`
+25, well above the slice's ≥30 target); `npm run check:reo` returns 0 (G1
+lint:no-stubs, G2 coverage-regression, G3 provenance — the screen envelope's
+top-level `provenance` block uses the camelCase G3 contract, verified with
+`check:provenance --dir` against a real `out/prohibited-vendors-screen-result.json`).
+
+Statutory / regulatory drivers (verbatim from W.W2.md §2): **FAR 52.204-25(a)**
+(covered telecommunications equipment from Huawei, ZTE, Hytera, Hikvision, Dahua,
+or a covered-foreign-country-connected entity) + **(d)** (one-business-day
+report of identified covered equipment); **FAR 52.204-26** ("After conducting a
+reasonable inquiry … the offeror represents that it does/does not use covered
+telecommunications equipment or services"); **FAR 4.2101** ("Reasonable inquiry
+means an inquiry designed to uncover any information in the entity's possession
+about the identity of the producer or provider of covered telecommunications
+equipment or services"); **FAR 4.2102** (the "uses" prohibition that drives the
+transitive SBOM walk); **NDAA FY2019 §889** (Pub. L. 115-232); **NDAA FY2018
+§1634** (Pub. L. 115-91 — Kaspersky Lab and successor/common-control/majority-
+owned entities); **DHS BOD 17-01** (Kaspersky removal); **OFAC SDN List** (IEEPA,
+50 U.S.C. §§1701-1707); **BIS Entity List** (15 CFR Part 744, Supplement No. 4);
+**SAM.gov Exclusions** (FAR Subpart 9.4); **NIST SP 800-161r1** (SR-1/3/5/6/11
+controls on each emitted POA&M item); **SPDX 2.3** + **CycloneDX 1.6** (SBOM
+dialects); **cosign + Rekor** (OCI publisher attestations).
+
+REO compliance notes: every match traces to a real catalog row × a real surface
+entry; FAR data elements default to `REQUIRES-OPERATOR-INPUT` (never a fabricated
+UEI/CAGE/brand). The implementation was adapted to the shipped codebase, not the
+spec's idealized interfaces — the matcher targets the real `ProhibitedVendorEntity`
+shape (subsidiary walk fires only on operator-supplied `manual_additions`); there
+is no `tracker/` subsystem in this checkout, so screen results persist via the
+signed envelope + JSONL ledger (the `poam-ledger.ts`/`run-ledger.ts` pattern)
+rather than a fabricated SQL migration; the SBOM walker parses SPDX/CycloneDX
+directly because `core/sbom.ts` flattens components; and the OCI screener reads
+attestation files when present and returns zero matches (no fabrication) when
+absent. These divergences + the resolutions of §10 open questions Q1/Q4 are
+recorded in `docs/slices/W/W.W2.md` §12 and risks W.W2-EXT-1/EXT-2 in
+`docs/loops/LOOP-W-RISKS.md`.
+
 ### Added — LOOP-E.E2: Monthly POA&M Delta Workflow
 
 Closed the monthly POA&M re-emission loop. The FedRAMP Rev5 ConMon cadence is a

@@ -1,0 +1,5 @@
+schema_version: '1.0.0'
+suppressions:
+  - vendor: "Missing Justification Co"
+    catalog_uid: "ofac-sdn::12345"
+    expires_at: "2030-01-01"

@@ -2,9 +2,9 @@
 slice_id: W.W2
 title: Subprocessor + SBOM + OCI Image Screening against Prohibited-Vendor Catalog
 loop: W
-status: proposed
-commit: TBD
-completed_date: —
+status: done
+commit: TBD-step6
+completed_date: 2026-06-18
 depends_on:
   - W.W1                                # prohibited-vendors-catalog + signed snapshot
   - LOOP-E.E2                           # SBOM produced by Syft + verified by cosign
@@ -17,7 +17,7 @@ blocks:
   - W.W3                                # 1-business-day reporter consumes the screen-result envelope
   - W.W4                                # FAR 52.204-26 annual representation consumes the screen-result envelope
 estimated_effort: medium (~7 working days for single implementer)
-last_updated: 2026-06-07
+last_updated: 2026-06-18
 applicable_conditional: true
 condition: Any CSP selling to a Federal agency, prime, or grant recipient — FAR 52.204-25 applies to every Federal acquisition since 2020-08-13 (Part B effective date). No opt-out.
 trigger_flag: "--prohibited-vendor-screen"
@@ -1159,9 +1159,53 @@ one of: tracker DB, `config.yaml`, cloud resource tags, or a CLI flag.
 
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
-|      |         |        |        |       |
+| 2026-06-18 | impl-w-w2 | Shipped end to end per spec (adapted to the real codebase). 54 new tests (normalizer 11, overrides 7, sbom 6, oci 5, screen 25); full suite 1073→1127. typecheck/test/check:reo all green; G3 verified on the real `out/prohibited-vendors-screen-result.json`. | `TBD-step6` | See divergences below. |
 
-(Empty until W.W2 begins.)
+**Spec-vs-reality divergences (documented per the CLAUDE.md Strong Directive):**
+
+1. **Catalog shape.** The spec's §4.1 idealized `ProhibitedVendorCatalogEntry`
+   (with `catalog_uid`, `subsidiaries[]`, `parent_entities[]`) does not match
+   the W.W1 catalog actually shipped — `core/prohibited-vendors-catalog.ts`
+   emits `ProhibitedVendorEntity[]` keyed by `(source_id, source_record_id)`
+   with `name_canonical`, `name_canonical_stripped`, `aliases[]`, `programs[]`.
+   The matcher was built against the REAL shape. `catalog_uid` is synthesized
+   as `${source_id}::${source_record_id}`. Federal lists carry no subsidiary
+   edges, so the subsidiary walk fires ONLY on operator-supplied
+   `manual_additions[].subsidiaries` (REO Rule 4) — for a pure federal catalog
+   it honestly finds nothing.
+2. **No `tracker/` subsystem.** §7.2 item 20 (tracker DB migration) + T30
+   reference a `tracker/` directory that does NOT exist in this checkout.
+   Rather than fabricate infrastructure (a REO violation), screen results are
+   persisted via the signed JSON envelope + an append-only
+   `out/prohibited-vendor-screens.jsonl` ledger — the repo's established
+   durable-record pattern (`core/poam-ledger.ts`, `core/run-ledger.ts`). The
+   tracker-DB tables + UI are logged as a follow-up risk (W.W2-EXT-1).
+3. **SBOM API.** `core/sbom.ts` (E.E2) flattens components without supplier/
+   publisher/originator or a dependency graph, so `sbom-prohibited-screen.ts`
+   parses SPDX `relationships[]` / CycloneDX `dependencies[]` directly for the
+   transitive walk + maintainer fields (composing `listSbomFiles`).
+4. **No OCI producer.** The spec's `core/oci-attest.ts` (J.J3) does not exist;
+   J.J3 shipped `core/supply-chain-risk.ts`. `oci-publisher-screen.ts` reads
+   cosign/Rekor attestation files from `out/oci-attestations/*.json` when
+   present (the documented §4.4 shape) and returns zero matches (no fabrication)
+   when absent.
+5. **POA&M integration.** There is no `emitPoamFinding` function. Mirroring the
+   existing `supplyChainPoamItems` pattern, `core/oscal-poam.ts` gained
+   `buildVendorScreenPoamItems(matches)` + a `vendorScreenItems` option on
+   `emitOscalPoam`. In the current orchestrator pipeline `emitOscalPoam` runs
+   BEFORE the catalog/screen, so threading items into that call would require a
+   pipeline reorder (out of scope); the screen emits its own signed envelope as
+   the primary W.W2 artifact and the POA&M builder is unit-tested (T16) for
+   callers. Logged as follow-up risk W.W2-EXT-2.
+6. **Provenance casing.** The envelope's top-level `provenance` block uses
+   camelCase keys (`emitter`/`emittedAt`/`sourceCalls`/`signingKeyId`) per the
+   G3 guardrail (the spec's snake_case would fail `check:provenance`); the
+   richer per-source digests live in `provenance.sourceDigests`.
+7. **Open §10 questions resolved:** Q1 — depth-2 subsidiary = medium (0.7),
+   depth-3 = low (0.5), per the confidence bands. Q4 — GitHub-Actions OIDC
+   `<owner>` IS screened as a low-confidence (0.7) heuristic. Remaining §10
+   questions (Q2/Q3/Q5/Q6/Q7/Q8) are deferred to W.W3/W.W4 or operator policy
+   and are not gating for W.W2.
 
 ## 13. Completion checklist (SLICE-COMPLETION-PROCEDURE.md verbatim + push directive)
 

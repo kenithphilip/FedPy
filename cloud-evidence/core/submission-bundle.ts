@@ -95,6 +95,8 @@ type Role =
   | 'pva-summary'
   | 'oscal-validation-report'
   | 'prohibited-vendors-catalog'
+  | 'prohibited-vendors-screen-json'
+  | 'prohibited-vendors-screen-xlsx'
   | 'risk-scores-json'
   | 'epss-cache'
   | 'ssdf-practice-catalog-json'
@@ -144,6 +146,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'pva-summary', filename: 'pva-run-summary.json', description: 'Persistent Validation & Assessment run summary' },
   { role: 'oscal-validation-report', filename: 'oscal-validation-report.json', description: 'ajv validation report for emitted OSCAL artifacts' },
   { role: 'prohibited-vendors-catalog', filename: 'prohibited-vendors-catalog.json', description: 'Prohibited-vendor catalog merged from OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA (LOOP-W.W1)' },
+  { role: 'prohibited-vendors-screen-json', filename: 'prohibited-vendors-screen-result.json', description: 'Prohibited-vendor screen result envelope per FAR 4.2101 reasonable inquiry — subprocessor + SBOM + OCI publisher + inventory surfaces screened against the W.W1 catalog (LOOP-W.W2)' },
+  { role: 'prohibited-vendors-screen-xlsx', filename: 'prohibited-vendors-screen-result.xlsx', description: 'Operator-readable prohibited-vendor screen workbook — Matches / Surfaces Screened / Summary (LOOP-W.W2)' },
   { role: 'risk-scores-json', filename: 'risk-scores.json', description: 'Per-finding CVSS+EPSS+criticality+exposure composite scores (LOOP-B.B1)' },
   { role: 'epss-cache', filename: '.epss-cache.json', description: 'On-disk FIRST EPSS API response cache (24h TTL) — provenance-stamped (LOOP-B.B1)' },
   { role: 'ssdf-practice-catalog-json', filename: 'ssdf-800-218-v1.1.json', description: 'NIST SP 800-218 v1.1 (SSDF) practice catalog — 19 practices, 42 tasks, 800-53 Rev 5 + FedRAMP KSI crosswalk (LOOP-T.T1); included when --include-ssdf-catalog is set (T.T2)' },

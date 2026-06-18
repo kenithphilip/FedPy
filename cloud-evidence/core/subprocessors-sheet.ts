@@ -21,6 +21,9 @@
  *   - IAM-AAM (tags external identities with subprocessor=<name>)
  */
 import * as gcpAuth from './auth/gcp.ts';
+import { screenSubprocessorRows } from './prohibited-vendors-screen.ts';
+import type { ProhibitedVendorIndex, ProhibitedVendorMatch } from './prohibited-vendors-screen.ts';
+import type { VendorNameNormalizer } from './vendor-name-normalizer.ts';
 
 export interface SubprocessorRow {
   // ── existing fields (preserve) ──
@@ -109,4 +112,20 @@ export async function readSubprocessors(cfg: SheetConfig): Promise<{ rows: Subpr
     warnings.push(`Sheets read failed: ${e.message}`);
     return { rows: [], warnings };
   }
+}
+
+/**
+ * LOOP-W.W2: screen the subprocessor rows' `name` (and any other identifying
+ * field) against the prohibited-vendor catalog index. A thin wrapper over
+ * `core/prohibited-vendors-screen.ts:screenSubprocessorRows` so the W.W2 screen
+ * can treat the subprocessor sheet as one of its four surfaces without
+ * duplicating the existing sheet-reading paths above (which stay untouched).
+ */
+export function screenAgainstProhibitedVendors(
+  rows: SubprocessorRow[],
+  index: ProhibitedVendorIndex,
+  normalizer: VendorNameNormalizer,
+  discoveredAt: string,
+): ProhibitedVendorMatch[] {
+  return screenSubprocessorRows({ rows, index, normalizer, discoveredAt });
 }

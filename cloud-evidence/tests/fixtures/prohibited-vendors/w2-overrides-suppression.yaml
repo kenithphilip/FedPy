@@ -1,0 +1,10 @@
+schema_version: '1.0.0'
+suppressions:
+  - vendor: "ZTE Corporation"
+    catalog_uid: "far-52-204-25::zte-corporation"
+    justification: "Manual review 2026-06-01 by CISO; distinct same-named entity, verified not covered."
+    expires_at: "2099-01-01"
+  - vendor: "Dahua Technology Company"
+    catalog_uid: "far-52-204-25::dahua-technology-company"
+    justification: "Verified false positive 2024-01-01; suppression already lapsed."
+    expires_at: "2024-06-01"

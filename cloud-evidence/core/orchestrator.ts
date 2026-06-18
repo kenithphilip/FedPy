@@ -68,6 +68,7 @@ import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
+import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -215,6 +216,19 @@ interface Args {
    */
   prohibitedVendorsCatalog: boolean;
   /**
+   * When true (LOOP-W.W2), screen the subprocessor sheet + SBOM (transitively) +
+   * OCI image publishers + inventory provider tags against the W.W1
+   * prohibited-vendor catalog and emit out/prohibited-vendors-screen-result.json
+   * (+ .xlsx). Runs AFTER the catalog (which it consumes) and BEFORE signing so
+   * the screen result is covered by the run manifest. FAR 52.204-25 applies to
+   * every federal acquisition since 2020-08-13 (no opt-out).
+   */
+  prohibitedVendorScreen: boolean;
+  /** Max SBOM transitive-dependency depth walked by the W.W2 screen (default 8). */
+  sbomMaxDepth: number;
+  /** Max subsidiary-chain depth walked by the W.W2 screen (default 3). */
+  maxSubsidiaryDepth: number;
+  /**
    * When true (LOOP-B.B1), compute per-finding composite risk scores
    * (CVSS+EPSS+criticality+exposure) and emit out/risk-scores.json. Runs
    * BEFORE the OSCAL POA&M emitter so the scores flow onto poam-item props,
@@ -327,6 +341,9 @@ function parseArgs(argv: string[]): Args {
     siemUrl: process.env.CLOUD_EVIDENCE_SIEM_URL ?? null,
     webhookUrl: process.env.CLOUD_EVIDENCE_WEBHOOK_URL ?? null,
     prohibitedVendorsCatalog: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG === '1',
+    prohibitedVendorScreen: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_SCREEN === '1',
+    sbomMaxDepth: Number(process.env.CLOUD_EVIDENCE_SBOM_MAX_DEPTH ?? 8),
+    maxSubsidiaryDepth: Number(process.env.CLOUD_EVIDENCE_MAX_SUBSIDIARY_DEPTH ?? 3),
     riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
     riskConfigPath: process.env.CLOUD_EVIDENCE_RISK_CONFIG ?? null,
     riskNoEpss: process.env.CLOUD_EVIDENCE_RISK_NO_EPSS === '1',
@@ -452,6 +469,16 @@ function parseArgs(argv: string[]): Args {
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
         args.prohibitedVendorsCatalog = true;
+        break;
+      case '--prohibited-vendor-screen':
+        // LOOP-W.W2: screen the four surfaces against the W.W1 catalog.
+        args.prohibitedVendorScreen = true;
+        break;
+      case '--sbom-max-depth':
+        args.sbomMaxDepth = Number(argv[++i] ?? 8);
+        break;
+      case '--max-subsidiary-depth':
+        args.maxSubsidiaryDepth = Number(argv[++i] ?? 3);
         break;
       case '--risk-score':
         // LOOP-B.B1: compute per-finding composite risk scores.
@@ -2311,6 +2338,60 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`Prohibited-vendor catalog emission failed: ${e.message}`);
       log.error({ event: 'prohibited_vendors.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Prohibited-vendor screen (LOOP-W.W2) — screen the subprocessor sheet +
+  // SBOM (transitively) + OCI publishers + inventory provider tags against the
+  // W.W1 catalog. Runs AFTER the catalog (which it consumes) and BEFORE signing
+  // so the screen result is covered by the run manifest. FAR 52.204-25 applies
+  // to every federal acquisition since 2020-08-13. The screen NEVER auto-submits
+  // anything to a federal endpoint — it produces the evidence; the operator
+  // submits (W.W3/W.W4 own the report + representation). ----
+  if (args.prohibitedVendorScreen && !args.dryRun) {
+    try {
+      const overridesPath = resolve(process.cwd(), 'prohibited-vendors-overrides.yaml');
+      // Best-effort: reuse the J.J2 subprocessor inventory rows as surface 1.
+      let subprocessorRows: Array<{ name: string }> | undefined;
+      let subprocessorSourcePath: string | undefined;
+      const subInvPath = resolve(args.outDir, 'subprocessor-inventory.json');
+      if (existsSync(subInvPath)) {
+        try {
+          const doc = JSON.parse(readFileSync(subInvPath, 'utf8'));
+          const rows = (doc?.subprocessors ?? doc?.entries ?? doc?.rows ?? []) as any[];
+          subprocessorRows = rows
+            .map((r) => ({ name: String(r?.name ?? r?.vendor ?? '').trim() }))
+            .filter((r) => r.name);
+          subprocessorSourcePath = subInvPath;
+        } catch { /* malformed inventory → screen the other surfaces */ }
+      }
+      const screen = emitProhibitedVendorsScreen({
+        outDir: args.outDir,
+        runId,
+        cspName: args.cspName ?? (config as any)?.csp_name ?? 'REQUIRES-OPERATOR-INPUT',
+        overridesPath: existsSync(overridesPath) ? overridesPath : undefined,
+        subprocessorRows,
+        subprocessorSourcePath,
+        sbomDir: args.sbomDir ?? undefined,
+        sbomMaxDepth: args.sbomMaxDepth,
+        // OCI attestation dir + inventory.json are auto-detected under outDir.
+      });
+      const r = screen.result;
+      console.log(
+        `Prohibited-vendor screen: ${screen.json_path} (${r.summary.total_matches} match(es) across ` +
+        `${r.surfaces_screened.length} surface(s); reportable_far=${r.reportable_under_far_52_204_25_d}, ` +
+        `reportable_ndaa=${r.reportable_under_ndaa_1634}, reasonable_inquiry=${r.reasonable_inquiry_attested})`
+      );
+      ledger.record('prohibited_vendor_screen.emit', {
+        status: 'info',
+        total_matches: r.summary.total_matches,
+        surfaces_walked: screen.surfaces_walked,
+        reportable_far: r.reportable_under_far_52_204_25_d,
+        reportable_ndaa: r.reportable_under_ndaa_1634,
+      });
+    } catch (e: any) {
+      console.error(`Prohibited-vendor screen failed: ${e.message}`);
+      log.error({ event: 'prohibited_vendor_screen.fail', err_message: e?.message });
     }
   }
 

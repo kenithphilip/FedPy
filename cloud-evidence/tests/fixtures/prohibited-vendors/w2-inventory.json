@@ -1,0 +1,7 @@
+{
+  "assets": [
+    { "id": "asset-1", "unique_id": "asset-1", "provider_tag": "huawei-public-cloud", "function": "cdn" },
+    { "id": "asset-2", "unique_id": "asset-2", "sku": "hikvision-camera-DS-2CD2x", "function": "camera" },
+    { "id": "asset-3", "unique_id": "asset-3", "provider_tag": "internal-build", "function": "ci" }
+  ]
+}

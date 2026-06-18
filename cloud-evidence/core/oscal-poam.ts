@@ -66,6 +66,8 @@ import { deterministicUuid } from './oscal.ts';
 import { oscalJsonToXml } from './oscal-xml.ts';
 import { log } from './log.ts';
 import { addDaysIso, type SupplyChainRiskRegister } from './supply-chain-risk.ts';
+import { addBusinessDays } from './bizdays.ts';
+import type { ProhibitedVendorMatch } from './prohibited-vendors-screen.ts';
 import { computeDeadline, type DeadlineContext, type DeadlineResult } from './deadline-engine.ts';
 import type { KevEntry } from './kev-feed.ts';
 import { canonicalize, signDetached, type DetachedSignature } from './sign.ts';
@@ -327,6 +329,14 @@ export interface PoamEmitOptions {
    * anchored at the entry's first_seen.
    */
   supplyChainItems?: OscalPoamItem[];
+  /**
+   * Prohibited-vendor screen POA&M items (LOOP-W.W2). Derived from the W.W2
+   * screen result's non-suppressed matches by emitOscalPoam() (or supplied
+   * directly) and appended to the findings-derived items. Each cites the
+   * SR-1/3/5/6/11 controls and the FAR/NDAA statutory authority; severity is
+   * always `high` (a confirmed covered-entity hit is high by statute).
+   */
+  vendorScreenItems?: OscalPoamItem[];
   /**
    * LOOP-B.B2 deadline engine inputs. The CISA KEV index (CVE-ID upper-case →
    * entry) drives the KEV branch of the priority cascade; the orchestrator loads
@@ -614,6 +624,54 @@ export function supplyChainPoamItems(outDir: string): OscalPoamItem[] {
   return items;
 }
 
+// ─── LOOP-W.W2: prohibited-vendor screen POA&M items ─────────────────────────
+//
+// Each non-suppressed W.W2 match becomes one poam-item with the SR-1/3/5/6/11
+// controls (NIST SP 800-161r1) recorded as `nist-control` props (the OSCAL
+// poam-item model carries controls via finding targets, not on the item; the
+// repo's convention is to surface controls as CE-namespaced props). Severity is
+// `high` by FAR statutory authority. The remediation deadline is the match's
+// discovered_at + 1 business day (FAR 52.204-25(d)(2) one-business-day report).
+
+const VENDOR_SCREEN_CONTROLS = ['sr-1', 'sr-3', 'sr-5', 'sr-6', 'sr-11'];
+
+export function buildVendorScreenPoamItems(matches: ProhibitedVendorMatch[]): OscalPoamItem[] {
+  const items: OscalPoamItem[] = [];
+  const seen = new Set<string>();
+  for (const m of matches) {
+    if (m.suppressed) continue;
+    if (seen.has(m.poam_item_uuid)) continue;
+    seen.add(m.poam_item_uuid);
+    const deadline = addBusinessDays(new Date(m.discovered_at), 1).toISOString();
+    const props: OscalProp[] = [
+      { name: 'risk-source', ns: CE_NS, value: 'prohibited-vendor' },
+      { name: 'severity', ns: CE_NS, value: 'high' },
+      { name: 'screen-surface', ns: CE_NS, value: m.surface },
+      { name: 'matched-by', ns: CE_NS, value: m.matched_by },
+      { name: 'confidence', ns: CE_NS, value: m.confidence.toFixed(2) },
+      { name: 'confidence-band', ns: CE_NS, value: m.confidence_band },
+      { name: 'catalog-source', ns: CE_NS, value: m.catalog_provenance.source },
+      { name: 'statutory-authority', ns: CE_NS, value: m.catalog_provenance.citation },
+      { name: 'discovered-at', ns: CE_NS, value: m.discovered_at },
+      { name: 'remediation-deadline', ns: CE_NS, value: deadline },
+    ];
+    for (const c of VENDOR_SCREEN_CONTROLS) props.push({ name: 'nist-control', ns: CE_NS, value: c });
+    items.push({
+      uuid: m.poam_item_uuid,
+      title: `Prohibited Vendor Detected: ${m.matched_entity_name} on ${m.surface}`,
+      description:
+        `Prohibited-vendor screen match against ${m.catalog_provenance.source} ` +
+        `(${m.catalog_provenance.citation}). Match path: ${m.match_path.join(' -> ')}. ` +
+        `Discovered ${m.discovered_at}; one-business-day FAR 52.204-25(d)(2) report due ${deadline}.`,
+      props,
+      remarks:
+        `Matched by ${m.matched_by} (confidence ${m.confidence.toFixed(2)}, ${m.confidence_band} band). ` +
+        `Surface evidence: ${m.sources.surface_evidence}. Related controls: ${VENDOR_SCREEN_CONTROLS.join(', ')}.`,
+    });
+  }
+  return items;
+}
+
 export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions): {
   doc: { 'plan-of-action-and-milestones': OscalPoam };
   result: Omit<PoamEmitResult, 'path' | 'xml_path'>;
@@ -796,6 +854,15 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
     }
   }
 
+  // LOOP-W.W2: append prohibited-vendor screen POA&M items (high by statute).
+  if (opts.vendorScreenItems?.length) {
+    for (const it of opts.vendorScreenItems) {
+      poamItems.push(it);
+      const sev = it.props?.find((p) => p.name === 'severity')?.value as Severity | undefined;
+      if (sev && sev in bySeverity) bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
+    }
+  }
+
   const totalFailing = poamItems.length;
   const totalAssessed = envelopes.reduce(
     (n, e) => n + ((e as any).providers as ProviderBlock[]).reduce((m, p) => m + ((p as any).findings?.length ?? 0), 0),
@@ -873,16 +940,17 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
   // emit" — a run with no failing KSI findings but open supply-chain risks
   // still produces a POA&M.
   const supplyChainItems = opts.supplyChainItems ?? supplyChainPoamItems(opts.outDir);
+  const vendorScreenItems = opts.vendorScreenItems ?? [];
 
   // Pre-flight: if there are zero failing findings across all envelopes AND no
-  // supply-chain items, the OSCAL POA&M schema (poam-items.minItems=1) cannot
-  // represent the state. We skip emission and surface the reason — the
-  // orchestrator + ConMon pipeline log this as "clean state; nothing to submit
-  // this cycle" rather than mistaking it for a missing-evidence failure.
+  // supply-chain items AND no prohibited-vendor items, the OSCAL POA&M schema
+  // (poam-items.minItems=1) cannot represent the state. We skip emission and
+  // surface the reason — the orchestrator + ConMon pipeline log this as "clean
+  // state; nothing to submit this cycle" rather than a missing-evidence failure.
   const totalFailing = envelopes.reduce((n, e) => n + ((e as any).providers as ProviderBlock[]).reduce(
     (m, p) => m + ((p as any).findings ?? []).filter((f: Finding) => !f.passed).length, 0,
   ), 0);
-  if ((envelopes.length === 0 || totalFailing === 0) && supplyChainItems.length === 0) {
+  if ((envelopes.length === 0 || totalFailing === 0) && supplyChainItems.length === 0 && vendorScreenItems.length === 0) {
     const reason: 'no-failing-findings' | 'no-evidence-files' =
       envelopes.length === 0 ? 'no-evidence-files' : 'no-failing-findings';
     log.info(
@@ -900,7 +968,7 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
     };
   }
 
-  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems });
+  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems, vendorScreenItems });
   const path = opts.outPath ?? resolve(opts.outDir, 'poam.json');
   writeFileSync(path, JSON.stringify(doc, null, 2));
 

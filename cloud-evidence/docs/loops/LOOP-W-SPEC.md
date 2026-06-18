@@ -670,8 +670,8 @@ LOOP-W's clock module applies the OPM in-lieu-of rule.
 
 | id   | title                                                     | status  | commit | depends_on (within LOOP-W) | also depends_on (external)                                              | estimated_effort |
 |------|-----------------------------------------------------------|---------|--------|----------------------------|-------------------------------------------------------------------------|------------------|
-| W.W1 | Prohibited-Vendor List Ingester                           | pending | TBD    | —                          | none (foundation slice)                                                 | small (~5d)      |
-| W.W2 | Subprocessor + SBOM + OCI Image Screening                 | pending | TBD    | W.W1                       | LOOP-E.E2 (SBOM); LOOP-J.J3.b (OCI cosign/Rekor); core/subprocessors-sheet | large (~7d)      |
+| W.W1 | Prohibited-Vendor List Ingester                           | done    | `be78723` | —                          | none (foundation slice)                                                 | small (~5d)      |
+| W.W2 | Subprocessor + SBOM + OCI Image Screening                 | done    | `TBD-step6` | W.W1                       | LOOP-E.E2 (SBOM); LOOP-J.J3 (OCI cosign/Rekor); core/subprocessors-sheet | large (~7d)      |
 | W.W3 | FAR 52.204-25(d) 1-Business-Day Reporter                  | pending | TBD    | W.W2                       | LOOP-A.A1 (POA&M); LOOP-A.A5 (signing); LOOP-A.A4 (bundler); tracker DB | medium (~5d)     |
 | W.W4 | Section 889 Part B Annual Representation (FAR 52.204-26)  | pending | TBD    | W.W2                       | LOOP-A.A5 (signing); LOOP-A.A4 (bundler); LOOP-Q.Q1 (Marketplace badge) | small (~4d)      |
 
