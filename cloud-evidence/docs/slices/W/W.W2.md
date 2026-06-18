@@ -3,7 +3,7 @@ slice_id: W.W2
 title: Subprocessor + SBOM + OCI Image Screening against Prohibited-Vendor Catalog
 loop: W
 status: done
-commit: TBD-step6
+commit: 5e7d2e2
 completed_date: 2026-06-18
 depends_on:
   - W.W1                                # prohibited-vendors-catalog + signed snapshot
@@ -1159,7 +1159,7 @@ one of: tracker DB, `config.yaml`, cloud resource tags, or a CLI flag.
 
 | date | session | action | commit | notes |
 |------|---------|--------|--------|-------|
-| 2026-06-18 | impl-w-w2 | Shipped end to end per spec (adapted to the real codebase). 54 new tests (normalizer 11, overrides 7, sbom 6, oci 5, screen 25); full suite 1073→1127. typecheck/test/check:reo all green; G3 verified on the real `out/prohibited-vendors-screen-result.json`. | `TBD-step6` | See divergences below. |
+| 2026-06-18 | impl-w-w2 | Shipped end to end per spec (adapted to the real codebase). 54 new tests (normalizer 11, overrides 7, sbom 6, oci 5, screen 25); full suite 1073→1127. typecheck/test/check:reo all green; G3 verified on the real `out/prohibited-vendors-screen-result.json`. | `5e7d2e2` | See divergences below. |
 
 **Spec-vs-reality divergences (documented per the CLAUDE.md Strong Directive):**
 

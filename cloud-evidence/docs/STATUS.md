@@ -25,7 +25,7 @@ and not on the implementation queue.
   - + 4 pre-loop research (R1-R4 done) + REO-0 (done)
 - Core loops total: 22 (A through S + T + W + X) + 2 CIRCIA extensions (G.G2.CIRCIA, M.M4.CIRCIA) + 1 SEC 8-K overlay (G.G2-SEC-8K)
 - Loops complete: 1 of 22 (LOOP-A); LOOP-W in progress (2 of 4 slices done — W.W1, W.W2); LOOP-T in progress (1 of 5 slices done); LOOP-B in progress (2 of 5 slices done — B.B1, B.B2); LOOP-E in progress (2 of 7 slices done — E.E1, E.E2); LOOP-J in progress (2 of 3 slices done — J.J2, J.J3; J.J1 pending)
-- Last shipped: LOOP-W.W2 (commit `TBD-step6`)
+- Last shipped: LOOP-W.W2 (commit `5e7d2e2`)
 - Next priority: **LOOP-W.W3 (SBOM + dependency-graph crosscheck → FAR 52.204-25(d) 1-business-day reporter)** — unblocked: its dependencies (`W.W1 ✅, W.W2 ✅, J.J3 ✅` per the per-slice frontmatter) are all done. W.W2 shipped this session emits the `prohibited-vendors-screen-result.json` envelope (with per-match `discovered_at` + the FAR 52.204-25(d)(1) data elements pre-filled) that W.W3 keys the one-business-day report off. So ship **W.W3 → W.W4** to close the HIGHEST-PRIORITY LOOP-W chain (FAR 52.204-25 statutorily gates the submission package). **B.B3 (Risk acceptance workflow)** remains an ALSO-unblocked alternative (`depends_on: [A.A1 ✅, A.A3 ✅, B.B1 ✅, B.B2 ✅]`) — B.B2 shipped the `acceptanceOverride` hook for B.B3 to plug into; it unblocks B.B4/B.B5/E.E5/F.F1/C.C7. Then **LOOP-T.T2-T.T5** (CISA SSDF Common Form). LOOP-L through LOOP-Q queued behind the above. LOOP-R (PQC), LOOP-S (DFARS, conditional), LOOP-X (Zero Trust), G.G2-SEC-8K, and CIRCIA extensions queued behind LOOP-L–Q.
   - **Dependency-metadata note (discovered 2026-06-10; RESOLVED 2026-06-18):** the W.W2 row's `Dependencies` column previously read `W.W1, J.J2`, inconsistent with the W.W2 per-slice-doc frontmatter (`W.W1, E.E2, J.J3, A.A1, A.A5, B.B1`). The W.W2 row was reconciled to the frontmatter when W.W2 shipped (this session). No further action; see `docs/loops/LOOP-B-RISKS.md` risk B.B1-EXT-1.
 
@@ -245,7 +245,7 @@ rationale.
 | Slice | Title | Status | Commit | Date | Spec | Per-slice doc | Dependencies | Last updated |
 |---|---|---|---|---|---|---|---|---|
 | W.W1 | Prohibited-vendor catalog ingester + canonical-JSON emitter (OFAC SDN + BIS Entity List + SAM Exclusions + FAR 52.204-25 + NDAA §889 + NDAA §1634 + FASCSA) | done | `be78723` | 2026-06-08 | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W1.md` | — | 2026-06-08 |
-| W.W2 | Subprocessor + SBOM + OCI image screening against prohibited-vendor catalog | done | `TBD-step6` | 2026-06-18 | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W2.md` | W.W1, E.E2, J.J3, A.A1, A.A5, B.B1 | 2026-06-18 |
+| W.W2 | Subprocessor + SBOM + OCI image screening against prohibited-vendor catalog | done | `5e7d2e2` | 2026-06-18 | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W2.md` | W.W1, E.E2, J.J3, A.A1, A.A5, B.B1 | 2026-06-18 |
 | W.W3 | SBOM + dependency-graph crosscheck against prohibited-vendor list (transitive supplier check) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W3.md` | W.W1, J.J3 | 2026-06-07 |
 | W.W4 | Prohibited-vendor compliance attestation emitter (signed, blocks submission on hit) | proposed | TBD | — | `docs/loops/LOOP-W-SPEC.md` | `docs/slices/W/W.W4.md` | W.W1, W.W2, W.W3 | 2026-06-07 |
 
