@@ -70,6 +70,7 @@ import { emitRoeDocx } from './roe-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
+import { emitSection889AnnualRep } from './section889-annual-rep.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -233,6 +234,16 @@ interface Args {
    * signing so the reports are covered by the run manifest. NEVER auto-transmits.
    */
   prohibitedVendor1bdReport: boolean;
+  /**
+   * When true (LOOP-W.W4), ingest the W.W2 screen result and emit the signed FAR
+   * 52.204-26 Section 889 Part B annual representation (canonical-JSON envelope +
+   * printable `.docx`) — the SAM.gov "does / does not" representation, driven by
+   * the screen's non-suppressed matches, plus the LOOP-Q.Q1 Marketplace badge
+   * feed. Runs AFTER the W.W2 screen + W.W3 reporter (it links W.W3 incidents) and
+   * BEFORE signing so the artifacts are covered by the run manifest. NEVER files
+   * the representation in SAM.gov on the operator's behalf (REO Rule 4).
+   */
+  section889AnnualRep: boolean;
   /** Max SBOM transitive-dependency depth walked by the W.W2 screen (default 8). */
   sbomMaxDepth: number;
   /** Max subsidiary-chain depth walked by the W.W2 screen (default 3). */
@@ -352,6 +363,7 @@ function parseArgs(argv: string[]): Args {
     prohibitedVendorsCatalog: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDORS_CATALOG === '1',
     prohibitedVendorScreen: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_SCREEN === '1',
     prohibitedVendor1bdReport: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_1BD_REPORT === '1',
+    section889AnnualRep: process.env.CLOUD_EVIDENCE_SECTION889_ANNUAL_REP === '1',
     sbomMaxDepth: Number(process.env.CLOUD_EVIDENCE_SBOM_MAX_DEPTH ?? 8),
     maxSubsidiaryDepth: Number(process.env.CLOUD_EVIDENCE_MAX_SUBSIDIARY_DEPTH ?? 3),
     riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
@@ -487,6 +499,10 @@ function parseArgs(argv: string[]): Args {
       case '--prohibited-vendor-1bd-report':
         // LOOP-W.W3: emit FAR 52.204-25(d) 1-business-day reports from W.W2 hits.
         args.prohibitedVendor1bdReport = true;
+        break;
+      case '--section889-annual-rep':
+        // LOOP-W.W4: emit the FAR 52.204-26 annual representation (JSON + .docx).
+        args.section889AnnualRep = true;
         break;
       case '--sbom-max-depth':
         args.sbomMaxDepth = Number(argv[++i] ?? 8);
@@ -2448,6 +2464,61 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`FAR 52.204-25(d) 1BD reporter failed: ${e.message}`);
       log.error({ event: 'section889_1bd_report.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- FAR 52.204-26 Section 889 Part B annual representation (LOOP-W.W4) —
+  // ingest the W.W2 screen result, compute the two FAR 52.204-26(c) "does / does
+  // not" answers from the non-suppressed matches, link any W.W3 1BD incidents,
+  // sign the canonical-JSON envelope (+ .docx render), and write the LOOP-Q.Q1
+  // Marketplace badge feed. Runs AFTER the W.W2 screen + W.W3 reporter (it reads
+  // the 1BD ledger for linked incidents) and BEFORE signing so the artifacts are
+  // covered by the run manifest. NEVER files the representation in SAM.gov — REO
+  // Rule 4. Mandatory operator fields (UEI, officer block, methodology doc) are
+  // validated before any write; a missing field throws + this pass logs + skips. ----
+  if (args.section889AnnualRep && !args.dryRun) {
+    try {
+      const s889 = (config as any)?.section_889 ?? {};
+      const annual = s889?.annual_representation ?? {};
+      const rep = emitSection889AnnualRep({
+        outDir: args.outDir,
+        runId,
+        cspName: args.cspName ?? (config as any)?.csp_name ?? 'REQUIRES-OPERATOR-INPUT',
+        offeror: {
+          legal_name: s889?.offeror?.legal_name ?? (config as any)?.csp_name ?? undefined,
+          unique_entity_id: s889?.offeror?.unique_entity_id ?? (config as any)?.csp_uei ?? undefined,
+          cage_code: s889?.offeror?.cage_code ?? (config as any)?.csp_cage_code ?? undefined,
+          duns: s889?.offeror?.duns ?? undefined,
+          physical_address: s889?.offeror?.physical_address ?? undefined,
+        },
+        authorizedOfficer: {
+          full_name: s889?.authorized_officer?.full_name ?? undefined,
+          title: s889?.authorized_officer?.title ?? undefined,
+          email: s889?.authorized_officer?.email ?? undefined,
+          signing_key_id: s889?.authorized_officer?.signing_key_id ?? undefined,
+        },
+        reasonableInquiryMethodologyPath: annual?.reasonable_inquiry_methodology_path
+          ?? resolve(process.cwd(), 'docs/section889/reasonable-inquiry-methodology.md'),
+        includeKasperskyAttachment: annual?.include_kaspersky_attachment !== false,
+        validUntilDays: annual?.valid_until_days ?? undefined,
+        strictCatalogFreshness: args.strictRisk,
+      });
+      console.log(
+        `FAR 52.204-26 annual representation: provides=${rep.provides_status}, uses=${rep.uses_status} ` +
+        `(${rep.linked_incidents_count} linked 1BD incident(s), ${rep.flips.length} flip(s) vs prior, ` +
+        `Marketplace badge ${rep.badge_enabled ? 'enabled' : 'grey-listed'}).`
+      );
+      for (const w of rep.warnings) console.warn(`  ${w}`);
+      ledger.record('section889_annual_rep.emit', {
+        status: 'info',
+        provides_status: rep.provides_status,
+        uses_status: rep.uses_status,
+        linked_incidents: rep.linked_incidents_count,
+        badge_enabled: rep.badge_enabled,
+      });
+    } catch (e: any) {
+      console.error(`FAR 52.204-26 annual representation failed: ${e.message}`);
+      log.error({ event: 'section889_annual_rep.fail', err_message: e?.message });
     }
   }
 

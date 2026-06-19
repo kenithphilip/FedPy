@@ -114,7 +114,12 @@ type Role =
   | 'section889-1bd-report-json'
   | 'section889-1bd-report-docx'
   | 'section889-1bd-report-sig'
-  | 'section889-1bd-ledger';
+  | 'section889-1bd-ledger'
+  | 'section889-annual-rep-json'
+  | 'section889-annual-rep-docx'
+  | 'section889-annual-rep-sig'
+  | 'section889-annual-rep-ledger'
+  | 'marketplace-section889-badge';
 
 interface WellKnownArtifact {
   role: Role;
@@ -170,6 +175,11 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'section889-1bd-report-docx', filename: /^section889-1bd-reports\/s889-[0-9a-f]+\.docx$/, description: 'OOXML rendering of the FAR 52.204-25(d) 1-business-day report for operator transmission to the Contracting Officer / DIBNet (LOOP-W.W3)' },
   { role: 'section889-1bd-report-sig', filename: /^section889-1bd-reports\/s889-[0-9a-f]+\.json\.sig$/, description: 'Detached Ed25519 signature sidecar over the FAR 52.204-25(d) report envelope (LOOP-W.W3)' },
   { role: 'section889-1bd-ledger', filename: 'section889-1bd-reports.jsonl', description: 'Append-only ledger of FAR 52.204-25(d) 1BD report emissions (run_id, match_id, contract, report_kind, deadline, sha256) — the idempotency + audit index (LOOP-W.W3)' },
+  { role: 'section889-annual-rep-json', filename: 'section889-annual-rep.json', description: 'FAR 52.204-26 Section 889 Part B annual representation — signed canonical-JSON envelope (the SAM.gov "does / does not" representation, driven by the W.W2 screen) (LOOP-W.W4)' },
+  { role: 'section889-annual-rep-docx', filename: 'section889-annual-rep.docx', description: 'FAR 52.204-26 annual representation — printable OOXML for officer signature + SAM.gov submission (LOOP-W.W4)' },
+  { role: 'section889-annual-rep-sig', filename: 'section889-annual-rep.json.sig', description: 'Detached Ed25519 signature sidecar over the FAR 52.204-26 annual representation envelope (LOOP-W.W4)' },
+  { role: 'section889-annual-rep-ledger', filename: 'section889-annual-reps.jsonl', description: 'Append-only ledger of FAR 52.204-26 annual-representation emissions (envelope_uuid, signed_at, valid_until, provides/uses status, sha256) — the delta + continuity index (LOOP-W.W4)' },
+  { role: 'marketplace-section889-badge', filename: 'marketplace-section889-badge.json', description: 'LOOP-Q.Q1 "Section 889 Compliant" Marketplace badge feed — enabled iff both representation answers are "does not" AND the representation is within its validity window (LOOP-W.W4)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

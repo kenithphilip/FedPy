@@ -673,7 +673,7 @@ LOOP-W's clock module applies the OPM in-lieu-of rule.
 | W.W1 | Prohibited-Vendor List Ingester                           | done    | `be78723` | —                          | none (foundation slice)                                                 | small (~5d)      |
 | W.W2 | Subprocessor + SBOM + OCI Image Screening                 | done    | `5e7d2e2` | W.W1                       | LOOP-E.E2 (SBOM); LOOP-J.J3 (OCI cosign/Rekor); core/subprocessors-sheet | large (~7d)      |
 | W.W3 | FAR 52.204-25(d) 1-Business-Day Reporter                  | done    | `235c397` | W.W2                       | LOOP-A.A1 (POA&M); LOOP-A.A5 (signing); LOOP-A.A4 (bundler); tracker DB | medium (~5d)     |
-| W.W4 | Section 889 Part B Annual Representation (FAR 52.204-26)  | pending | TBD    | W.W2                       | LOOP-A.A5 (signing); LOOP-A.A4 (bundler); LOOP-Q.Q1 (Marketplace badge) | small (~4d)      |
+| W.W4 | Section 889 Part B Annual Representation (FAR 52.204-26)  | done    | `TBD`  | W.W2                       | LOOP-A.A5 (signing); LOOP-A.A4 (bundler); LOOP-Q.Q1 (Marketplace badge) | small (~4d)      |
 
 Per-slice docs (each ≥ 800 lines, per the per-slice gold standard):
 

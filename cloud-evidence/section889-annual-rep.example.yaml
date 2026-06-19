@@ -1,0 +1,47 @@
+# FAR 52.204-26 Section 889 Part B annual-representation configuration (LOOP-W.W4)
+#
+# Copy the keys below into config.yaml under `section_889:`. W.W4 reads them when
+# `--section889-annual-rep` (env CLOUD_EVIDENCE_SECTION889_ANNUAL_REP=1) is set.
+# Every value is operator-supplied real data (REO Rule 4); the emitter validates
+# the mandatory fields before writing and throws `requires_operator_input:<field>`
+# on the first missing/invalid one (it writes no partial artifact).
+
+section_889:
+  offeror:
+    # Mandatory. The CSP legal entity making the representation.
+    legal_name: "FedPy Cloud Services, Inc."
+    # Mandatory. SAM Unique Entity Identifier — exactly 12 chars [A-Z0-9].
+    unique_entity_id: "JKL5678MNOP9"
+    # Optional. Commercial and Government Entity code — 5 chars [A-Z0-9] when present.
+    cage_code: "9ABC1"
+    # Optional legacy identifier.
+    duns: ""
+    # Mandatory. street1 / city / state / zip / country must be non-empty.
+    physical_address:
+      street1: "123 Main Street"
+      street2: ""
+      city: "Reston"
+      state: "VA"
+      zip: "20190"
+      country: "US"
+
+  authorized_officer:
+    # Mandatory. The officer who signs the representation for SAM.gov.
+    full_name: "Jane Q. Operator"
+    title: "Chief Information Security Officer"
+    email: "ciso@example.com"
+    # Mandatory. A stable label for the officer's signing key (recorded verbatim
+    # in the envelope). The cryptographic envelope signature uses the run's
+    # EVIDENCE_SIGNING_KEY_PATH (or an ephemeral dev key); the fingerprint of the
+    # actual signing key is recorded separately in provenance.signingKeyId.
+    signing_key_id: "operator-officer-2026Q3"
+
+  annual_representation:
+    # Mandatory. Path to the operator-authored reasonable-inquiry methodology
+    # document. Its SHA-256 is embedded in the representation envelope.
+    reasonable_inquiry_methodology_path: "docs/section889/reasonable-inquiry-methodology.md"
+    # Optional (default true). Render the NDAA §1634 / DHS BOD 17-01 Kaspersky
+    # supplement annex in the .docx and the kaspersky_supplement block in the JSON.
+    include_kaspersky_attachment: true
+    # Optional (default 365, per FAR 52.204-8(d)). Validity window in days; 1..730.
+    valid_until_days: 365

@@ -6,6 +6,89 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-W.W4: Section 889 Part B Annual Representation (FAR 52.204-26)
+
+Closed LOOP-W (the FAR §889 prohibited-vendor loop is now COMPLETE: W.W1 catalog
+→ W.W2 screen → W.W3 1-business-day reporter → W.W4 annual representation). With
+`--section889-annual-rep` (env `CLOUD_EVIDENCE_SECTION889_ANNUAL_REP`), the
+orchestrator ingests the W.W2 screen result
+(`out/prohibited-vendors-screen-result.json`), verifies its detached Ed25519
+signature (a forged screen could fabricate or mask a covered-vendor match in a
+legal representation made to the Government), and emits the FAR 52.204-26
+"Covered Telecommunications Equipment or Services — Representation" artifact pair:
+a signed canonical-JSON envelope (`out/section889-annual-rep.json` + `.sig`) and a
+printable OOXML `.docx` (`out/section889-annual-rep.docx`) the authorized officer
+signs and carries to SAM.gov. The two FAR 52.204-26(c) "does / does not" answers
+are computed deterministically from the screen's non-suppressed matches: (c)(1)
+"provides to the Government" keys off the subprocessor-sheet + inventory
+provider-tag surfaces; (c)(2) "uses" is broader and keys off every non-suppressed
+match (FAR 4.2102 prohibits "use" regardless of contract performance). The
+envelope embeds the catalog snapshot id + SHA-256 for 3PAO verification, links any
+W.W3 1-business-day incidents that reference the driving matches (read from the
+`section889-1bd-reports.jsonl` ledger by `match_id`), records a 365-day
+`valid_until` per FAR 52.204-8(d), and lists the SR-1/SR-3/SR-5/SR-6/SR-11
+controls it evidences. The emitter also writes an append-only
+`section889-annual-reps.jsonl` ledger (delta + representation-flip detection vs
+the prior representation) and the LOOP-Q.Q1 `marketplace-section889-badge.json`
+feed (badge enabled iff both answers are "does not" AND the representation is
+within its validity window). The system NEVER files the representation in SAM.gov
+on the operator's behalf (REO Rule 4) — it produces the artifact pair; the
+operator submits.
+
+New modules: `core/section889-annual-rep.ts` (pure builder
+`composeAnnualRepEnvelope` + `computeRepresentation` does/does-not split +
+`validateOperatorInputs` + detached-Ed25519 signing + linked-incident collection
++ Marketplace-badge builder + ledger/delta/flip detection + inventory-coverage
+augmentation + the `emitSection889AnnualRep` entry point) and
+`core/section889-rep-docx.ts` (OOXML/zip-store renderer on `core/zip.ts` — header,
+title, verbatim recitals, the two ■/□ screen-driven checkbox representations with
+computed rationale, reasonable-inquiry methodology + scope table, SAM-review
+footer, optional linked-incident + Kaspersky annexes, an 18 U.S.C. §1001
+attestation block, and a reserved `signature-block` bookmark). Extended
+`core/orchestrator.ts` (flag/env, runs after W.W3 + before signing) and
+`core/submission-bundle.ts` (five new `section889-annual-rep-*` /
+`marketplace-section889-badge` WELL_KNOWN roles). Seeded
+`docs/section889/reasonable-inquiry-methodology.md` (operator-authored,
+SHA-256-embedded), `docs/section889/annual-rep-runbook.md` (the annual ceremony),
+and `section889-annual-rep.example.yaml` (the `config.yaml#section_889` template).
+
+Statutory / regulatory drivers (verbatim sources, accessed 2026-06-07):
+**FAR 52.204-26(a)** ("'Covered telecommunications equipment or services' and
+'reasonable inquiry' have the meaning provided in the clause 52.204-25…");
+**FAR 52.204-26(b)** ("The Offeror shall review the list of excluded parties in
+the System for Award Management (SAM) (https://www.sam.gov)…"); **FAR
+52.204-26(c)(1)/(c)(2)** (the two "[ ] does, [ ] does not" representations —
+provision to the Government, and use); **FAR 52.204-25(a)** ("Covered
+telecommunications equipment or services means—" the Huawei/ZTE/Hytera/Hikvision/
+Dahua enumeration + "Covered foreign country means The People's Republic of
+China" + the "Reasonable inquiry means an inquiry designed to uncover any
+information in the entity's possession…" definition); **FAR 52.204-8(d)** (the SAM
+12-month annual cycle → the 365-day `valid_until`); **NDAA FY2019 §889(a)(1)(A)/(B)**
+(Pub. L. 115-232); **NDAA FY2018 §1634** (Pub. L. 115-91 — the Kaspersky
+supplement) + **DHS BOD 17-01**; **NIST SP 800-53 Rev 5 SR family** (SR-1/3/5/6/11).
+
+Verification: typecheck clean; 1211/1211 tests passing (+39 in
+`tests/core/section889-annual-rep.test.ts`, exceeding the spec's 15-test target);
+`npm run check:reo` (G1 lint:no-stubs + G2 coverage-regression + G3
+check:provenance) returns 0; an end-to-end `check:provenance` run on the real
+emitted artifacts confirms both `section889-annual-rep.json` and the new
+non-allowlisted `marketplace-section889-badge.json` carry a compliant camelCase
+provenance block. REO compliance: the W.W2 envelope signature is verified before
+any output is written; every emitted value derives from the verified screen,
+operator config, or operator signing material; mandatory operator fields (UEI,
+officer block, methodology doc) are validated BEFORE any write so a missing field
+throws `requires_operator_input:<field>` and emits no partial artifact; the
+`.docx` reserves a wet-signature region (no human attestation is auto-signed).
+Scope reconciliation: the tracker DB table (`section889_annual_reps`) / REST
+routes / React review-sign-off UI / SAM-receipt paste-back / officer-keyring
+expiry check (per-slice §5.3/§7) are deferred — no tracker subsystem exists in
+this repo (no `pg`/`express`/`react` deps); the append-only ledger is the interim
+delta/continuity substrate (see LOOP-W-RISKS W.W4-EXT-1..4). The W.W2 input is the
+real `out/prohibited-vendors-screen-result.json` (the spec §4.1
+`out/prohibited-vendors-matches.json` name was stale — same posture as W.W3); the
+`.docx` emits the proven 5-part byte-reproducible OOXML structure; the envelope's
+`rfc3161_timestamp` is `pending` (the manifest-level TST covers it at run signing).
+
 ### Added — LOOP-W.W3: FAR 52.204-25(d) 1-Business-Day Prohibited-Vendor Discovery Reporter
 
 Shipped the operational fulcrum of LOOP-W: the reporter that produces the

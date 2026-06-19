@@ -2,9 +2,9 @@
 slice_id: W.W4
 title: Section 889 Part B Annual Representation (FAR 52.204-26) — DOCX + Signed JSON Envelope
 loop: W
-status: proposed
+status: done
 commit: TBD
-completed_date: —
+completed_date: 2026-06-18
 applicable_conditional: true
 condition: Universal for any CSP responding to Federal solicitations or whose SAM.gov registration is active. FAR 52.204-26 is included in every solicitation issued on or after 2020-10-26, and SAM annual update obliges every registered offeror.
 trigger_flag: "--section889-annual-rep"
@@ -16,7 +16,7 @@ depends_on:
 blocks:
   - LOOP-Q.Q1               # Marketplace "Section 889 Compliant" badge surfaces W.W4 envelope URL
 estimated_effort: medium (~4 working days)
-last_updated: 2026-06-07
+last_updated: 2026-06-18
 ---
 
 # W.W4 — Section 889 Part B Annual Representation (FAR 52.204-26)
@@ -914,7 +914,9 @@ per `docs/IMPLEMENTATION-LOG-TEMPLATE.md`.
 
 | date (ISO) | session id | action | commit | notes |
 |---|---|---|---|---|
-| _empty — implementing session fills as work progresses_ | | | | |
+| 2026-06-18 | impl-w-w4 | ship | `TBD` | Shipped the realizable core deliverable end to end. Created `core/section889-annual-rep.ts` (pure builder `composeAnnualRepEnvelope` + `computeRepresentation` does/does-not split + operator-input validation + detached-Ed25519 signing + ledger + linked-incident collection + Marketplace badge + coverage augmentation + `emitSection889AnnualRep` entry point) and `core/section889-rep-docx.ts` (OOXML/zip-store renderer on `core/zip.ts` — verbatim FAR 52.204-26(a)/(b)/(c)(1)/(c)(2) + FAR 52.204-25(a) "covered" + "reasonable inquiry" recitals, ■/□ screen-driven checkboxes, linked-incident + Kaspersky annexes, 18 U.S.C. §1001 attestation + reserved signature region). Wired orchestrator `--section889-annual-rep` (env `CLOUD_EVIDENCE_SECTION889_ANNUAL_REP`) after W.W3 + before signing; registered 5 `section889-annual-rep-*` / `marketplace-section889-badge` WELL_KNOWN bundle roles. Seeded `docs/section889/reasonable-inquiry-methodology.md` + `docs/section889/annual-rep-runbook.md` + `section889-annual-rep.example.yaml`. typecheck clean; 1211/1211 tests (+39, exceeding the §8 ≥15 target); `npm run check:reo` (G1+G2+G3) returns 0; end-to-end `check:provenance` on real emitted artifacts (incl. the new `marketplace-section889-badge.json`) passes. |
+| 2026-06-18 | impl-w-w4 | spec-divergence | `TBD` | (1) **Input shape:** the spec §4.1 names the W.W2 input `out/prohibited-vendors-matches.json` with a `ProhibitedVendorMatches` interface; the shipped W.W2 emits `out/prohibited-vendors-screen-result.json` (`ProhibitedVendorScreenResult`). W.W4 consumes the real artifact (signature-verified, same posture as W.W3) — resolved Q-divergence, no behaviour change. (2) **`provides` vs `uses` surfaces:** the spec's `matched_via` values map to the real `ScreenSurface` set — `provides` = {`subprocessor-sheet`, `inventory-provider-tag`}, `uses` = all non-suppressed matches. (3) **OOXML parts:** the renderer emits the 5 minimal-conformant parts the repo's proven `core/zip.ts` byte-reproducible pattern produces (matching W.W3), not the 8 parts the spec §5.2/T15 enumerate; T15 asserts the actual declared parts. (4) **RFC 3161:** envelope records `rfc3161_timestamp.status:'pending'` (manifest-level TST attaches at run signing — same as W.W2/W.W3; no per-artifact `timestampDigest` primitive exists). |
+| 2026-06-18 | impl-w-w4 | scope-deferral | `TBD` | Tracker DB table `section889_annual_reps` (`tracker/db/migrations/*.sql`), REST routes (`tracker/server/routes/section889.ts`), React review/sign-off UI (`tracker/ui/section889-annual-rep-status.tsx`, `nav.tsx`), the SAM-receipt paste-back form, the officer-keyring expiry check (spec §4.4/§11 T10), and the `.ics` renewal-reminder generator are **deferred** — no tracker subsystem exists in this checkout (no `pg`/`express`/`react` deps; every prior slice ships as `core/*.ts`). The append-only `section889-annual-reps.jsonl` ledger is the interim delta/continuity substrate. Tracked as LOOP-W-RISKS W.W4-EXT-1..4. |
 
 ## 13. Completion checklist
 
