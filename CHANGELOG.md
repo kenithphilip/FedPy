@@ -6,6 +6,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-T.T3: CISA Self-Attestation Common Form (OMB 1670-0052) PDF emitter
+
+Shipped the CISA Secure Software Development Attestation Common Form (OMB Control
+Number `1670-0052`, expiration `03/31/2027`) as an **unsigned** deterministic PDF
+plus a signed canonical-JSON shadow — the corporate-officer-signable artifact a
+software producer submits to a federal agency under OMB M-22-18 (as amended by
+M-23-16), or attaches to a risk-tier package an agency requests under the
+successor M-26-05 risk-based regime. With `--ssdf-common-form` (env
+`CLOUD_EVIDENCE_SSDF_COMMON_FORM`; implies `--ssdf-attestation`), the orchestrator
+projects the T.T2 satisfaction matrix (`out/ssdf-satisfaction-matrix*.json`) plus
+the operator's `config.yaml#ssdf.producer` block into
+`out/cisa-common-form-1670-0052.pdf` + `out/cisa-common-form-1670-0052.json`
+(+ `.json.sig`). New modules: `core/ssdf-common-form.ts` (operator-config
+validation collecting every missing field into `MissingOperatorInputError`; the
+matrix-driven canonical builder; `emitSsdfCommonForm` sign-and-write) and
+`core/ssdf-common-form-pdf.ts` (a byte-deterministic PDF 1.4 renderer composing
+the `escapePdfText`/`wrapText` primitives from `core/conmon-pdf.ts`, with a forced
+page per Section, an OMB-control footer on every page, and a `/ID`+`/Info` seeded
+from the canonical digest). Modified `core/orchestrator.ts` (flag/env/emit block,
+running after the T.T2 matrix + A.A1 POA&M and before signing),
+`core/submission-bundle.ts` (two new WELL_KNOWN roles — `ssdf-common-form-pdf`,
+`ssdf-common-form-json`), `core/inventory-coverage.ts` (a G2-safe per-product
+`ssdf_common_form_fill_rate` sibling), and `config.yaml` (an `ssdf.producer`
+template).
+
+The real evidence path: each of the four Section IV attestations maps to a Common
+Form clause §IV(1)…§IV(4) (Practice 1 secure environments → 4 automated
+vulnerability tooling) via the T.T1 catalogue's `COMMON_FORM_TASK_MAP`, surfaced
+per-task on the matrix as `common_form_section_ref`. A clause's selection
+(∈ {comply, comply-with-conditions, cannot-comply, not-yet-determined}) reduces
+over the union of its in-scope tasks' real statuses — any `requires-operator-input`
+or `not-assessed` task forces `not-yet-determined` (REO Rule 1.5: never a silent
+`comply`), and a `cannot-comply` clause must cite ≥1 POA&M item (from `out/poam.json`
+or `poam_reference_overrides`) or the emit throws `MissingPoamReferenceError`. The
+PDF's signature + date lines are left blank — the system never auto-signs the human
+attestation (REO Rule 1.10; the officer signs out of band, captured by T.T4) and
+never files with CISA / an agency (REO Rule 4). The signed sidecar JSON carries a
+camelCase `provenance` block citing every input's SHA-256, so G3 passes without an
+allowlist edit; the `.pdf` + `.json` ride the existing run manifest via
+`core/sign.ts`'s by-extension signing (no signing-glob change needed).
+
+Spec reconciliations (documented in T.T3.md §12 + the STATUS T.T3 scope note +
+LOOP-T-RISKS `T.T3-19..22`): the per-slice doc §4.2 inputs
+(`ssdf-practice-map.json`/`ssdf-evidence-binding.json`), its status enum
+(implemented/…/not-applicable), and its illustrative §6.5 `CISA_PRACTICE_TO_SSDF`
+table (1.a–4.c) are stale — the real input is the single `ssdf-satisfaction-matrix.json`,
+the real enum is satisfied/partially-satisfied/not-satisfied/not-assessed/
+requires-operator-input, and the authoritative mapping is the catalogue's §IV(1..4)
+table (the 1.a–1.f / 4.a–4.c sub-items are verbatim form text, not separately
+evidence-bound). The binary CISA template PDF + CISA/OMB logo assets are not
+fetched in this clean-room tree (verbatim §IV text reproduced from the public
+record per T.T3.md §2.4; text-only PDF header); PDF/A-3b font embedding falls back
+to dependency-free PDF 1.4 (spec §5.1-permitted); electronic-signature binding +
+RSAA submission are T.T4.
+
+Statutory / regulatory drivers (verbatim per T.T3.md §2): OMB M-22-18 (Sept 14
+2022) — "Federal agencies must only use software provided by software producers who
+can attest to complying with the Government-specified secure software development
+practices, as described in the NIST Guidance"; OMB M-23-16 (June 9 2023) — Common
+Form anchor + third-party-component exclusion; Executive Order 14028 §4(e) (May 12
+2021); CISA Secure Software Development Attestation Common Form (OMB Control
+1670-0052, expiration 03/31/2027) Section IV Practices 1–4 + the penalty-of-perjury
+signature block; NIST SP 800-218 v1.1 (Feb 2022) practice identifiers; OMB M-26-05
+(Jan 23 2026) risk-based successor regime. Verification: `npm run typecheck` clean;
+**1279/1279 tests passing (was 1241, +38** across
+`tests/core/ssdf-common-form.test.ts` (27) and
+`tests/core/ssdf-common-form-pdf.test.ts` (11)); `npm run check:reo`
+(lint:no-stubs + check:provenance + check:coverage-regression +
+check:ssdf-no-silent-pass) all green; a real emission additionally verified against
+`check:provenance` + `check:ssdf-no-silent-pass`.
+
 ### Added — LOOP-T.T2: Per-Practice Evidence Aggregator + Satisfaction Matrix
 
 Shipped the SSDF per-practice × per-task satisfaction matrix — the data backbone

@@ -55,3 +55,48 @@ azure:
 
 # Output directory (relative to this file)
 output_dir: ./out
+
+# ─── NIST SSDF + CISA Common Form (LOOP-T) ─────────────────────────────────────
+# Only consumed when an SSDF flag is set:
+#   --ssdf-attestation   → T.T2 per-practice satisfaction matrix
+#   --ssdf-common-form   → T.T3 CISA Secure Software Development Attestation
+#                          Common Form (OMB 1670-0052) PDF + signed JSON
+# Edit the templated values below to your organization's real identifiers before
+# emitting the Common Form for submission. The system never substitutes a default
+# that looks like real data (REO Rule 4); missing required fields raise a loud
+# MissingOperatorInputError naming the exact YAML path.
+ssdf:
+  # Optional human label for the attestation regime (free text).
+  regime: "OMB M-22-18 as amended by M-23-16"
+  # Products assessed by the T.T2 satisfaction matrix (one matrix per product).
+  products:
+    - id: your-product-id
+      name: "Your Cloud Service Offering"
+      ai_enabled: false
+      critical_software: false
+  # Corporate producer block consumed by the T.T3 Common Form emitter. Every
+  # field marked REQUIRED below must be filled before --ssdf-common-form will emit.
+  producer:
+    legal_name: "Your Company, Inc."          # REQUIRED
+    dba_name: null                            # optional
+    address:                                  # all four lines REQUIRED (country defaults to US)
+      street: "123 Example Ave"
+      city: "Reston"
+      state: "VA"
+      postal_code: "20190"
+      country: "US"
+    point_of_contact:                         # name/title/email/phone REQUIRED
+      name: "Jane Doe"
+      title: "Chief Information Security Officer"
+      email: "ciso@your-company.example"
+      phone: "+1-703-555-0100"
+    signatory:                                # name/title REQUIRED; the human signs the PDF out of band
+      name: "John Smith"
+      title: "Chief Executive Officer"
+    scope_of_attestation:                     # >=1 product REQUIRED; cross-checked against the T.T2 matrices
+      products:
+        - name: "Your Cloud Service Offering"
+          version: "2026.6.1"
+          cpe: "cpe:2.3:a:your_company:cloud_service_offering:2026.6.1:*:*:*:*:*:*:*"
+    ai_profile: false                         # set true to emit the SP 800-218A informational appendix
+    poam_reference_overrides: {}              # optional: { "4": ["<poam-item-uuid>", ...] } per CISA practice

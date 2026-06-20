@@ -121,7 +121,9 @@ type Role =
   | 'section889-annual-rep-ledger'
   | 'marketplace-section889-badge'
   | 'ssdf-satisfaction-matrix-json'
-  | 'ssdf-satisfaction-matrix-xlsx';
+  | 'ssdf-satisfaction-matrix-xlsx'
+  | 'ssdf-common-form-pdf'
+  | 'ssdf-common-form-json';
 
 interface WellKnownArtifact {
   role: Role;
@@ -184,6 +186,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'marketplace-section889-badge', filename: 'marketplace-section889-badge.json', description: 'LOOP-Q.Q1 "Section 889 Compliant" Marketplace badge feed — enabled iff both representation answers are "does not" AND the representation is within its validity window (LOOP-W.W4)' },
   { role: 'ssdf-satisfaction-matrix-json', filename: /^ssdf-satisfaction-matrix(\.[a-z0-9-]+)?\.json$/, description: 'NIST SSDF (SP 800-218 v1.1) per-practice x per-task satisfaction matrix with typed evidence pointers, joining the T.T1 catalogue to the signed KSI evidence + risk + supply-chain corpus; backs the CISA Common Form Section IV attestations (LOOP-T.T2)' },
   { role: 'ssdf-satisfaction-matrix-xlsx', filename: /^ssdf-satisfaction-matrix(\.[a-z0-9-]+)?\.xlsx$/, description: 'Operator-readable SSDF satisfaction workbook — Per-Task Matrix + Per-Practice Summary (LOOP-T.T2)' },
+  { role: 'ssdf-common-form-pdf', filename: 'cisa-common-form-1670-0052.pdf', description: 'CISA Secure Software Development Attestation Common Form (OMB 1670-0052) — unsigned canonical PDF for corporate-officer signature + CISA RSAA submission (LOOP-T.T3)' },
+  { role: 'ssdf-common-form-json', filename: 'cisa-common-form-1670-0052.json', description: 'Canonical-JSON shadow of the OMB 1670-0052 Common Form — signed; backs the PDF and records the Section IV selections derived from the T.T2 satisfaction matrix (LOOP-T.T3)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

@@ -72,6 +72,7 @@ import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
 import { emitSection889AnnualRep } from './section889-annual-rep.ts';
 import { emitSsdfSatisfactionMatrix, type SsdfProductConfig } from './ssdf-evidence-aggregator.ts';
+import { emitSsdfCommonForm } from './ssdf-common-form.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -254,6 +255,14 @@ interface Args {
    * covered by the run manifest. Off by default (OMB M-22-18 procurement gate).
    */
   ssdfAttestation: boolean;
+  /**
+   * When true (LOOP-T.T3), project the T.T2 satisfaction matrix + the operator's
+   * `ssdf.producer` config into the CISA Secure Software Development Attestation
+   * Common Form (OMB 1670-0052) and emit the unsigned canonical PDF + signed JSON
+   * shadow (out/cisa-common-form-1670-0052.{pdf,json}). Runs AFTER the T.T2 matrix
+   * emit and BEFORE signing. Never auto-signs the human attestation (REO Rule 1.10).
+   */
+  ssdfCommonForm: boolean;
   /** Max SBOM transitive-dependency depth walked by the W.W2 screen (default 8). */
   sbomMaxDepth: number;
   /** Max subsidiary-chain depth walked by the W.W2 screen (default 3). */
@@ -375,6 +384,7 @@ function parseArgs(argv: string[]): Args {
     prohibitedVendor1bdReport: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_1BD_REPORT === '1',
     section889AnnualRep: process.env.CLOUD_EVIDENCE_SECTION889_ANNUAL_REP === '1',
     ssdfAttestation: process.env.CLOUD_EVIDENCE_SSDF_ATTESTATION === '1' || process.env.CLOUD_EVIDENCE_SSDF_ATTESTATION === 'true',
+    ssdfCommonForm: process.env.CLOUD_EVIDENCE_SSDF_COMMON_FORM === '1' || process.env.CLOUD_EVIDENCE_SSDF_COMMON_FORM === 'true',
     sbomMaxDepth: Number(process.env.CLOUD_EVIDENCE_SBOM_MAX_DEPTH ?? 8),
     maxSubsidiaryDepth: Number(process.env.CLOUD_EVIDENCE_MAX_SUBSIDIARY_DEPTH ?? 3),
     riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
@@ -517,6 +527,12 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--ssdf-attestation':
         // LOOP-T.T2: emit the SSDF per-practice satisfaction matrix (JSON + .xlsx).
+        args.ssdfAttestation = true;
+        break;
+      case '--ssdf-common-form':
+        // LOOP-T.T3: emit the CISA Common Form (OMB 1670-0052) PDF + JSON.
+        // Implies --ssdf-attestation (the matrix is the form's evidence backbone).
+        args.ssdfCommonForm = true;
         args.ssdfAttestation = true;
         break;
       case '--sbom-max-depth':
@@ -2640,6 +2656,42 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`SSDF satisfaction matrix failed: ${e.message}`);
       log.error({ event: 'ssdf_satisfaction_matrix.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- CISA Secure Software Development Attestation Common Form (LOOP-T.T3) ----
+  // Projects the T.T2 satisfaction matrix (out/ssdf-satisfaction-matrix*.json) +
+  // the operator's `ssdf.producer` config into the OMB 1670-0052 Common Form, and
+  // emits the unsigned canonical PDF + signed JSON shadow. Runs AFTER the T.T2
+  // matrix emit (its evidence backbone) + AFTER the OSCAL POA&M emit (for
+  // cannot-comply references) and BEFORE signing so the artifacts are covered by
+  // the run manifest + RFC 3161 TSR. The signature/date lines are left blank —
+  // the corporate officer signs out of band (T.T4); the system never auto-signs
+  // the human attestation (REO Rule 1.10).
+  if (args.ssdfCommonForm && !args.dryRun) {
+    try {
+      const producerCfg = (config as any)?.ssdf?.producer ?? {};
+      const cf = emitSsdfCommonForm({
+        outDir: args.outDir,
+        runId,
+        producer: producerCfg,
+        configPath: args.configPath,
+      });
+      const sels = Object.entries(cf.selections).map(([k, v]) => `P${k}:${v}`).join(' ');
+      console.log(
+        `CISA Common Form (OMB 1670-0052): ${cf.pdf_path} ` +
+        `(${cf.fill_rates.length} product(s); ${sels})`,
+      );
+      ledger.record('ssdf_common_form.emit', {
+        status: 'info',
+        pdf_sha256: cf.pdf_sha256,
+        json_sha256: cf.json_sha256,
+        selections: cf.selections,
+        ai_profile: cf.ai_profile,
+      });
+    } catch (e: any) {
+      console.error(`CISA Common Form emission failed: ${e.message}`);
+      log.error({ event: 'ssdf_common_form.fail', err_message: e?.message });
     }
   }
 

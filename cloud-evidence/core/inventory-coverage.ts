@@ -392,3 +392,27 @@ export function augmentCoverageWithProhibitedVendorScreen<T extends Record<strin
 ): T & { prohibited_vendor_screen_coverage: ProhibitedVendorScreenCoverage } {
   return { ...report, prohibited_vendor_screen_coverage: coverage };
 }
+
+/** Per-product CISA Common Form fill-rate (LOOP-T.T3). Sibling field — never a G2 fillRate cell. */
+export interface SsdfCommonFormFillRate {
+  id: string;
+  name: string;
+  required_fields: number;
+  populated_fields: number;
+  /** populated / required, in [0, 1]. */
+  fill_rate: number;
+}
+
+/**
+ * Augment a coverage report with the LOOP-T.T3 CISA Common Form per-product
+ * fill-rate as a sibling top-level array (`ssdf_common_form_fill_rate`). Like the
+ * W.W1/W.W2 siblings this is NOT an Appendix-M `columns[].fillRate` cell, so the
+ * G2 coverage-regression guardrail (which only compares fillRate) can never flag
+ * it. Pure: returns a new object, does not mutate the input.
+ */
+export function augmentCoverageWithSsdfCommonForm<T extends Record<string, unknown>>(
+  report: T,
+  products: SsdfCommonFormFillRate[],
+): T & { ssdf_common_form_fill_rate: SsdfCommonFormFillRate[] } {
+  return { ...report, ssdf_common_form_fill_rate: products.map((p) => ({ ...p })) };
+}

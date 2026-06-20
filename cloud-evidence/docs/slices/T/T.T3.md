@@ -2,13 +2,13 @@
 slice_id: T.T3
 title: CISA Self-Attestation Common Form (OMB 1670-0052) PDF emitter
 loop: T
-status: proposed
-commit: TBD
-completed_date: —
+status: done
+commit: PENDINGHASH
+completed_date: 2026-06-21
 depends_on: [T.T1, T.T2, "operator corporate identifiers (config.yaml ssdf.producer block)"]
 blocks: [T.T4]
 estimated_effort: medium
-last_updated: 2026-06-07
+last_updated: 2026-06-21
 applicable_conditional: "any CSP delivering software (including cloud-based application services, firmware, applications, operating systems, or products containing software) to federal agencies subject to OMB M-22-18 / OMB M-23-16; remains useful as an optional artifact under OMB M-26-05's risk-based regime when agencies request the Common Form"
 ---
 
@@ -763,7 +763,7 @@ location + failure mode:
 
 | date | session | action | commit | notes |
 |---|---|---|---|---|
-|     |         |        |        |       |
+| 2026-06-21 | impl-t-t3 | Shipped end to end. Created `core/ssdf-common-form.ts` (aggregator + canonical-JSON builder + `emitSsdfCommonForm`) + `core/ssdf-common-form-pdf.ts` (deterministic PDF, composing `escapePdfText`/`wrapText` from `core/conmon-pdf.ts`) + 2 test files (38 tests). Modified `core/submission-bundle.ts` (2 roles), `core/orchestrator.ts` (`--ssdf-common-form` flag/env/emit block), `core/inventory-coverage.ts` (`augmentCoverageWithSsdfCommonForm` sibling), `config.yaml` (`ssdf.producer` template). typecheck clean; 1279/1279 tests passing (+38); `npm run check:reo` (G1+G2+G3+G4) all green; real emission verified against `check:provenance` + `check:ssdf-no-silent-pass`. | `PENDINGHASH` | **Spec reconciliations:** (1) input is the real `out/ssdf-satisfaction-matrix.json` (T.T2), NOT the spec §4.2 `ssdf-practice-map.json`/`ssdf-evidence-binding.json` (stale names); (2) status enum is satisfied/partially-satisfied/not-satisfied/not-assessed/requires-operator-input, NOT implemented/…/not-applicable; (3) the authoritative CISA mapping is the T.T1 catalogue's `COMMON_FORM_TASK_MAP` (§IV(1)→Practice 1 … §IV(4)→Practice 4), surfaced per-task as `common_form_section_ref`, replacing the illustrative §6.5 `CISA_PRACTICE_TO_SSDF` table; selection computed per §IV clause (1.a–4.c are verbatim form text, not separately evidence-bound); (4) tests live in `tests/core/` (not `test/`); (5) `core/sign.ts` unchanged — it signs `.pdf`+`.json` by extension, so no signing-glob edit; (6) `scripts/check-provenance.mjs` unchanged — the sidecar JSON carries a real `provenance` block instead of being allowlisted; (7) PDF emitter reuses the proven dependency-free `core/conmon-pdf.ts` pattern, NOT `inventory-workbook.ts` (PDF ≠ OOXML/zip). **Open §10 questions resolved:** Q1 — one PDF, multi-row scope table (single attestation covering all in-scope products), per-product fill-rate; Q2 — dependency-free PDF 1.4 (PDF/A-3b font embedding deferred, spec §5.1-permitted, see `T.T3-21`); Q3/Q4/Q5/Q6 — deferred as out-of-core (no `.txt` shadow, no M-26-05 banner, no 3PAO-letter detection, no separate rollup artifact — the rollup is folded into the canonical JSON's `ssdf_coverage_rollup`). **Deferred (LOOP-T-RISKS `T.T3-19..22`):** binary CISA template PDF + CISA/OMB logo assets not fetched (clean-room; verbatim §IV text reproduced from public record; text-only PDF header); electronic-signature binding + RSAA submission are T.T4. |
 
 (Implementing session appends rows per `docs/IMPLEMENTATION-LOG-TEMPLATE.md`.
 Every milestone, test failure, source-pin, schema-divergence, and risk-
