@@ -598,7 +598,7 @@ when the CSP is a DoD-prime customer.
 | id | title | status | commit | dependencies | estimated_effort |
 |---|---|---|---|---|---|
 | T.T1 | SSDF Practices Inventory (catalogue + extractor) | done | `9bbbcd1` (2026-06-10) | LOOP-A.A1, LOOP-A.A4 | 4-5 working days |
-| T.T2 | Per-Practice Evidence Aggregator + Satisfaction Matrix | done | `<TBD-step6>` (2026-06-20) | T.T1, LOOP-B.B1, LOOP-J.J2, LOOP-J.J3, KSI envelopes from LOOPs B-K | 5-6 working days |
+| T.T2 | Per-Practice Evidence Aggregator + Satisfaction Matrix | done | `9744702` (2026-06-20) | T.T1, LOOP-B.B1, LOOP-J.J2, LOOP-J.J3, KSI envelopes from LOOPs B-K | 5-6 working days |
 | T.T3 | CISA Common Form Generator (unsigned canonical PDF) | pending | — | T.T2, LOOP-A.A4 (bundler) | 5-6 working days |
 | T.T4 | Annual Re-Attestation Workflow + Material-Change Detector | pending | — | T.T3, Tracker DB | 4-5 working days |
 | T.T5 | SP 800-218A SSDF-AI Extension | pending | — | T.T2, LOOP-O.O5 | 3-4 working days |
@@ -1080,7 +1080,7 @@ material-change handler AND the CIRCIA reporter independently.
 | Slice | Status | Commit | Date | Depends on | Blocks | Estimated effort |
 |---|---|---|---|---|---|---|
 | T.T1 | pending | — | — | LOOP-A.A1, LOOP-A.A4 | T.T2, T.T3, T.T5 | 4-5 working days |
-| T.T2 | done | `<TBD-step6>` | 2026-06-20 | T.T1, LOOP-B.B1, LOOP-J.J2, LOOP-J.J3, all KSI envelopes | T.T3, T.T4 | 5-6 working days |
+| T.T2 | done | `9744702` | 2026-06-20 | T.T1, LOOP-B.B1, LOOP-J.J2, LOOP-J.J3, all KSI envelopes | T.T3, T.T4 | 5-6 working days |
 | T.T3 | pending | — | — | T.T2, LOOP-A.A4 | T.T4 | 5-6 working days |
 | T.T4 | pending | — | — | T.T3, Tracker DB | (none) | 4-5 working days |
 | T.T5 | pending | — | — | T.T2, LOOP-O.O5 | (none) | 3-4 working days |
