@@ -6,6 +6,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-T.T2: Per-Practice Evidence Aggregator + Satisfaction Matrix
+
+Shipped the SSDF per-practice × per-task satisfaction matrix — the data backbone
+of the CISA Secure Software Development Attestation Common Form (T.T3) and the OMB
+M-22-18 paragraph III.E POA&M safety valve. With `--ssdf-attestation` (env
+`CLOUD_EVIDENCE_SSDF_ATTESTATION`), the orchestrator joins the T.T1 SSDF practices
+catalogue (`data/ssdf-800-218-v1.1.json`, 19 practices / 42 active tasks) to the
+run's REAL evidence corpus and emits a signed canonical-JSON matrix
+(`out/ssdf-satisfaction-matrix.json` + `.json.sig`) plus an operator-readable
+two-sheet workbook (`out/ssdf-satisfaction-matrix.xlsx` — Per-Task Matrix +
+Per-Practice Summary) and an append-only emission ledger. New modules:
+`core/ssdf-satisfaction-matrix.ts` (typedefs + RFC 4122 v5 deterministic
+`matrix_id` + canonical serializer + `.xlsx` renderer composing the OOXML writer
+in `core/supply-chain-risk.ts`) and `core/ssdf-evidence-aggregator.ts`
+(`buildSsdfSatisfactionMatrix` join/compute + `emitSsdfSatisfactionMatrix`
+sign-and-write). The pass runs after every per-loop emitter and before signing,
+so the matrix is covered by the run manifest + RFC 3161 timestamp; two
+`submission-bundle` WELL_KNOWN roles (`ssdf-satisfaction-matrix-json`,
+`ssdf-satisfaction-matrix-xlsx`) register it in the FedRAMP submission package.
+
+The real evidence path: each SSDF practice's `fedramp_ksi_forward_map` joins to the
+signed per-KSI evidence envelopes on disk (`out/KSI-*.json`); a failing
+high/critical finding marks the practice `not-satisfied`; the LOOP-B.B1
+`risk-scores.json` composite supplies the per-practice open-risk; the LOOP-A.A1
+`poam.json` supplies a control-based secondary join (an open POA&M item →
+`partially-satisfied`); `subprocessor-inventory.json` (J.J2),
+`supply-chain-risk-register.json` (J.J3), and `sbom-report.json` (E.E2) attach to
+the organisational-toolchain / third-party-component / release-integrity
+practices respectively. Per-task status ∈ {satisfied, partially-satisfied,
+not-satisfied, not-assessed, requires-operator-input}; a task with zero evidence
+pointers is `requires-operator-input` — never a silent pass. That REO invariant is
+enforced by a new guardrail, `scripts/check-ssdf-no-silent-pass.mjs`
+(`npm run check:ssdf-no-silent-pass`), wired into the `check:reo` aggregate: it
+fails the build if any `satisfied` cell lacks an evidence pointer. Every input
+file read is cited in the camelCase `provenance` block with its SHA-256; when a
+run `manifest.json` is present, an evidence file whose on-disk hash does not match
+its manifest entry throws `EnvelopeSignatureError` (the matrix refuses to ship
+over tampered evidence). The matrix carries the machine signature only — the
+producer-officer attestation is signed on the T.T3 Common Form, never auto-signed
+here (REO Rule 1.10).
+
+Statutory / regulatory drivers (verbatim per T.T2.md §2): Executive Order 14028
+§4(e)/§4(n) (Improving the Nation's Cybersecurity, May 12 2021); OMB M-22-18
+(Sept 14 2022) paragraph II scope + paragraph III.E POA&M safety valve + III.D
+third-party software; OMB M-23-16 (June 9 2023) paragraph II Common Form anchor;
+NIST SP 800-218 v1.1 (Feb 2022) §2 practice-group definitions; CISA Secure
+Software Development Attestation Common Form (OMB Control 1670-0052, March 11 2024)
+Section III.1–III.4; NIST IR 8397 (Oct 2021); CISA RSAA (March 18 2024).
+Verification: `npm run typecheck` clean; 1241/1241 tests passing (+30 across
+`tests/core/ssdf-evidence-aggregator.test.ts` (22) and
+`tests/core/ssdf-satisfaction-matrix.test.ts` (8)); `npm run check:reo`
+(lint:no-stubs + check:provenance + check:coverage-regression +
+check:ssdf-no-silent-pass) returns 0. Files created: `core/ssdf-satisfaction-matrix.ts`
+(~300 lines), `core/ssdf-evidence-aggregator.ts` (~560 lines),
+`scripts/check-ssdf-no-silent-pass.mjs` (~110 lines), two test files (~430 lines).
+Files modified: `core/orchestrator.ts` (`--ssdf-attestation` flag/env + emit pass),
+`core/submission-bundle.ts` (2 WELL_KNOWN roles), `package.json` (guardrail
+script + `check:reo` wiring).
+
+REO compliance + spec reconciliation: the T.T2.md §4/§5 idealised schema assumed
+per-TASK KSI/800-53 crosswalks and 43 tasks; the committed T.T1 catalogue carries
+those crosswalks per-PRACTICE (`fedramp_ksi_forward_map`,
+`nist_800_53_r5_controls`), Common Form refs per-task, and 42 active tasks (PW.3
+withdrawn in v1.1). The matrix therefore joins at the practice level and
+attributes the pointer set to each task (LOOP-T-RISKS `T.T2-16`). The tracker
+process-artefact pointer kind + per-agency tracker DB (no tracker subsystem in
+this repo) and the cosign/build-attestation collector are deferred (`T.T2-17`,
+`T.T2-18`); both coverage boundaries are surfaced in `provenance.coverageDiagnostics`.
+
 ### Added — LOOP-W.W4: Section 889 Part B Annual Representation (FAR 52.204-26)
 
 Closed LOOP-W (the FAR §889 prohibited-vendor loop is now COMPLETE: W.W1 catalog

@@ -119,7 +119,9 @@ type Role =
   | 'section889-annual-rep-docx'
   | 'section889-annual-rep-sig'
   | 'section889-annual-rep-ledger'
-  | 'marketplace-section889-badge';
+  | 'marketplace-section889-badge'
+  | 'ssdf-satisfaction-matrix-json'
+  | 'ssdf-satisfaction-matrix-xlsx';
 
 interface WellKnownArtifact {
   role: Role;
@@ -180,6 +182,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'section889-annual-rep-sig', filename: 'section889-annual-rep.json.sig', description: 'Detached Ed25519 signature sidecar over the FAR 52.204-26 annual representation envelope (LOOP-W.W4)' },
   { role: 'section889-annual-rep-ledger', filename: 'section889-annual-reps.jsonl', description: 'Append-only ledger of FAR 52.204-26 annual-representation emissions (envelope_uuid, signed_at, valid_until, provides/uses status, sha256) — the delta + continuity index (LOOP-W.W4)' },
   { role: 'marketplace-section889-badge', filename: 'marketplace-section889-badge.json', description: 'LOOP-Q.Q1 "Section 889 Compliant" Marketplace badge feed — enabled iff both representation answers are "does not" AND the representation is within its validity window (LOOP-W.W4)' },
+  { role: 'ssdf-satisfaction-matrix-json', filename: /^ssdf-satisfaction-matrix(\.[a-z0-9-]+)?\.json$/, description: 'NIST SSDF (SP 800-218 v1.1) per-practice x per-task satisfaction matrix with typed evidence pointers, joining the T.T1 catalogue to the signed KSI evidence + risk + supply-chain corpus; backs the CISA Common Form Section IV attestations (LOOP-T.T2)' },
+  { role: 'ssdf-satisfaction-matrix-xlsx', filename: /^ssdf-satisfaction-matrix(\.[a-z0-9-]+)?\.xlsx$/, description: 'Operator-readable SSDF satisfaction workbook — Per-Task Matrix + Per-Practice Summary (LOOP-T.T2)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

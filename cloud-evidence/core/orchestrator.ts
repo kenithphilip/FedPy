@@ -71,6 +71,7 @@ import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
 import { emitSection889AnnualRep } from './section889-annual-rep.ts';
+import { emitSsdfSatisfactionMatrix, type SsdfProductConfig } from './ssdf-evidence-aggregator.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -244,6 +245,15 @@ interface Args {
    * the representation in SAM.gov on the operator's behalf (REO Rule 4).
    */
   section889AnnualRep: boolean;
+  /**
+   * When true (LOOP-T.T2), join the T.T1 SSDF practices catalogue to the run's
+   * real evidence corpus (signed KSI envelopes + risk-scores + subprocessor /
+   * supply-chain registers + SBOM + OSCAL POA&M) and emit the per-practice x
+   * per-task SSDF satisfaction matrix (out/ssdf-satisfaction-matrix.json + .xlsx).
+   * Runs AFTER every per-loop emitter and BEFORE signing so the matrix is
+   * covered by the run manifest. Off by default (OMB M-22-18 procurement gate).
+   */
+  ssdfAttestation: boolean;
   /** Max SBOM transitive-dependency depth walked by the W.W2 screen (default 8). */
   sbomMaxDepth: number;
   /** Max subsidiary-chain depth walked by the W.W2 screen (default 3). */
@@ -364,6 +374,7 @@ function parseArgs(argv: string[]): Args {
     prohibitedVendorScreen: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_SCREEN === '1',
     prohibitedVendor1bdReport: process.env.CLOUD_EVIDENCE_PROHIBITED_VENDOR_1BD_REPORT === '1',
     section889AnnualRep: process.env.CLOUD_EVIDENCE_SECTION889_ANNUAL_REP === '1',
+    ssdfAttestation: process.env.CLOUD_EVIDENCE_SSDF_ATTESTATION === '1' || process.env.CLOUD_EVIDENCE_SSDF_ATTESTATION === 'true',
     sbomMaxDepth: Number(process.env.CLOUD_EVIDENCE_SBOM_MAX_DEPTH ?? 8),
     maxSubsidiaryDepth: Number(process.env.CLOUD_EVIDENCE_MAX_SUBSIDIARY_DEPTH ?? 3),
     riskScore: process.env.CLOUD_EVIDENCE_RISK_SCORE === '1',
@@ -503,6 +514,10 @@ function parseArgs(argv: string[]): Args {
       case '--section889-annual-rep':
         // LOOP-W.W4: emit the FAR 52.204-26 annual representation (JSON + .docx).
         args.section889AnnualRep = true;
+        break;
+      case '--ssdf-attestation':
+        // LOOP-T.T2: emit the SSDF per-practice satisfaction matrix (JSON + .xlsx).
+        args.ssdfAttestation = true;
         break;
       case '--sbom-max-depth':
         args.sbomMaxDepth = Number(argv[++i] ?? 8);
@@ -2572,6 +2587,59 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`ConMon monthly report failed: ${e.message}`);
       log.error({ event: 'conmon_monthly.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- SSDF per-practice satisfaction matrix (LOOP-T.T2) — join the T.T1 SSDF
+  // catalogue to the run's REAL evidence corpus (signed KSI envelopes +
+  // risk-scores + subprocessor / supply-chain registers + SBOM + OSCAL POA&M)
+  // and emit the per-practice x per-task satisfaction matrix (JSON + .xlsx) per
+  // product. Runs AFTER every per-loop emitter (so all evidence exists) and
+  // BEFORE signing so the matrix is covered by the run manifest + RFC 3161 TSR.
+  // The gate is the OMB M-22-18 procurement signal (--ssdf-attestation). The
+  // matrix never auto-signs a producer attestation (REO Rule 1.10) — the CISA
+  // Common Form (T.T3) carries the officer signature; T.T2 emits machine
+  // evidence only. ----
+  if (args.ssdfAttestation && !args.dryRun) {
+    try {
+      const ssdfCfg = (config as any)?.ssdf ?? {};
+      const products: SsdfProductConfig[] = Array.isArray(ssdfCfg.products)
+        ? ssdfCfg.products
+            .map((p: any) => ({
+              id: String(p?.id ?? '').trim(),
+              name: String(p?.name ?? p?.id ?? '').trim(),
+              ai_enabled: p?.ai_enabled === true,
+              critical_software: p?.critical_software === true,
+            }))
+            .filter((p: SsdfProductConfig) => p.id)
+        : [];
+      const matrices = emitSsdfSatisfactionMatrix({
+        outDir: args.outDir,
+        runId,
+        cspName: args.cspName ?? (config as any)?.csp_name ?? 'REQUIRES-OPERATOR-INPUT',
+        regime: ssdfCfg.regime ?? undefined,
+        products: products.length ? products : undefined,
+        ksiToProductMap: ssdfCfg.ksi_to_product_map ?? undefined,
+      });
+      for (const m of matrices) {
+        const t = m.totals.tasks_by_status;
+        console.log(
+          `SSDF satisfaction matrix (${m.product_id}): ${m.json_path} ` +
+          `(${m.totals.practices} practices / ${m.totals.tasks} tasks; ` +
+          `${t['satisfied']} satisfied, ${t['partially-satisfied']} partial, ${t['not-satisfied']} not-satisfied, ` +
+          `${t['requires-operator-input']} need operator input)`
+        );
+        ledger.record('ssdf_satisfaction_matrix.emit', {
+          status: 'info',
+          product: m.product_id,
+          matrix_id: m.matrix_id,
+          tasks_satisfied: t['satisfied'],
+          tasks_requires_operator_input: t['requires-operator-input'],
+        });
+      }
+    } catch (e: any) {
+      console.error(`SSDF satisfaction matrix failed: ${e.message}`);
+      log.error({ event: 'ssdf_satisfaction_matrix.fail', err_message: e?.message });
     }
   }
 

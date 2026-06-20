@@ -18,7 +18,8 @@
     "lint:no-stubs": "node scripts/lint-no-stubs.mjs",
     "check:provenance": "node scripts/check-provenance.mjs",
     "check:coverage-regression": "node scripts/check-coverage-regression.mjs",
-    "check:reo": "npm run lint:no-stubs && npm run check:provenance && npm run check:coverage-regression",
+    "check:ssdf-no-silent-pass": "node scripts/check-ssdf-no-silent-pass.mjs",
+    "check:reo": "npm run lint:no-stubs && npm run check:provenance && npm run check:coverage-regression && npm run check:ssdf-no-silent-pass",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
