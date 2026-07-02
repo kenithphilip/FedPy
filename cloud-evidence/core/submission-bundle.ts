@@ -123,7 +123,10 @@ type Role =
   | 'ssdf-satisfaction-matrix-json'
   | 'ssdf-satisfaction-matrix-xlsx'
   | 'ssdf-common-form-pdf'
-  | 'ssdf-common-form-json';
+  | 'ssdf-common-form-json'
+  | 'ssdf-material-change-events-json'
+  | 'ssdf-attestation-ledger'
+  | 'ssdf-attestation-snapshot';
 
 interface WellKnownArtifact {
   role: Role;
@@ -188,6 +191,9 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'ssdf-satisfaction-matrix-xlsx', filename: /^ssdf-satisfaction-matrix(\.[a-z0-9-]+)?\.xlsx$/, description: 'Operator-readable SSDF satisfaction workbook — Per-Task Matrix + Per-Practice Summary (LOOP-T.T2)' },
   { role: 'ssdf-common-form-pdf', filename: 'cisa-common-form-1670-0052.pdf', description: 'CISA Secure Software Development Attestation Common Form (OMB 1670-0052) — unsigned canonical PDF for corporate-officer signature + CISA RSAA submission (LOOP-T.T3)' },
   { role: 'ssdf-common-form-json', filename: 'cisa-common-form-1670-0052.json', description: 'Canonical-JSON shadow of the OMB 1670-0052 Common Form — signed; backs the PDF and records the Section IV selections derived from the T.T2 satisfaction matrix (LOOP-T.T3)' },
+  { role: 'ssdf-material-change-events-json', filename: 'ssdf-material-change-events.json', description: 'SSDF annual re-attestation cadence + material-change detector output — signed; per-(product × agency) next-due cadence rows + typed MaterialChangeEvent[] diffing successive T.T2 matrix snapshots (OMB M-23-16 §III binding-clause trigger) (LOOP-T.T4)' },
+  { role: 'ssdf-attestation-ledger', filename: 'ssdf-attestation-ledger.jsonl', description: 'Append-only ledger of detector runs (run_id, product, matrix sha256, snapshot path, regime, agencies, events, next-due) — the matrix-snapshot version-chain index (LOOP-T.T4)' },
+  { role: 'ssdf-attestation-snapshot', filename: /^ssdf-attestation-snapshots\/[a-z0-9-]+\/[0-9a-f]{64}\.json$/, description: 'Immutable content-addressed snapshot of a T.T2 satisfaction matrix, hashed into the ledger so the material-change diff baseline is reconstructable (LOOP-T.T4)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

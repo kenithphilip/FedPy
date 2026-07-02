@@ -73,6 +73,7 @@ import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
 import { emitSection889AnnualRep } from './section889-annual-rep.ts';
 import { emitSsdfSatisfactionMatrix, type SsdfProductConfig } from './ssdf-evidence-aggregator.ts';
 import { emitSsdfCommonForm } from './ssdf-common-form.ts';
+import { emitSsdfMaterialChanges, type SsdfProduct } from './ssdf-material-change-detector.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -2656,6 +2657,68 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`SSDF satisfaction matrix failed: ${e.message}`);
       log.error({ event: 'ssdf_satisfaction_matrix.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- SSDF annual re-attestation cadence + material-change detector (LOOP-T.T4) ----
+  // Diffs the T.T2 satisfaction matrix just emitted against the most recent prior
+  // snapshot (out/ssdf-attestation-snapshots/<product>/<sha>.json), emits the
+  // signed material-change events + per-(product × agency) cadence rows
+  // (out/ssdf-material-change-events.json), archives the current matrix as the new
+  // baseline, and appends the run to out/ssdf-attestation-ledger.jsonl. Runs AFTER
+  // the T.T2 emit (its diff input) + BEFORE T.T3 / signing so the report is covered
+  // by the run manifest + RFC 3161 TSR. Gated by the same OMB M-22-18 procurement
+  // signal (--ssdf-attestation). Never auto-signs a producer attestation and never
+  // files with an agency / CISA RSAA (REO Rule 4) — the tracker capture / RSAA /
+  // withdrawal actions are the deferred T.T4 tracker layer (LOOP-T-RISKS T.T4-21..24).
+  if (args.ssdfAttestation && !args.dryRun) {
+    try {
+      const ssdfCfg = (config as any)?.ssdf ?? {};
+      const products: SsdfProduct[] = Array.isArray(ssdfCfg.products)
+        ? ssdfCfg.products
+            .map((p: any): SsdfProduct => ({
+              id: String(p?.id ?? '').trim(),
+              legal_name: String(p?.legal_name ?? p?.name ?? p?.id ?? '').trim(),
+              regime: String(p?.regime ?? '').trim(),
+              critical_software: p?.critical_software === true,
+              continuous_delivery: p?.continuous_delivery === true,
+              major_version_pattern: String(p?.major_version_pattern ?? '').trim(),
+              cadence_override_days:
+                p?.cadence_override_days === null || p?.cadence_override_days === undefined
+                  ? null
+                  : Number(p.cadence_override_days),
+              poam_extension_allowed: p?.poam_extension_allowed !== false,
+              federal_agencies: Array.isArray(p?.federal_agencies)
+                ? p.federal_agencies
+                    .map((a: any) => ({ id: String(a?.id ?? '').trim(), name: String(a?.name ?? a?.id ?? '').trim() }))
+                    .filter((a: { id: string }) => a.id)
+                : [],
+            }))
+            .filter((p: SsdfProduct) => p.id)
+        : [];
+      const mc = emitSsdfMaterialChanges({
+        outDir: args.outDir,
+        runId,
+        cspName: args.cspName ?? (config as any)?.csp_name ?? 'REQUIRES-OPERATOR-INPUT',
+        products,
+        configPath: args.configPath,
+      });
+      console.log(
+        `SSDF re-attestation detector: ${mc.json_path} ` +
+        `(${mc.products_tracked} product(s), ${mc.status_rows} cadence row(s); ` +
+        `${mc.events} material-change event(s), ${mc.events_triggering_reattestation} force re-attestation; ` +
+        `${mc.baseline_products} baseline)`,
+      );
+      ledger.record('ssdf_material_change.emit', {
+        status: 'info',
+        products_tracked: mc.products_tracked,
+        events: mc.events,
+        events_triggering_reattestation: mc.events_triggering_reattestation,
+        baseline_products: mc.baseline_products,
+      });
+    } catch (e: any) {
+      console.error(`SSDF re-attestation detector failed: ${e.message}`);
+      log.error({ event: 'ssdf_material_change.fail', err_message: e?.message });
     }
   }
 

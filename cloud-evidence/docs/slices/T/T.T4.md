@@ -2,9 +2,9 @@
 slice_id: T.T4
 title: Annual SSDF Re-Attestation Workflow + Material-Change Detector
 loop: T
-status: proposed
-commit: TBD
-completed_date: —
+status: done
+commit: TBDT4HASH
+completed_date: 2026-07-01
 applicable_conditional: true
 condition: CSP delivers software to ANY federal agency (civilian or defense) under a contract that references OMB M-22-18 / M-23-16 — including legacy contracts entered before OMB M-26-05 (Jan 23 2026) made the Common Form collection voluntary. Agencies that elect, post-M-26-05, to continue using the Common Form on a tailored / risk-based basis also bring the CSP into scope.
 trigger_flag: "--ssdf-attestation"
@@ -12,7 +12,7 @@ trigger_env: CLOUD_EVIDENCE_SSDF_ATTESTATION
 depends_on: [T.T3, "LOOP-A.A4 (submission-bundle WELL_KNOWN)", "Tracker DB (tracker/server/schema.sql baseline)"]
 blocks: []
 estimated_effort: medium
-last_updated: 2026-06-07
+last_updated: 2026-07-01
 ---
 
 # T.T4 — Annual SSDF Re-Attestation Workflow + Material-Change Detector
@@ -882,14 +882,9 @@ consumer artefact. The status pane surfaces the gap as a yellow pill.
 
 ## 12. Implementation log slot
 
-```
-(empty — implementing session fills this in as work progresses; follow
-docs/IMPLEMENTATION-LOG-TEMPLATE.md cadence)
-
 | date | session | action | commit | notes |
 |---|---|---|---|---|
-|      |         |        |        |       |
-```
+| 2026-07-01 | impl-t-t4 | Shipped the realizable core end-to-end: two pure engines — `core/ssdf-annual-attestation.ts` (regime-aware cadence policy table + `computeNextDueAt` internal-review date + `computeDueState`) and `core/ssdf-material-change-detector.ts` (matrix-diff detector emitting the 6 automated `MaterialChangeEvent` kinds + `computeStatusRows` + the signed `emitSsdfMaterialChanges` pass over a content-addressed on-disk snapshot ledger). Wired into the orchestrator under the existing `--ssdf-attestation` gate (after the T.T2 matrix emit, before T.T3/signing); 3 `submission-bundle` WELL_KNOWN roles + `ssdf_material_change_coverage` sibling; `config.yaml#ssdf.products[]` gained the optional T.T4 cadence fields. 29 new tests (12 cadence + 17 detector/status/emit), 1308/1308 passing, typecheck clean, `check:reo` green. | `TBDT4HASH` | **Realizable-core posture** (same as T.T2/T.T3/W.W3/W.W4): the spec §5.1/§5.4 SQLite tables + REST routes + React panes + RBAC + operator signed-PDF-SHA-256 / RSAA capture / force-reattestation / withdrawal / legal-review actions are **deferred** — no tracker subsystem in the repo (no `pg`/`express`/`react`/`better-sqlite3`); tracked as LOOP-T-RISKS `T.T4-21..24`. **Spec reconciliations:** (a) the §5.2 tracker-storage snapshot root relocated to `out/ssdf-attestation-snapshots/<product>/<sha256>.json` + `out/ssdf-attestation-ledger.jsonl`; (b) per-event provenance (§5.3) collapsed to a single file-level provenance block, consistent with the T.T2/T.T3 emit pattern; (c) the SBOM-version-driven `major_version_bump` + T.T5 `ai_augmentation_gap` inputs are wired via `DetectOptions` seams (unit-tested) but not fed by the orchestrator yet (no SBOM-version carry / no T.T5). §10 open questions resolved: Q1 (notify — deferred to tracker), Q2 (14-day regression notification default — implemented), Q5 (override must be > 0 — `InvalidCadenceOverrideError`). |
 
 ## 13. Completion checklist
 

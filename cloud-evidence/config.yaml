@@ -69,11 +69,24 @@ ssdf:
   # Optional human label for the attestation regime (free text).
   regime: "OMB M-22-18 as amended by M-23-16"
   # Products assessed by the T.T2 satisfaction matrix (one matrix per product).
+  # The T.T4 re-attestation cadence / material-change detector (also gated by
+  # --ssdf-attestation) reads the OPTIONAL fields below. When `regime` is absent
+  # the internal review cadence is not computed (a requires-operator-input
+  # diagnostic names the field — REO Rule 4, never a fabricated default); when
+  # `federal_agencies` is empty no per-agency cadence rows are emitted.
   products:
     - id: your-product-id
       name: "Your Cloud Service Offering"
       ai_enabled: false
       critical_software: false
+      # T.T4 (optional) — annual re-attestation cadence + per-agency tracking.
+      # regime: one of m-22-18-mandatory | m-23-16-extended | m-26-05-tailored | post-m-26-05-future
+      regime: null
+      continuous_delivery: false
+      major_version_pattern: "^(\\d+)\\.0\\.0$"   # SBOM version regex → major-version-bump event
+      cadence_override_days: null                 # positive int overrides the regime default
+      poam_extension_allowed: true                # M-22-18 §III.E POA&M-in-lieu-of-attestation safety valve
+      federal_agencies: []                        # e.g. [{ id: dot, name: "U.S. Department of Transportation" }]
   # Corporate producer block consumed by the T.T3 Common Form emitter. Every
   # field marked REQUIRED below must be filled before --ssdf-common-form will emit.
   producer:

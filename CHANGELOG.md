@@ -6,6 +6,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-T.T4: Annual SSDF Re-Attestation Workflow + Material-Change Detector
+
+Shipped the lifecycle layer of the SSDF self-attestation programme — the
+regime-aware annual re-attestation cadence engine and the material-change
+detector that watches the T.T2 satisfaction matrix for the changes that force
+interim re-attestation. This is the producer-side instrument for the OMB M-23-16
+§III binding clause: an attestation is "binding for future versions of the named
+software product unless and until the software producer notifies the agencies ...
+that its development practices no longer conform to the required elements", and a
+material change in the SSDF posture is what triggers that notification obligation.
+
+Two pure engines land per the per-slice §6. `core/ssdf-annual-attestation.ts`
+carries the regime cadence table — `m-22-18-mandatory` / `m-23-16-extended` →
+365-day general / 270-day EO-critical software (the two memos' §III collection
+windows); `m-26-05-tailored` / `post-m-26-05-future` → 365-day (no
+critical-software acceleration once the collection is voluntary) — and computes
+`next_due_at = submitted_at + cadence` as the producer's INTERNAL review date, not
+an expiry (the M-23-16 binding clause keeps the attestation in force until
+notification; LOOP-T-RISKS T.T4-R1), plus `computeDueState`
+(current / due_soon / due_now / overdue / never_submitted). The operator regime is
+required (config.yaml `ssdf.products[].regime`); an absent or unrecognised regime
+throws `InvalidRegimeError` rather than defaulting to a mandatory cadence (REO
+Rule 4). `core/ssdf-material-change-detector.ts` diffs successive matrix snapshots
+and emits typed `MaterialChangeEvent`s — `practice_regression` (satisfied →
+not-satisfied, suppressed by an active POA&M-extension override because
+`requires-operator-input` is a coverage gap not a regression, T.T4-R2),
+`new_untestable_practice`, `major_version_bump`, `ai_augmentation_gap`,
+`regime_change`, `agency_added` — with the §6 Step 7/8 notification clock
+(14-day regressions / 30-day version+regime / null informational) and
+`triggers_reattestation` policy; event ids are uuid-v5 content-derived so re-runs
+are idempotent.
+
+The evidence path: the orchestrator runs the detector under the existing
+`--ssdf-attestation` gate (env `CLOUD_EVIDENCE_SSDF_ATTESTATION`) AFTER the T.T2
+matrix emit and BEFORE T.T3 / signing, so the output is covered by the Ed25519 run
+manifest + RFC 3161 TSR. It loads every `out/ssdf-satisfaction-matrix*.json`, diffs
+each against its most recent prior snapshot, and emits the signed
+`out/ssdf-material-change-events.json` (+ `.json.sig`, detached Ed25519 over the
+RFC-8785 signature-blanked bytes) carrying the per-(product × agency) cadence rows
+and the `MaterialChangeEvent[]`. The realizable persistence layer stands in for the
+spec's tracker storage: prior matrices are archived as content-addressed snapshots
+at `out/ssdf-attestation-snapshots/<product>/<sha256>.json` and the append-only run
+index is `out/ssdf-attestation-ledger.jsonl`. Three `submission-bundle` WELL_KNOWN
+roles registered (`ssdf-material-change-events-json`, `ssdf-attestation-ledger`,
+`ssdf-attestation-snapshot`); an `ssdf_material_change_coverage` sibling added to
+`inventory-coverage.json` (a sibling field, never an Appendix-M fillRate cell, so
+G2-safe). `config.yaml#ssdf.products[]` gained the optional T.T4 cadence fields
+(`regime` enum, `continuous_delivery`, `major_version_pattern`,
+`cadence_override_days`, `poam_extension_allowed`, `federal_agencies[]`).
+
+Statutory / regulatory drivers (per-slice §2, all accessed 2026-06-07): EO 14028
+§4(n) (attest-to-complying FAR direction); OMB M-22-18 §II/§III (Sep 14 2022 —
+270-day critical / 365-day general collection windows); OMB M-23-16 §III (Jun 9
+2023 — the "binding ... unless and until the software producer notifies" clause +
+the three scope triggers + the POA&M safety valve); OMB M-26-05 (Jan 23 2026 —
+"Memoranda M-22-18 and M-23-16 are rescinded. Agencies may continue to use the
+Common Form ... on a tailored, risk-based basis"); NIST SP 800-218 v1.1 (Feb 2022,
+the PO/PS/PW/RV substrate); CISA Secure Software Development Attestation Common Form
+(OMB 1670-0052); CISA RSAA.
+
+Verification: typecheck clean; 1308/1308 tests passing (+29 new — 12 cadence-engine
++ 17 detector/status/signed-emit, per-slice §8 rows T01–T17 adapted to the
+realizable-core surface); `npm run check:reo` returns 0 (G1 lint:no-stubs +
+G2 coverage-regression + G3 check:provenance + check:ssdf-no-silent-pass). New
+files: `core/ssdf-annual-attestation.ts`, `core/ssdf-material-change-detector.ts`,
+`tests/core/ssdf-annual-attestation.test.ts`,
+`tests/core/ssdf-material-change-detector.test.ts`. Modified:
+`core/orchestrator.ts` (detector wiring), `core/submission-bundle.ts` (3 roles),
+`core/inventory-coverage.ts` (coverage sibling), `config.yaml` (product cadence
+fields).
+
+REO / realizable-core posture: the per-slice §5.1 four SQLite tables, the §6 REST
+routes + `ssdf-service`, the three React panes + RBAC, and the operator
+signed-PDF-SHA-256 / RSAA-submission-id capture + force-reattestation / withdrawal /
+legal-review actions are **deferred** — no tracker subsystem exists in this repo
+(no `pg`/`express`/`react`/`better-sqlite3`), the same posture as T.T2/T.T3/W.W3/W.W4
+(tracked LOOP-T-RISKS T.T4-21..24). The detector never auto-signs a producer
+attestation and never files with an agency / CISA RSAA (REO Rule 4). The STATUS
+T.T4 table-row title was reconciled to the per-slice-doc / SPEC §3 title (the prior
+"Third-party software components attestation appendix" label was stale — that scope
+is T.T5's AI extension).
+
 ### Added — LOOP-T.T3: CISA Self-Attestation Common Form (OMB 1670-0052) PDF emitter
 
 Shipped the CISA Secure Software Development Attestation Common Form (OMB Control

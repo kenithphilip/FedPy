@@ -416,3 +416,27 @@ export function augmentCoverageWithSsdfCommonForm<T extends Record<string, unkno
 ): T & { ssdf_common_form_fill_rate: SsdfCommonFormFillRate[] } {
   return { ...report, ssdf_common_form_fill_rate: products.map((p) => ({ ...p })) };
 }
+
+/** SSDF annual re-attestation / material-change detector counts (LOOP-T.T4). Sibling field — never a G2 fillRate cell. */
+export interface SsdfMaterialChangeCoverage {
+  products_tracked: number;
+  agencies_tracked: number;
+  events_detected: number;
+  events_triggering_reattestation: number;
+  products_never_submitted: number;
+  baseline_products: number;
+}
+
+/**
+ * Augment a coverage report with the LOOP-T.T4 material-change / annual-cadence
+ * detector counts as a sibling top-level field (`ssdf_material_change_coverage`).
+ * Like the T.T3 / W.W1 / W.W2 siblings this is NOT an Appendix-M
+ * `columns[].fillRate` cell, so the G2 coverage-regression guardrail (which only
+ * compares fillRate) can never flag it. Pure: returns a new object.
+ */
+export function augmentCoverageWithSsdfMaterialChange<T extends Record<string, unknown>>(
+  report: T,
+  coverage: SsdfMaterialChangeCoverage,
+): T & { ssdf_material_change_coverage: SsdfMaterialChangeCoverage } {
+  return { ...report, ssdf_material_change_coverage: { ...coverage } };
+}
