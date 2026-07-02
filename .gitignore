@@ -38,6 +38,13 @@ cloud-evidence/data/*
 # runtime state. Re-include the scripts/data dir so the file below un-ignores.
 !cloud-evidence/scripts/data/
 !cloud-evidence/scripts/data/ssdf-ksi-mapping.json
+# tracker/server/data/ holds the runtime SQLite DB (ignored) plus the committed
+# NIST SP 800-53 Rev 5 catalog copy the tracker uses for server-side
+# compensating-control id validation (LOOP-B.B4). Re-include the dir, keep the DB
+# ignored, then un-ignore the catalog file.
+!tracker/server/data/
+tracker/server/data/*
+!tracker/server/data/nist-r5-controls.generated.json
 *.db
 *.db-journal
 *.db-wal

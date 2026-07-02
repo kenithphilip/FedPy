@@ -64,6 +64,7 @@ import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
 import { emitOscalPoam, type PoamEmitResult } from './oscal-poam.ts';
 import { pullActiveAcceptances } from './risk-acceptance-reader.ts';
+import { pullCompensatingControls } from './compensating-control-reader.ts';
 import { runPoamMonthly, type PoamMonthlyResult } from './poam-monthly.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
@@ -333,6 +334,8 @@ interface Args {
   trackerUrl: string | null;
   /** LOOP-B.B3: Bearer token for the tracker risk-acceptance API. */
   trackerApiToken: string | null;
+  /** LOOP-B.B4: tracker base URL to pull signed compensating controls from before the POA&M emit (defaults to trackerUrl). */
+  compensatingControlsUrl: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -412,6 +415,7 @@ function parseArgs(argv: string[]): Args {
     authorizationDate: process.env.CLOUD_EVIDENCE_AUTHORIZATION_DATE ?? null,
     trackerUrl: process.env.CLOUD_EVIDENCE_TRACKER_URL ?? null,
     trackerApiToken: process.env.CLOUD_EVIDENCE_TRACKER_TOKEN ?? null,
+    compensatingControlsUrl: process.env.CLOUD_EVIDENCE_COMPENSATING_CONTROLS_URL ?? null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -615,6 +619,11 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--tracker-api-token':
         args.trackerApiToken = argv[++i] ?? null;
+        break;
+      case '--pull-compensating-controls':
+        // LOOP-B.B4: pull signed compensating controls from the tracker before the
+        // POA&M emit. Defaults to the same tracker URL as --pull-risk-acceptances.
+        args.compensatingControlsUrl = argv[++i] ?? null;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -2299,6 +2308,29 @@ export async function main(): Promise<void> {
         console.warn(`Risk-acceptance pull failed (${e?.message ?? e}); using cached snapshot if present.`);
         log.warn({ event: 'risk_acceptances.pull_failed', err: String(e) });
         ledger.record('risk_acceptances.pull', { status: 'info', reason: String(e?.message ?? e) });
+      }
+    }
+  }
+
+  // ---- LOOP-B.B4: pull signed compensating controls from the tracker (if
+  // configured) BEFORE the POA&M emit, so each approved acceptance's cited
+  // compensating controls fill the matching risk's remediations[] (completed).
+  // Defaults to the same tracker URL as the risk-acceptance pull; falls back to
+  // any cached out/.compensating-controls.json snapshot when unreachable. ----
+  const ccUrl = args.compensatingControlsUrl ?? args.trackerUrl;
+  if (ccUrl) {
+    if (!args.trackerApiToken) {
+      console.error('--pull-compensating-controls requires --tracker-api-token (or CLOUD_EVIDENCE_TRACKER_TOKEN).');
+      process.exitCode = 2;
+    } else {
+      try {
+        const pulled = await pullCompensatingControls(ccUrl, args.trackerApiToken, args.outDir);
+        console.log(`Compensating controls: pulled ${pulled.length} active record(s) from ${ccUrl} → out/.compensating-controls.json`);
+        ledger.record('compensating_controls.pull', { status: 'ok', count: pulled.length });
+      } catch (e: any) {
+        console.warn(`Compensating-control pull failed (${e?.message ?? e}); using cached snapshot if present.`);
+        log.warn({ event: 'compensating_controls.pull_failed', err: String(e) });
+        ledger.record('compensating_controls.pull', { status: 'info', reason: String(e?.message ?? e) });
       }
     }
   }

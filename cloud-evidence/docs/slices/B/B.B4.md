@@ -2,13 +2,13 @@
 slice_id: B.B4
 title: Compensating-controls registry (tracker DB + UI + OSCAL mitigating-factors emission)
 loop: B
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: TBD-step6
+completed_date: 2026-07-02
 depends_on: [LOOP-A.A1, B.B3]
 blocks: [B.B5, C.C7, F.F1]
 estimated_effort: 4 working days
-last_updated: 2026-06-06
+last_updated: 2026-07-02
 ---
 
 # B.B4 — Compensating-controls registry (tracker DB + UI + OSCAL mitigating-factors emission)
@@ -358,7 +358,53 @@ npm test -- server/routes/compensating-controls.test.ts server/compensating-cont
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-02 · impl-b-b4 · Shipped the full slice end to end across BOTH workspaces
+  (tracker + cloud-evidence). commit TBD-step6.
+
+  Tracker (Hono + better-sqlite3 + React — the real subsystem, per B.B3):
+    - server/schema.sql: appended compensating_controls table (additive; verified
+      on fresh + existing DBs via the full suite).
+    - server/compensating-control-sign.ts: REUSES the B.B3 resident Ed25519 key +
+      RFC-8785 canonicalize() from risk-acceptance-sign.ts; adds
+      compensatingControlPayload() + activationPayload() shapes.
+    - server/nist-catalog.ts + server/data/nist-r5-controls.generated.json: committed
+      copy of the cloud-evidence catalog (Q1 resolved: static asset, no runtime
+      cross-system dependency); O(1) Set lookup; isValidControlId() +
+      normalizeControlId() (AC-2(3)↔ac-2.3), byte-identical to cloud-evidence.
+    - server/routes/compensating-controls.ts: Hono CRUD (create-draft/list/uuid-exists/
+      detail/verify/update-draft/activate/retire), manual validation (no zod),
+      retirement blocked when an active acceptance still cites the control (B.B4-4).
+    - server/rbac.ts: added read/create/activate/retire:compensating_control (create=iso/
+      admin, activate=ao/admin [separation of duties], retire=iso/ao/admin, read=all).
+    - server/index.ts: mounted /api/compensating-controls.
+    - client: CompensatingControls{,Create,Detail}.tsx + lib/compensating-control-{api,
+      view}.ts + App.tsx routes/nav. Description ≥200 nudge + optional-expiration
+      annual-review nudge (Q4).
+
+  cloud-evidence:
+    - core/compensating-control-reader.ts: pull + verify-every-signature + signed
+      out/.compensating-controls.json snapshot; getCompensatingControl() enforces
+      status='active' AND unexpired (defence-in-depth).
+    - core/oscal-poam.ts: buildCompensatingControlRemediations() fills each accepted
+      risk's risk.remediations[] with lifecycle='completed' (title/description +
+      compensating-control-uuid + one nist-control prop per id + evidence link); an
+      unresolvable uuid → REQUIRES-OPERATOR-INPUT marker (Q6: ids in props, not desc).
+    - core/orchestrator.ts: --pull-compensating-controls <url> (env
+      CLOUD_EVIDENCE_COMPENSATING_CONTROLS_URL; defaults to the risk-acceptance
+      tracker URL) runs the pull before the POA&M emit.
+    - core/submission-bundle.ts: WELL_KNOWN role compensating-controls-snapshot.
+    - core/nist-r5.ts: shared isValidControlId()/normalizeControlId() primitives.
+
+  Verification: tracker typecheck clean, 130→159 tests (+29); cloud-evidence
+  typecheck clean, 1354→1372 tests (+18); npm run check:reo green (G1 no-stubs,
+  G3 provenance; G2 coverage-regression SKIP — no local collector run).
+
+  Spec reconciliation (LOOP-B-RISKS B.B4-10/11): the per-slice doc assumed Express +
+  a fresh compensating-control-sign.ts keypair + .test.tsx DOM-render UI tests. Reality
+  is Hono + reused B.B3 signing key + pure compensating-control-view.ts logic
+  unit-tested in tests/ (no jsdom). Q7: evidence_sha256 is part of the signed payload
+  (forward-compatible with an H.4-upload-before-create flow); Q3/Q5 (nightly
+  evidence-link enforcer, backfill of legacy free text) remain out of scope.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)

@@ -501,3 +501,85 @@ describe('OSCAL POA&M emitter — LOOP-B.B3 risk-acceptance propagation', () => 
     expect(risk.status).toBe('open');
   });
 });
+
+// ─── LOOP-B.B4: compensating-control → risk.remediations[] propagation ─────────
+import type { PulledCompensatingControl } from '../../core/compensating-control-reader.ts';
+
+function makeControl(over: Partial<PulledCompensatingControl> = {}): PulledCompensatingControl {
+  return {
+    uuid: over.uuid ?? 'cc-1',
+    title: over.title ?? 'MFA break-glass vault',
+    description: over.description ?? 'The root account is stored in a hardware-MFA vault with 24/7 alerting.',
+    nist_control_ids: over.nist_control_ids ?? ['AC-2', 'SC-7'],
+    implemented_by_user_id: over.implemented_by_user_id ?? 1,
+    implemented_at: over.implemented_at ?? '2026-07-02T00:00:00.000Z',
+    signed_off_by_user_id: over.signed_off_by_user_id ?? 2,
+    signed_off_at: over.signed_off_at ?? '2026-07-02T01:00:00.000Z',
+    expiration_date: over.expiration_date ?? null,
+    evidence_url: over.evidence_url ?? null,
+    evidence_sha256: over.evidence_sha256 ?? null,
+    status: over.status ?? 'active',
+    signature: over.signature ?? 'sig',
+    signing_key_id: over.signing_key_id ?? 'k',
+  };
+}
+
+/** The one risk carrying the accepted finding's compensating-control remediations. */
+function acceptedRisk(over: { acc?: Partial<PulledAcceptance>; ccs?: PulledCompensatingControl[] } = {}) {
+  const { doc } = buildOscalPoam([makeEnvelope()], {
+    outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
+    acceptances: [makeAcceptance({ compensating_control_uuids: ['cc-1'], ...over.acc })],
+    compensatingControls: over.ccs ?? [makeControl()],
+    acceptanceNow: ACC_NOW,
+  });
+  return doc['plan-of-action-and-milestones'].risks![0]!;
+}
+
+describe('OSCAL POA&M emitter — LOOP-B.B4 compensating-control remediations', () => {
+  it('emits a risk.remediations[] entry with lifecycle=completed for each linked control', () => {
+    const risk = acceptedRisk();
+    const completed = risk.remediations!.filter((r) => r.lifecycle === 'completed');
+    expect(completed.length).toBe(1);
+    expect(completed[0]!.title).toBe('MFA break-glass vault');
+  });
+
+  it('emits compensating-control-uuid + one nist-control prop per referenced control', () => {
+    const rem = acceptedRisk().remediations!.find((r) => r.lifecycle === 'completed')!;
+    expect(propVal(rem.props, 'compensating-control-uuid')).toBe('cc-1');
+    expect(propVal(rem.props, 'compensating-control-status')).toBe('active');
+    const nist = rem.props!.filter((p) => p.name === 'nist-control').map((p) => p.value);
+    expect(nist).toEqual(['AC-2', 'SC-7']);
+  });
+
+  it('emits a link to evidence_url when the control carries one', () => {
+    const rem = acceptedRisk({ ccs: [makeControl({ evidence_url: 'https://runbooks.example/bg' })] })
+      .remediations!.find((r) => r.lifecycle === 'completed')!;
+    expect(rem.links?.[0]?.href).toBe('https://runbooks.example/bg');
+  });
+
+  it('emits a REQUIRES-OPERATOR-INPUT marker when the acceptance cites an unknown uuid', () => {
+    const rem = acceptedRisk({ acc: { compensating_control_uuids: ['ghost'] }, ccs: [] })
+      .remediations!.find((r) => r.lifecycle === 'completed')!;
+    expect(rem.title).toBe('Unknown compensating control');
+    expect(propVal(rem.props, 'compensating-control-status')).toBe('REQUIRES-OPERATOR-INPUT: unknown uuid');
+  });
+
+  it('does NOT propagate an expired compensating control (surfaces as unknown, not its content)', () => {
+    const rem = acceptedRisk({ ccs: [makeControl({ expiration_date: '2026-07-01T00:00:00.000Z' })] })
+      .remediations!.find((r) => r.lifecycle === 'completed')!;
+    expect(rem.title).toBe('Unknown compensating control');
+    expect(rem.props!.some((p) => p.name === 'nist-control')).toBe(false);
+  });
+
+  it('does NOT propagate a draft compensating control', () => {
+    const rem = acceptedRisk({ ccs: [makeControl({ status: 'draft' })] })
+      .remediations!.find((r) => r.lifecycle === 'completed')!;
+    expect(rem.title).toBe('Unknown compensating control');
+  });
+
+  it('leaves risk.remediations without completed entries when no acceptance exists', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], { outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x' });
+    const risk = doc['plan-of-action-and-milestones'].risks![0]!;
+    expect((risk.remediations ?? []).some((r) => r.lifecycle === 'completed')).toBe(false);
+  });
+});

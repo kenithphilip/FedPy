@@ -130,7 +130,8 @@ type Role =
   | 'ssdf-ai-augmentation-json'
   | 'ssdf-ai-augmentation-xlsx'
   | 'ssdf-satisfaction-matrix-augmented'
-  | 'risk-acceptances-snapshot';
+  | 'risk-acceptances-snapshot'
+  | 'compensating-controls-snapshot';
 
 interface WellKnownArtifact {
   role: Role;
@@ -177,6 +178,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'supply-chain-risk-register-xlsx', filename: 'supply-chain-risk-register.xlsx', description: 'Supply chain risk register — FedRAMP-style Excel (one sheet per category) (LOOP-J.J3)' },
   { role: 'deadline-audit-json', filename: 'deadline-audit.json', description: 'Per-finding remediation-deadline-source audit log — KEV / FedRAMP CMP / PAIN-IRV-LEV / operator-override / severity-fallback (LOOP-B.B2)' },
   { role: 'risk-acceptances-snapshot', filename: '.risk-acceptances.json', description: 'Signed snapshot of approved, unexpired risk acceptances pulled from the tracker; drives POA&M risk.status=deviation-approved (LOOP-B.B3)' },
+  { role: 'compensating-controls-snapshot', filename: '.compensating-controls.json', description: 'Signed snapshot of active, unexpired compensating controls pulled from the tracker; fills POA&M risk.remediations[] (lifecycle=completed) for accepted risks (LOOP-B.B4)' },
   { role: 'conmon-monthly-report-json', filename: /^conmon-monthly-\d{4}-\d{2}\.json$/, description: 'Monthly ConMon analysis report — machine-readable JSON (signed; posture + scan coverage + POA&M activity + KEV exposure) (LOOP-E.E1)' },
   { role: 'conmon-monthly-report-md', filename: /^conmon-monthly-\d{4}-\d{2}\.md$/, description: 'Monthly ConMon analysis report — Markdown render for operator review (LOOP-E.E1)' },
   { role: 'conmon-monthly-report-pdf', filename: /^conmon-monthly-\d{4}-\d{2}\.pdf$/, description: 'Monthly ConMon analysis report — PDF for the FedRAMP secure-repository upload (LOOP-E.E1)' },

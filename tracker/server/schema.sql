@@ -248,3 +248,39 @@ CREATE TABLE IF NOT EXISTS risk_acceptance_compensating_links (
   PRIMARY KEY (acceptance_id, compensating_control_uuid)
 );
 CREATE INDEX IF NOT EXISTS idx_ra_cc_acceptance ON risk_acceptance_compensating_links(acceptance_id);
+
+-- ─── LOOP-B.B4: Compensating-controls registry ────────────────────────────────
+-- Structured, AO-signed compensating-control records (NIST 800-53A §2.4 / CA-5
+-- / CA-2(1) / PL-2). Replaces free-text UUID references from B.B3 acceptances
+-- with immutable, signed rows the cloud-evidence POA&M emitter consumes to fill
+-- risk.remediations[] (lifecycle='completed'). Each record is signed with the
+-- same resident Ed25519 key as risk_acceptances (signing_keys table); activation
+-- writes a second signature so AO sign-off is non-repudiable. draft → active
+-- requires an ao/admin sign-off; active rows are immutable (retire + recreate).
+CREATE TABLE IF NOT EXISTS compensating_controls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT NOT NULL UNIQUE,                       -- v4 uuid; canonical id referenced by acceptances + OSCAL props
+  title TEXT NOT NULL,                             -- 5-200 chars
+  description TEXT NOT NULL,                       -- >= 200 chars
+  nist_control_ids TEXT NOT NULL,                  -- JSON array of NIST 800-53 r5 control ids; validated against catalog
+  implemented_by_user_id INTEGER NOT NULL REFERENCES users(id),
+  implemented_at TEXT NOT NULL,
+  signed_off_by_user_id INTEGER REFERENCES users(id),   -- AO id (null until activated)
+  signed_off_at TEXT,                              -- ISO datetime (null until activated)
+  expiration_date TEXT,                            -- ISO datetime; null = no expiration
+  evidence_url TEXT,                               -- e.g. runbook URL
+  evidence_sha256 TEXT,                            -- sha256 of evidence attachment if uploaded via H.4
+  status TEXT NOT NULL CHECK (status IN ('draft','active','retired')),
+  signature TEXT NOT NULL,                         -- base64 Ed25519 signature over the canonical payload
+  signing_key_id TEXT NOT NULL,
+  activation_signature TEXT,                       -- second signature over the activation event
+  activation_signing_key_id TEXT,
+  retired_at TEXT,
+  retired_by_user_id INTEGER REFERENCES users(id),
+  retirement_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cc_status ON compensating_controls(status);
+CREATE INDEX IF NOT EXISTS idx_cc_expiration ON compensating_controls(expiration_date);
+CREATE INDEX IF NOT EXISTS idx_cc_uuid ON compensating_controls(uuid);

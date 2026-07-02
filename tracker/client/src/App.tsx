@@ -19,6 +19,10 @@ import { RiskAcceptance } from './pages/RiskAcceptance';
 import { RiskAcceptanceCreate } from './pages/RiskAcceptanceCreate';
 import { RiskAcceptanceDetail } from './pages/RiskAcceptanceDetail';
 import { canViewRiskAcceptances } from './lib/risk-acceptance-view';
+import { CompensatingControls } from './pages/CompensatingControls';
+import { CompensatingControlCreate } from './pages/CompensatingControlCreate';
+import { CompensatingControlDetail } from './pages/CompensatingControlDetail';
+import { canViewCompensatingControls } from './lib/compensating-control-view';
 
 export function App() {
   return (
@@ -106,6 +110,7 @@ function Shell() {
           <>
             <div className="group">Risk</div>
             <NavLink to="/risk-acceptance">Risk acceptances</NavLink>
+            {canViewCompensatingControls(user!.role) && <NavLink to="/compensating-controls">Compensating controls</NavLink>}
           </>
         )}
         <div className="group">Reports</div>
@@ -143,6 +148,9 @@ function Shell() {
           <Route path="/risk-acceptance" element={<RiskAcceptance />} />
           <Route path="/risk-acceptance/new" element={<RiskAcceptanceCreate />} />
           <Route path="/risk-acceptance/:id" element={<RiskAcceptanceDetail />} />
+          <Route path="/compensating-controls" element={<CompensatingControls />} />
+          <Route path="/compensating-controls/new" element={<CompensatingControlCreate />} />
+          <Route path="/compensating-controls/:uuid" element={<CompensatingControlDetail />} />
         </Routes>
       </main>
     </div>

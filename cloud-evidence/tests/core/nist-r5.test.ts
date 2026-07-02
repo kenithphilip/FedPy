@@ -2,7 +2,7 @@
  * Tests for core/nist-r5.ts — Rev5 control-name enrichment (PB).
  */
 import { describe, it, expect } from 'vitest';
-import { controlDetails, describeControls, loadNistControls } from '../../core/nist-r5.ts';
+import { controlDetails, describeControls, loadNistControls, isValidControlId, normalizeControlId } from '../../core/nist-r5.ts';
 import { buildProcessArtifactEvidence } from '../../core/process-artifact-tracker.ts';
 import { getRequirement } from '../../core/requirements-registry.ts';
 
@@ -28,6 +28,20 @@ describe('nist-r5 control lookup', () => {
 
   it('describeControls renders id — name strings', () => {
     expect(describeControls(['ir-4'])).toEqual(['ir-4 — Incident Handling']);
+  });
+
+  // LOOP-B.B4: control-id validation reused server-side by the tracker registry.
+  it('normalizeControlId collapses enhancement parentheses and lowercases', () => {
+    expect(normalizeControlId('AC-2(3)')).toBe('ac-2.3');
+    expect(normalizeControlId(' SC-7 ')).toBe('sc-7');
+  });
+
+  it('isValidControlId accepts real base + enhancement ids in either notation and rejects fakes', () => {
+    expect(isValidControlId('AC-2')).toBe(true);
+    expect(isValidControlId('AC-2(3)')).toBe(true);
+    expect(isValidControlId('ac-2.3')).toBe(true);
+    expect(isValidControlId('AC-99')).toBe(false);
+    expect(isValidControlId('')).toBe(false);
   });
 });
 

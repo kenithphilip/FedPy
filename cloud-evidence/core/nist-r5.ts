@@ -65,3 +65,25 @@ function deriveFamily(key: string): string | null {
   const m = key.match(/^([a-z]{2})-/);
   return m ? m[1]!.toUpperCase() : null;
 }
+
+/**
+ * Normalise a control id to the catalog's key form: lowercase, and OSCAL /
+ * human-style enhancement parentheses `AC-2(3)` collapsed to the FRMR-style dot
+ * `ac-2.3`. Operators type either form; the catalog is keyed `ac-2.3`. Reused
+ * server-side by the tracker (LOOP-B.B4) so both validate identically.
+ */
+export function normalizeControlId(id: string): string {
+  return String(id).trim().toLowerCase().replace(/\((\d+)\)/g, '.$1');
+}
+
+/**
+ * True when `id` resolves to a real NIST SP 800-53 Rev 5 control or control
+ * enhancement in the committed catalog. Accepts base controls (`AC-2`) and
+ * enhancements in either notation (`AC-2(3)` or `ac-2.3`). LOOP-B.B4 validates
+ * every operator-supplied compensating-control NIST id through this gate.
+ */
+export function isValidControlId(id: string): boolean {
+  const key = normalizeControlId(id);
+  if (!key) return false;
+  return key in loadNistControls();
+}

@@ -72,6 +72,7 @@ import { computeDeadline, type DeadlineContext, type DeadlineResult } from './de
 import type { KevEntry } from './kev-feed.ts';
 import { canonicalize, signDetached, type DetachedSignature } from './sign.ts';
 import { activeAcceptanceFor, loadCachedAcceptances, type PulledAcceptance } from './risk-acceptance-reader.ts';
+import { getCompensatingControl, loadCachedCompensatingControls, type PulledCompensatingControl } from './compensating-control-reader.ts';
 
 const OSCAL_VERSION = '1.1.2';
 const TOOL_NAME = 'fedramp-20x-cloud-evidence';
@@ -363,6 +364,18 @@ export interface PoamEmitOptions {
   acceptances?: PulledAcceptance[];
   /** Injectable clock for acceptance expiry checks (deterministic tests). */
   acceptanceNow?: () => Date;
+  /**
+   * LOOP-B.B4 signed compensating controls (from the tracker via
+   * core/compensating-control-reader.ts). When a finding carries an active
+   * acceptance (B.B3) whose compensating_control_uuids resolve to active,
+   * unexpired registry records, each becomes a `risk.remediations[]` entry with
+   * lifecycle='completed', the control's title/description, and
+   * compensating-control-uuid + nist-control props. A cited uuid that does NOT
+   * resolve (unknown / draft / expired / retired) emits a REQUIRES-OPERATOR-INPUT
+   * remediation — never silently dropped. When omitted, emitOscalPoam() loads the
+   * cached out/.compensating-controls.json snapshot (absent → empty).
+   */
+  compensatingControls?: PulledCompensatingControl[];
 }
 
 export interface PoamEmitResult {
@@ -700,6 +713,58 @@ export function buildVendorScreenPoamItems(matches: ProhibitedVendorMatch[]): Os
   return items;
 }
 
+// ─── LOOP-B.B4: compensating-control remediations ────────────────────────────
+//
+// When a failing finding has an active acceptance (B.B3), each of the
+// acceptance's compensating_control_uuids becomes a `risk.remediations[]` entry
+// with lifecycle='completed' (OSCAL POA&M v1.1.2: "an actual plan … already in
+// place"). The control content comes verbatim from the signed registry snapshot;
+// a uuid that does not resolve to an active, unexpired control surfaces as a
+// REQUIRES-OPERATOR-INPUT marker so a 3PAO sees the gap on every affected risk.
+export function buildCompensatingControlRemediations(
+  acc: PulledAcceptance,
+  ccList: PulledCompensatingControl[],
+  seed: string,
+  now: Date,
+): OscalRiskRemediation[] {
+  const out: OscalRiskRemediation[] = [];
+  for (const ccUuid of acc.compensating_control_uuids) {
+    const uuid = deterministicUuid(`poam:risk:${seed}:cc:${ccUuid}`);
+    const cc = getCompensatingControl(ccUuid, ccList, now);
+    if (!cc) {
+      out.push({
+        uuid,
+        lifecycle: 'completed',
+        title: 'Unknown compensating control',
+        description: 'Acceptance cites a compensating-control UUID that does not resolve to an active, unexpired registry record. Operator MUST resolve before authorization.',
+        props: [
+          { name: 'compensating-control-uuid', ns: CE_NS, value: ccUuid },
+          { name: 'compensating-control-status', ns: CE_NS, value: 'REQUIRES-OPERATOR-INPUT: unknown uuid' },
+        ],
+      });
+      continue;
+    }
+    const props: OscalProp[] = [
+      { name: 'compensating-control-uuid', ns: CE_NS, value: ccUuid },
+      { name: 'compensating-control-status', ns: CE_NS, value: cc.status },
+      ...cc.nist_control_ids.map((cid) => ({ name: 'nist-control', ns: CE_NS, value: cid })),
+    ];
+    if (cc.signed_off_by_user_id !== null) props.push({ name: 'compensating-control-signed-off-by', ns: CE_NS, value: String(cc.signed_off_by_user_id) });
+    if (cc.signed_off_at !== null) props.push({ name: 'compensating-control-signed-off-at', ns: CE_NS, value: cc.signed_off_at });
+    if (cc.expiration_date !== null) props.push({ name: 'compensating-control-expires', ns: CE_NS, value: cc.expiration_date });
+    if (cc.evidence_sha256 !== null) props.push({ name: 'compensating-control-evidence-sha256', ns: CE_NS, value: cc.evidence_sha256 });
+    out.push({
+      uuid,
+      lifecycle: 'completed',
+      title: cc.title,
+      description: cc.description,
+      props,
+      links: cc.evidence_url ? [{ href: cc.evidence_url, rel: 'reference' }] : undefined,
+    });
+  }
+  return out;
+}
+
 export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions): {
   doc: { 'plan-of-action-and-milestones': OscalPoam };
   result: Omit<PoamEmitResult, 'path' | 'xml_path'>;
@@ -724,6 +789,8 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
   // LOOP-B.B3: active signed risk acceptances for this run (empty when none).
   const acceptances = opts.acceptances ?? [];
   const acceptanceNow = opts.acceptanceNow ? opts.acceptanceNow() : new Date();
+  // LOOP-B.B4: signed compensating-controls registry snapshot (empty when none).
+  const compensatingControls = opts.compensatingControls ?? [];
 
   for (const env of envelopes) {
     const ksiId = env.ksi_id;
@@ -822,7 +889,7 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
         let riskUuid: string | undefined;
         if (f.severity !== 'info') {
           riskUuid = deterministicUuid(`poam:risk:${ksiId}:${prov.provider}:${f.rule}`);
-          const remediations: OscalRiskRemediation[] = (f.remediation?.options ?? []).slice(0, 5).map((o, i) => ({
+          const recommendations: OscalRiskRemediation[] = (f.remediation?.options ?? []).slice(0, 5).map((o, i) => ({
             uuid: deterministicUuid(`poam:risk:${ksiId}:${prov.provider}:${f.rule}:rem:${i}`),
             lifecycle: 'recommendation',
             title: o.approach,
@@ -833,6 +900,12 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
               ...(o.effort_estimate?.magnitude ? [{ name: 'effort', ns: CE_NS, value: o.effort_estimate.magnitude }] : []),
             ],
           }));
+          // LOOP-B.B4: prepend the completed compensating-control remediations (the
+          // mitigations already in place) ahead of the recommended options.
+          const ccRemediations = acc
+            ? buildCompensatingControlRemediations(acc, compensatingControls, `${ksiId}:${prov.provider}:${f.rule}`, acceptanceNow)
+            : [];
+          const remediations = [...ccRemediations, ...recommendations];
           risks.push({
             uuid: riskUuid,
             title: `${ksiId} / ${f.rule}`,
@@ -983,6 +1056,11 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
   // reader when --pull-risk-acceptances runs; absent → empty → every risk stays
   // open). Passed to buildOscalPoam so matching findings flip to deviation-approved.
   const acceptances = opts.acceptances ?? loadCachedAcceptances(opts.outDir);
+  // LOOP-B.B4: load the cached signed compensating-controls snapshot (written by
+  // the reader when --pull-compensating-controls runs; absent → empty → cited
+  // uuids surface as REQUIRES-OPERATOR-INPUT). Passed to buildOscalPoam so each
+  // active acceptance's compensating controls fill risk.remediations[].
+  const compensatingControls = opts.compensatingControls ?? loadCachedCompensatingControls(opts.outDir);
 
   // Pre-flight: if there are zero failing findings across all envelopes AND no
   // supply-chain items AND no prohibited-vendor items, the OSCAL POA&M schema
@@ -1010,7 +1088,7 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
     };
   }
 
-  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems, vendorScreenItems, acceptances });
+  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems, vendorScreenItems, acceptances, compensatingControls });
   const path = opts.outPath ?? resolve(opts.outDir, 'poam.json');
   writeFileSync(path, JSON.stringify(doc, null, 2));
 
