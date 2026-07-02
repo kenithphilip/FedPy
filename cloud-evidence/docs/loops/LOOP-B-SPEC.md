@@ -1418,7 +1418,7 @@ Update this table when a slice ships (see Section 8).
 | B.B2 | Remediation deadline math (KEV / PAIN-IRV-LEV) | done | `f25255d` | 2026-06-11 |
 | B.B3 | Risk acceptance workflow (tracker DB + signed audit) | done | `99f5afe` | 2026-07-02 |
 | B.B4 | Compensating-controls registry | done | `6b5168d` | 2026-07-02 |
-| B.B5 | Central Risk Register (RA-3) | done | `<TBD-step6>` | 2026-07-02 |
+| B.B5 | Central Risk Register (RA-3) | done | `d16ae8d` | 2026-07-02 |
 
 ---
 

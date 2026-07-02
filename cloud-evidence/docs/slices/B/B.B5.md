@@ -3,7 +3,7 @@ slice_id: B.B5
 title: Central Risk Register (RA-3 aggregated deliverable, JSON + XLSX + tracker UI)
 loop: B
 status: done
-commit: <TBD-step6>
+commit: d16ae8d
 completed_date: 2026-07-02
 depends_on: [LOOP-A.A1, LOOP-A.A4, B.B1, B.B2, B.B3, B.B4]
 blocks: [C.C7, I.I1, E.E1]
@@ -17,10 +17,10 @@ last_updated: 2026-07-02
 Aggregate per-finding risks (B.B1+B.B2), signed risk acceptances (B.B3), compensating controls (B.B4), and operator-entered organisational risks (new tracker `organisational_risks` table) into a single `out/risk-register.json` + `out/risk-register.xlsx` artifact. Likelihood/impact bands use NIST SP 800-30 Rev 1 §3.2 qualitative scale ("Very Low" through "Very High") verbatim. The artifact directly satisfies NIST SP 800-53 Rev 5 RA-3(a) "conduct a risk assessment" requirement and pre-fills the FedRAMP Risk Management Strategy document (LOOP-C.C7).
 
 ## Status
-- Status: pending
-- Commit: — (filled when shipped, per SLICE-COMPLETION-PROCEDURE.md)
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `d16ae8d`
+- Date: 2026-07-02
+- Verification: typecheck=clean (both workspaces), tests=cloud-evidence 1391/1391 (+19) + tracker 178/178 (+19), check:reo=green (G1+G2+G3)
 
 ## Why this slice exists
 B.B1 produces per-finding numeric scores. B.B3 records signed risk acceptances. B.B4 maintains compensating controls. There is still NO single, exec-readable artifact that:
@@ -440,7 +440,7 @@ npm test -- server/routes/risk-register.test.ts client/src/pages/RiskRegister.te
   + acceptance subset; authoritative RA-3 register is the collector's
   out/risk-register.json). Verification: cloud-evidence typecheck clean, 1391/1391
   tests (+19: 13 aggregator + 4 xlsx + 2 reader), check:reo green (G1+G2+G3);
-  tracker typecheck clean, 178/178 tests (+19: 10 routes + 9 view). Commit <TBD-step6>.
+  tracker typecheck clean, 178/178 tests (+19: 10 routes + 9 view). Commit d16ae8d.
 ```
 
 ### §10 Open questions — resolved (impl-b-b5, 2026-07-02)
