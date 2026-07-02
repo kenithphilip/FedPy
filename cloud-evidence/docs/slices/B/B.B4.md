@@ -3,7 +3,7 @@ slice_id: B.B4
 title: Compensating-controls registry (tracker DB + UI + OSCAL mitigating-factors emission)
 loop: B
 status: done
-commit: TBD-step6
+commit: 6b5168d
 completed_date: 2026-07-02
 depends_on: [LOOP-A.A1, B.B3]
 blocks: [B.B5, C.C7, F.F1]
@@ -17,10 +17,10 @@ last_updated: 2026-07-02
 Ship a typed, auditable compensating-controls registry: `compensating_controls` SQLite table with Ed25519-signed rows, full CRUD REST API, React UI with draft/active/retired lifecycle, NIST 800-53 control-id validation against the loaded catalog, and a `core/compensating-control-reader.ts` snapshot the POA&M emitter consumes to attach `risk.remediations[]` (lifecycle=`completed`) + `mitigating-factor` props. Replaces today's ad-hoc free-text references with structured, AO-signed records that directly satisfy NIST CA-5(1) automation and CA-2(1) independent assessor evidence walk-through.
 
 ## Status
-- Status: pending
-- Commit: — (filled when shipped, per SLICE-COMPLETION-PROCEDURE.md)
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `6b5168d` (slice) + docs close-out commit
+- Date: 2026-07-02
+- Verification: typecheck=clean (both workspaces), tests=tracker 130→159 (+29) / cloud-evidence 1354→1372 (+18), check:reo=green (G1+G3; G2 SKIP no local run)
 
 ## Why this slice exists
 B.B3's risk-acceptance flow references compensating controls by free-text UUID. Today, the actual compensating control content lives nowhere structured — it might be in a runbook, a wiki, a ticket, or a footnote in an SSP narrative. This is a real auditability gap:
@@ -359,7 +359,7 @@ npm test -- server/routes/compensating-controls.test.ts server/compensating-cont
 ## Implementation log (running journal — implementing session updates)
 ```
 2026-07-02 · impl-b-b4 · Shipped the full slice end to end across BOTH workspaces
-  (tracker + cloud-evidence). commit TBD-step6.
+  (tracker + cloud-evidence). commit 6b5168d.
 
   Tracker (Hono + better-sqlite3 + React — the real subsystem, per B.B3):
     - server/schema.sql: appended compensating_controls table (additive; verified
