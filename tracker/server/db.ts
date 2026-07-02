@@ -83,10 +83,12 @@ function migrate(d: Database.Database): void {
     );
   `);
 
-  // D.4 — relax users.role CHECK constraint to allow granular RBAC roles.
-  // SQLite can't ALTER a CHECK constraint, so we use the standard
-  // rename-create-copy-drop pattern. Idempotent: only runs if the old
-  // CHECK is still present.
+  // D.4 / LOOP-B.B3 — relax users.role CHECK constraint to allow granular RBAC
+  // roles (viewer/contributor/ksi-owner/auditor/admin) plus the B.B3
+  // separation-of-duties roles (iso/ao/assessor). SQLite can't ALTER a CHECK
+  // constraint, so we use the rename-create-copy-drop pattern. Idempotent: the
+  // rebuild only runs when the CHECK does not yet include 'iso' (so it fires on
+  // fresh DBs, on the legacy 2-role CHECK, and on the pre-B.B3 granular CHECK).
   relaxRoleCheck(d);
 
   // H.4 — Per-item attachments. Files are stored on disk under data/attachments/
@@ -116,11 +118,14 @@ function ensureColumn(d: Database.Database, table: string, column: string, typeS
 }
 
 function relaxRoleCheck(d: Database.Database): void {
-  // Detect whether the old CHECK is still in place by inspecting sqlite_master.
+  // Detect whether the target CHECK (which includes the B.B3 'iso' role) is
+  // already in place by inspecting sqlite_master. If it is, we're done. This
+  // guard fires the rebuild on the legacy 2-role CHECK, on the pre-B.B3 granular
+  // 6-role CHECK, and on any fresh DB — all of them get widened to the full set.
   const row = d.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get() as { sql?: string } | undefined;
   const sql = row?.sql ?? '';
-  if (!/CHECK\s*\(\s*role\s+IN\s*\(\s*'admin'\s*,\s*'member'\s*\)\s*\)/i.test(sql)) {
-    return; // already migrated or never had the restrictive CHECK
+  if (sql.includes("'iso'")) {
+    return; // already migrated to the B.B3 role set
   }
 
   // SQLite "rebuild" migration. We hard-code the new users table because the
@@ -141,7 +146,7 @@ function relaxRoleCheck(d: Database.Database): void {
         name               TEXT NOT NULL,
         password_hash      TEXT NOT NULL,
         role               TEXT NOT NULL DEFAULT 'member'
-                              CHECK (role IN ('viewer','contributor','ksi-owner','auditor','admin','member')),
+                              CHECK (role IN ('viewer','contributor','ksi-owner','auditor','iso','ao','assessor','admin','member')),
         created_at         TEXT NOT NULL DEFAULT (datetime('now')),
         totp_secret_b32    TEXT,
         totp_enrolled_at   TEXT,

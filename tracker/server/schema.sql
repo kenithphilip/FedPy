@@ -191,3 +191,60 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_item ON audit_log(item_id, item_type);
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
+
+-- ─── LOOP-B.B3: Risk acceptance workflow ──────────────────────────────────────
+-- Resident Ed25519 signing key registry. The private key is stored PEM-encoded
+-- so the tracker can re-sign / re-verify without external key material; a
+-- production deployment would front this with a KMS/HSM (tracked as a follow-up
+-- risk B.B3-EXT-1). Every risk-acceptance record + approval is signed with the
+-- active key; the cloud-evidence reader verifies each record against
+-- public_key_pem returned alongside the GET /api/risk-acceptances response.
+CREATE TABLE IF NOT EXISTS signing_keys (
+  key_id           TEXT PRIMARY KEY,            -- SHA-256(SPKI PEM)[0:16]
+  private_key_pem  TEXT NOT NULL,               -- PKCS8 Ed25519 PEM
+  public_key_pem   TEXT NOT NULL,               -- SPKI Ed25519 PEM
+  active           INTEGER NOT NULL DEFAULT 1,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Signed, audited risk-acceptance decisions (NIST CA-5 / RA-7 / FedRAMP
+-- Deviation Request + Risk Adjustment Request). The signature over the
+-- canonical-JSON payload IS the non-repudiable audit record; the cloud-evidence
+-- POA&M emitter flips matching risks to risk.status="deviation-approved" only
+-- for rows that are status='approved' AND expiration_date > now().
+CREATE TABLE IF NOT EXISTS risk_acceptances (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT NOT NULL UNIQUE,                       -- v4 uuid; written to OSCAL acceptance-uuid prop
+  finding_uuid TEXT NOT NULL,                      -- matches oscal finding.uuid
+  poam_item_uuid TEXT NOT NULL,                    -- matches oscal poam-item.uuid
+  ksi_id TEXT NOT NULL,                            -- e.g. KSI-IAM-MFA
+  rule TEXT NOT NULL,                              -- e.g. iam-mfa-aws-root
+  provider TEXT NOT NULL,                          -- aws | gcp | azure
+  accepted_by_user_id INTEGER NOT NULL REFERENCES users(id),
+  accepted_at TEXT NOT NULL,                       -- ISO datetime
+  expiration_date TEXT NOT NULL,                   -- ISO datetime; >= now+7d AND <= now+365d
+  business_justification TEXT NOT NULL,            -- min 100 chars (server-enforced)
+  acceptance_type TEXT NOT NULL CHECK (acceptance_type IN ('deviation-request','risk-adjustment','false-positive','operational-requirement')),
+  status TEXT NOT NULL CHECK (status IN ('pending','approved','expired','revoked')),
+  approved_by_user_id INTEGER REFERENCES users(id),
+  approved_at TEXT,
+  signature TEXT NOT NULL,                         -- base64 Ed25519 signature of canonical-JSON payload
+  signing_key_id TEXT NOT NULL,                    -- maps to signing_keys.key_id
+  approval_signature TEXT,                         -- second signature over (uuid, approved_by_user_id, approved_at)
+  approval_signing_key_id TEXT,
+  revoked_at TEXT,
+  revoked_by_user_id INTEGER REFERENCES users(id),
+  revocation_reason TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ra_finding ON risk_acceptances(finding_uuid);
+CREATE INDEX IF NOT EXISTS idx_ra_poam_item ON risk_acceptances(poam_item_uuid);
+CREATE INDEX IF NOT EXISTS idx_ra_status ON risk_acceptances(status);
+CREATE INDEX IF NOT EXISTS idx_ra_expiration ON risk_acceptances(expiration_date);
+CREATE INDEX IF NOT EXISTS idx_ra_ksi ON risk_acceptances(ksi_id);
+
+CREATE TABLE IF NOT EXISTS risk_acceptance_compensating_links (
+  acceptance_id INTEGER NOT NULL REFERENCES risk_acceptances(id) ON DELETE CASCADE,
+  compensating_control_uuid TEXT NOT NULL,         -- foreign UUID to B.B4 registry
+  PRIMARY KEY (acceptance_id, compensating_control_uuid)
+);
+CREATE INDEX IF NOT EXISTS idx_ra_cc_acceptance ON risk_acceptance_compensating_links(acceptance_id);

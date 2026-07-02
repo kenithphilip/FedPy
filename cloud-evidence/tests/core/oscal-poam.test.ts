@@ -414,3 +414,90 @@ describe('POA&M deadline engine integration (LOOP-B.B2)', () => {
     expect(result.deadline_fallback_count).toBe(0);
   });
 });
+
+// ─── LOOP-B.B3: risk-acceptance → deviation-approved propagation ──────────────
+import type { PulledAcceptance } from '../../core/risk-acceptance-reader.ts';
+
+function makeAcceptance(over: Partial<PulledAcceptance> = {}): PulledAcceptance {
+  return {
+    uuid: over.uuid ?? 'acc-uuid-1',
+    finding_uuid: over.finding_uuid ?? 'finding-1',
+    poam_item_uuid: over.poam_item_uuid ?? 'poam-1',
+    ksi_id: over.ksi_id ?? 'KSI-IAM-MFA',
+    rule: over.rule ?? 'aws.iam.root_mfa_enabled',
+    provider: over.provider ?? 'aws',
+    accepted_by_user_id: over.accepted_by_user_id ?? 1,
+    accepted_at: over.accepted_at ?? '2026-07-02T00:00:00.000Z',
+    expiration_date: over.expiration_date ?? '2026-12-01T00:00:00.000Z',
+    business_justification: over.business_justification ?? 'Accepted residual risk: root is in a break-glass vault with hardware MFA + 24/7 alerting.',
+    acceptance_type: over.acceptance_type ?? 'risk-adjustment',
+    status: over.status ?? 'approved',
+    approved_by_user_id: over.approved_by_user_id ?? 2,
+    approved_at: over.approved_at ?? '2026-07-02T01:00:00.000Z',
+    signature: over.signature ?? 'sig',
+    signing_key_id: over.signing_key_id ?? 'k',
+    approval_signature: over.approval_signature ?? 'asig',
+    approval_signing_key_id: over.approval_signing_key_id ?? 'k',
+    compensating_control_uuids: over.compensating_control_uuids ?? [],
+  };
+}
+
+const ACC_NOW = () => new Date('2026-07-15T00:00:00.000Z');
+function propVal(props: Array<{ name: string; value: string }> | undefined, name: string): string | undefined {
+  return props?.find((p) => p.name === name)?.value;
+}
+
+describe('OSCAL POA&M emitter — LOOP-B.B3 risk-acceptance propagation', () => {
+  it('flips risk.status to deviation-approved when an active acceptance exists', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], {
+      outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
+      acceptances: [makeAcceptance()], acceptanceNow: ACC_NOW,
+    });
+    const risks = doc['plan-of-action-and-milestones'].risks!;
+    expect(risks.length).toBeGreaterThan(0);
+    expect(risks[0]!.status).toBe('deviation-approved');
+  });
+
+  it('overrides risk.deadline with the acceptance expiration_date', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], {
+      outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
+      acceptances: [makeAcceptance({ expiration_date: '2026-11-30T00:00:00.000Z' })], acceptanceNow: ACC_NOW,
+    });
+    const risk = doc['plan-of-action-and-milestones'].risks![0]!;
+    expect(risk.deadline).toBe('2026-11-30T00:00:00.000Z');
+    expect(propVal(risk.props, 'deadline-source')).toBe('operator-override');
+  });
+
+  it('attaches acceptance-uuid + acceptance-type + compensating-control-uuid props', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], {
+      outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
+      acceptances: [makeAcceptance({ acceptance_type: 'deviation-request', compensating_control_uuids: ['cc-1', 'cc-2'] })],
+      acceptanceNow: ACC_NOW,
+    });
+    const item = doc['plan-of-action-and-milestones']['poam-items'][0]!;
+    expect(propVal(item.props, 'acceptance-uuid')).toBe('acc-uuid-1');
+    expect(propVal(item.props, 'acceptance-type')).toBe('deviation-request');
+    expect(propVal(item.props, 'acceptance-approved-by')).toBe('2');
+    const ccs = item.props!.filter((p) => p.name === 'compensating-control-uuid').map((p) => p.value);
+    expect(ccs).toEqual(['cc-1', 'cc-2']);
+  });
+
+  it('does NOT flip status when the acceptance is pending (not yet approved)', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], {
+      outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
+      acceptances: [makeAcceptance({ status: 'pending' })], acceptanceNow: ACC_NOW,
+    });
+    const risk = doc['plan-of-action-and-milestones'].risks![0]!;
+    expect(risk.status).toBe('open');
+    expect(propVal(risk.props, 'acceptance-uuid')).toBeUndefined();
+  });
+
+  it('does NOT flip status when the acceptance is expired', () => {
+    const { doc } = buildOscalPoam([makeEnvelope()], {
+      outDir: '/tmp', runId: 'r', frmrVersion: 'v', systemId: 'x',
+      acceptances: [makeAcceptance({ expiration_date: '2026-07-01T00:00:00.000Z' })], acceptanceNow: ACC_NOW,
+    });
+    const risk = doc['plan-of-action-and-milestones'].risks![0]!;
+    expect(risk.status).toBe('open');
+  });
+});

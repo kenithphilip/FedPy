@@ -6,6 +6,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-B.B3: Risk acceptance workflow (tracker DB + signed audit record + OSCAL deviation-approved propagation)
+
+Shipped the end-to-end signed risk-acceptance workflow — the documented "accept"
+branch of NIST SP 800-53 Rev 5 **RA-7 (Risk Response)** and the structured record
+that makes **CA-5 (Plan of Action and Milestones)** honest, mirroring the FedRAMP
+Continuous Monitoring Strategy & Guide Deviation Request / Risk Adjustment Request
+fields (finding id, justification, proposed expiration/annual-review, compensating
+control, AO approval signature). The OSCAL POA&M v1.1.2 `risk.status="deviation-approved"`
+value is now a real, signed state instead of one the emitter could never produce.
+This is the first slice to build *into* the repo's Hono + better-sqlite3 + React
+tracker (which has existed since the initial commit); the user elected to ship the
+full slice across both workspaces rather than defer the tracker layer.
+
+**Tracker (`tracker/`):** new `signing_keys` + `risk_acceptances` +
+`risk_acceptance_compensating_links` tables (`server/schema.sql`); a brand-new
+Ed25519 signing subsystem the tracker never had (`server/risk-acceptance-sign.ts`
+— resident-key registry + RFC-8785-compatible canonicalisation byte-identical to
+`cloud-evidence/core/sign.ts` — real Ed25519 per FIPS 186-5, no mocked crypto);
+Hono routes (`server/routes/risk-acceptance.ts`) for create / list / detail /
+verify / approve / revoke / expire with manual validation (min-100-char
+justification, 7–365-day expiration window, deviation-request ⇒ ≥1 compensating
+control); three FedRAMP separation-of-duties RBAC roles (`iso` creates/revokes,
+`ao` approves, `assessor` reads — distinct from `admin` so an ISO cannot
+self-approve; `server/rbac.ts` + an additive `users.role` CHECK migration in
+`server/db.ts`, verified non-destructive on both fresh and pre-existing DBs); an
+hourly expiry enforcer (`server/risk-acceptance-enforcer.ts`, booted from
+`server/index.ts`); and React pages + a typed API client + extracted pure
+view-logic (`client/src/pages/RiskAcceptance{,Create,Detail}.tsx`,
+`client/src/lib/risk-acceptance-{api,view}.ts`, App.tsx routes + nav).
+
+**cloud-evidence (`cloud-evidence/`):** `core/risk-acceptance-reader.ts` pulls the
+tracker's approved acceptances over HTTP, **verifies every record's Ed25519
+signature** against the tracker's published public key, and writes the signed,
+provenance-stamped `out/.risk-acceptances.json` snapshot (refusing to write if any
+signature fails); `core/oscal-poam.ts` flips a matching finding's risk to
+`deviation-approved`, overrides the deadline to the acceptance `expiration_date`,
+and attaches `acceptance-uuid` / `acceptance-type` / `acceptance-justification`
+(240-char) / `acceptance-approved-by` / `acceptance-approved-at` /
+`compensating-control-uuid` props — only for `status='approved' AND
+expiration_date>now()` records, re-checked on the read side (defence-in-depth);
+orchestrator `--pull-risk-acceptances <url>` + `--tracker-api-token` (env
+`CLOUD_EVIDENCE_TRACKER_URL` / `CLOUD_EVIDENCE_TRACKER_TOKEN`) run the pull before
+the POA&M emit, falling back to the cached snapshot for air-gapped runs;
+`submission-bundle` WELL_KNOWN role `risk-acceptances-snapshot` registered.
+
+**Verification:** typecheck clean in both workspaces; tests **tracker 99→130
+(+31)** (routes 14, view 8, enforcer 4, sign 4, migration 1) and **cloud-evidence
+1341→1354 (+13)** (reader 8, POA&M 5), all passing; `npm run check:reo` green in
+cloud-evidence (G1 lint:no-stubs 0 violations, G3 check:provenance OK, G2
+coverage-regression SKIP — no local `out/` report, the documented offline state,
+G4 ssdf-no-silent-pass OK). REO: `business_justification` is verbatim operator
+input; AO approval requires the `ao`/`admin` permission + writes a second Ed25519
+signature; the system never auto-approves and never fabricates an acceptance (no
+snapshot ⇒ every risk stays `open`, logged `risk-acceptance:missing-snapshot`).
+Statutory drivers: NIST SP 800-53 Rev 5 CA-5 + RA-7; NIST SP 800-37 Rev 2 Task
+R-2; OSCAL POA&M v1.1.2 `risk.status`; FedRAMP Continuous Monitoring Strategy &
+Guide (Deviation Request); FIPS 186-5 (Ed25519); RFC 8785 (JCS). Commit `TBD-B3`.
+
 ### Added — LOOP-T.T5: SP 800-218A SSDF-AI Extension (completes LOOP-T, 5 of 5)
 
 Shipped the AI-model augmentation layer of the SSDF self-attestation programme —

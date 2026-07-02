@@ -2,13 +2,13 @@
 slice_id: B.B3
 title: Risk acceptance workflow (tracker DB + signed audit record + OSCAL deviation-approved propagation)
 loop: B
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: TBD-B3
+completed_date: 2026-07-02
 depends_on: [LOOP-A.A1, LOOP-A.A3, B.B1, B.B2]
 blocks: [B.B4, B.B5, E.E5, F.F1, C.C7]
 estimated_effort: 6-7 working days
-last_updated: 2026-06-06
+last_updated: 2026-07-02
 ---
 
 # B.B3 — Risk acceptance workflow (tracker DB + signed audit record + OSCAL deviation-approved propagation)
@@ -449,9 +449,61 @@ npm test -- server/routes/risk-acceptance.test.ts server/risk-acceptance-enforce
 - **Q6**: Should we emit the acceptance's `business_justification` as an OSCAL `risk.description` field instead of (or in addition to) a `acceptance-justification` prop? OSCAL spec defines `risk.description` as a free-text narrative. Recommend: also append to `risk.description` (with the existing severity description) so the artifact is human-readable without consulting the props.
 - **Q7**: Should the `revocation_reason` flow into OSCAL when a once-approved acceptance is revoked? Recommend: include via prop `acceptance-revocation-reason` on the affected risk (now back to `status='open'`).
 
+### Open-question resolutions (impl-b-b3, 2026-07-02)
+- **Q1 (AO second-factor at approval)** — DEFERRED as recommended. B.B3 ships with session/Bearer auth + the `approve:risk_acceptance` permission (`ao`/`admin` only) + a second Ed25519 `approval_signature` audit record, which is sufficient for the non-repudiable trail. TOTP-at-approval is a follow-up (the tracker already has TOTP infra in `server/totp.ts`).
+- **Q2 (auto-create a linked tracker item)** — NOT DONE for B.B3. Cross-linking is available through the `audit_log` rows (`item_type='risk_acceptance'`, `item_id='acceptance:<uuid>'`); a dedicated `tracker_item_uuid` column is a follow-up, filed under B.B4/F.F1 UI work.
+- **Q3 (orphaned acceptances when the finding disappears)** — OUT OF SCOPE for B.B3 as recommended; the enforcer only handles expiry. Filed as a follow-up (stale-review surfacing) — no code added this slice.
+- **Q4 (`outDir` present when the reader runs)** — RESOLVED. The orchestrator runs `pullActiveAcceptances(args.trackerUrl, token, args.outDir)` inside the same run pipeline that has already created/used `args.outDir` for every prior emitter; `outDir` is always present. `signDetached()` writes the ephemeral keypair there too, matching the existing emitters.
+- **Q5 (UI pagination)** — RESOLVED via server-side `?limit=&offset=` (default 50, capped 500) returned with `total`; the list view can page. Infinite-scroll wiring is a UI nicety left to a follow-up.
+- **Q6 (justification into `risk.description`)** — NOT ADOPTED. The truncated justification rides `acceptance-justification` (240 chars) + `acceptance-uuid` links to the full text; the risk `description`/`statement` stay the gap narrative so the artifact reads cleanly. Revisit if 3PAO feedback wants it inline.
+- **Q7 (revocation reason into OSCAL)** — MOOT for propagation: a revoked acceptance is excluded by `activeAcceptanceFor` (status must be `approved`), so the risk simply reverts to `open` with no acceptance props. The `revocation_reason` + `revoked_by`/`revoked_at` are retained in the tracker DB + audit log for the trail. No `acceptance-revocation-reason` prop was added (there is no active acceptance to hang it on).
+
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-02 · impl-b-b3 · Shipped B.B3 END TO END across both workspaces (user chose
+  "Full slice" over the prior core-only-defer convention, because the tracker/ Hono+
+  SQLite+React subsystem actually exists — it has since the initial commit; earlier
+  slices' "no tracker subsystem" claim was a false premise, now corrected).
+
+  TRACKER (tracker/):
+   - server/schema.sql: + signing_keys, risk_acceptances, risk_acceptance_compensating_links.
+   - server/risk-acceptance-sign.ts (NEW): the tracker had NO Ed25519 subsystem, so
+     this adds one — resident-key registry in signing_keys, RFC-8785-compatible
+     canonicalize() byte-identical to cloud-evidence/core/sign.ts, signPayload/verifyPayload,
+     acceptancePayload/approvalPayload.
+   - server/routes/risk-acceptance.ts (NEW): Hono routes create/list/detail/verify/
+     approve/revoke/expire; manual validation (no zod in this repo).
+   - server/rbac.ts: + iso/ao/assessor roles + read/create/approve/revoke:risk_acceptance
+     permissions (separation of duties: iso creates, ao approves, assessor reads).
+   - server/db.ts: widened users.role CHECK to include iso/ao/assessor via the existing
+     rename-create-copy-drop migration (guard keyed on 'iso'); additive, verified on
+     fresh + existing DBs (server/risk-acceptance-migration.test.ts).
+   - server/risk-acceptance-enforcer.ts (NEW) + boot in server/index.ts (hourly expiry).
+   - client: pages RiskAcceptance{,Create,Detail}.tsx + lib/risk-acceptance-{api,view}.ts;
+     App.tsx routes + nav link. UI logic (validation + role-gating) extracted to the pure
+     risk-acceptance-view.ts and unit-tested (no jsdom in the tracker toolchain).
+   - Tests: +31 (view 8, enforcer 4, routes 14, sign 4, migration 1). 99 -> 130, all green.
+
+  CLOUD-EVIDENCE (cloud-evidence/):
+   - core/risk-acceptance-reader.ts (NEW): pullActiveAcceptances (fetch + verify every
+     Ed25519 sig + write signed out/.risk-acceptances.json), loadCachedAcceptances,
+     activeAcceptanceFor (status=approved AND expiration>now).
+   - core/oscal-poam.ts: PoamEmitOptions.acceptances/acceptanceNow; per-finding lookup;
+     risk.status -> deviation-approved; deadline -> expiration_date; acceptance-* +
+     compensating-control-uuid props via findingProps(); emitOscalPoam loads the cached
+     snapshot.
+   - core/submission-bundle.ts: + role risk-acceptances-snapshot (.risk-acceptances.json).
+   - core/orchestrator.ts: --pull-risk-acceptances <url> + --tracker-api-token (env
+     CLOUD_EVIDENCE_TRACKER_URL/_TOKEN); pulls before the POA&M emit; non-fatal fallback
+     to cached snapshot.
+   - Tests: +13 (reader 8, oscal-poam 5). 1341 -> 1354. typecheck clean; check:reo green
+     (G1 0 violations, G3 OK, G2 SKIP offline-expected, ssdf-no-silent-pass OK).
+
+  SPEC RECONCILIATION: spec assumed Express + zod + iso/ao requireRole middleware + an
+  existing tracker/server/sign.ts. Reality = Hono + manual validation + permission-based
+  RBAC + NO prior signing subsystem. Adapted accordingly; added the signing primitive.
+  See LOOP-B-RISKS B.B3-11 (stack divergence) + B.B3-12 (UI-test approach) + B.B3-EXT-1
+  (KMS/HSM deferral).
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)

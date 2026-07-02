@@ -71,6 +71,7 @@ import type { ProhibitedVendorMatch } from './prohibited-vendors-screen.ts';
 import { computeDeadline, type DeadlineContext, type DeadlineResult } from './deadline-engine.ts';
 import type { KevEntry } from './kev-feed.ts';
 import { canonicalize, signDetached, type DetachedSignature } from './sign.ts';
+import { activeAcceptanceFor, loadCachedAcceptances, type PulledAcceptance } from './risk-acceptance-reader.ts';
 
 const OSCAL_VERSION = '1.1.2';
 const TOOL_NAME = 'fedramp-20x-cloud-evidence';
@@ -350,6 +351,18 @@ export interface PoamEmitOptions {
   painIrvLevThreshold?: number;
   /** Injectable clock for the deadline engine (deterministic tests). */
   deadlineNow?: () => Date;
+  /**
+   * LOOP-B.B3 signed risk acceptances (from the tracker via
+   * core/risk-acceptance-reader.ts). When a failing finding has an active
+   * (approved, unexpired) acceptance keyed by (ksi_id, rule, provider), its risk
+   * flips to `deviation-approved`, the deadline is overridden to the acceptance's
+   * expiration_date, and the acceptance metadata is attached as props. When
+   * omitted, emitOscalPoam() loads the cached out/.risk-acceptances.json snapshot;
+   * absent that, every risk stays `open` (never a silent flip).
+   */
+  acceptances?: PulledAcceptance[];
+  /** Injectable clock for acceptance expiry checks (deterministic tests). */
+  acceptanceNow?: () => Date;
 }
 
 export interface PoamEmitResult {
@@ -467,7 +480,7 @@ function affectedResourceToSubject(r: AffectedResource): OscalSubject {
  * Map a finding to the props array we record on its poam-item, finding, and
  * risk. Centralized so JSON, XML, and any future consumer see the same shape.
  */
-function findingProps(f: Finding, prov: ProviderBlock, ksiId: string, dl?: DeadlineResult): OscalProp[] {
+function findingProps(f: Finding, prov: ProviderBlock, ksiId: string, dl?: DeadlineResult, acc?: PulledAcceptance): OscalProp[] {
   const props: OscalProp[] = [
     { name: 'severity', ns: CE_NS, value: f.severity },
     { name: 'rule', ns: CE_NS, value: f.rule },
@@ -475,8 +488,10 @@ function findingProps(f: Finding, prov: ProviderBlock, ksiId: string, dl?: Deadl
     { name: 'provider', ns: CE_NS, value: prov.provider },
   ];
   // LOOP-B.B2: deadline provenance — which table drove this finding's deadline.
+  // LOOP-B.B3: when an active acceptance exists, the deadline is the operator's
+  // acceptance expiration_date, so the source is 'operator-override'.
   if (dl) {
-    props.push({ name: 'deadline-source', ns: CE_NS, value: dl.source });
+    props.push({ name: 'deadline-source', ns: CE_NS, value: acc ? 'operator-override' : dl.source });
     if (dl.kev_entry) {
       props.push({ name: 'kev-cve-id', ns: CE_NS, value: dl.kev_entry.cveID });
       props.push({ name: 'kev-due-date', ns: CE_NS, value: dl.kev_entry.dueDate });
@@ -541,6 +556,19 @@ function findingProps(f: Finding, prov: ProviderBlock, ksiId: string, dl?: Deadl
     props.push({ name: 'risk-score-source-criticality', ns: CE_NS, value: rs.sources.criticality_source });
     props.push({ name: 'risk-score-source-exposure', ns: CE_NS, value: rs.sources.exposure_source });
     props.push({ name: 'risk-score-formula', ns: CE_NS, value: rs.formula_version });
+  }
+  // LOOP-B.B3: signed risk-acceptance metadata. Present only when an active,
+  // approved, unexpired acceptance matches this finding — the honest signal that
+  // the risk was formally accepted (NIST CA-5 deviation / RA-7 accept branch).
+  if (acc) {
+    props.push({ name: 'acceptance-uuid', ns: CE_NS, value: acc.uuid });
+    props.push({ name: 'acceptance-type', ns: CE_NS, value: acc.acceptance_type });
+    props.push({ name: 'acceptance-justification', ns: CE_NS, value: acc.business_justification.slice(0, 240) });
+    props.push({ name: 'acceptance-approved-by', ns: CE_NS, value: acc.approved_by_user_id != null ? String(acc.approved_by_user_id) : '' });
+    props.push({ name: 'acceptance-approved-at', ns: CE_NS, value: acc.approved_at ?? '' });
+    for (const ccUuid of acc.compensating_control_uuids) {
+      props.push({ name: 'compensating-control-uuid', ns: CE_NS, value: ccUuid });
+    }
   }
   return props;
 }
@@ -693,6 +721,9 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
     now: opts.deadlineNow,
   };
   const deadlineAudit: DeadlineAuditRow[] = [];
+  // LOOP-B.B3: active signed risk acceptances for this run (empty when none).
+  const acceptances = opts.acceptances ?? [];
+  const acceptanceNow = opts.acceptanceNow ? opts.acceptanceNow() : new Date();
 
   for (const env of envelopes) {
     const ksiId = env.ksi_id;
@@ -709,6 +740,13 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
 
         // LOOP-B.B2: compute the remediation deadline via the priority cascade.
         const dl = computeDeadline(f, deadlineCtx, collected);
+
+        // LOOP-B.B3: does this finding have an active (approved, unexpired) risk
+        // acceptance? If so its risk becomes deviation-approved with the operator's
+        // expiration_date as the deadline.
+        const acc = acceptances.length
+          ? activeAcceptanceFor(ksiId, f.rule, prov.provider, acceptances, acceptanceNow)
+          : null;
 
         // 1. Observations — one per RawEvidence cited in the provider block.
         //    We attach them all to this finding via related-observations, so
@@ -800,9 +838,9 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
             title: `${ksiId} / ${f.rule}`,
             description: f.gap?.description ?? f.current_state?.summary ?? `Failing finding for ${ksiId} rule ${f.rule}.`,
             statement: f.gap?.description ?? f.current_state?.summary ?? `Risk: ${ksiId} rule ${f.rule} failing.`,
-            status: severityToRiskStatus(f.severity, false),
-            deadline: dl.deadline,
-            props: findingProps(f, prov, ksiId, dl),
+            status: acc ? 'deviation-approved' : severityToRiskStatus(f.severity, false),
+            deadline: acc ? acc.expiration_date : dl.deadline,
+            props: findingProps(f, prov, ksiId, dl, acc ?? undefined),
             remediations: remediations.length ? remediations : undefined,
             'related-observations': obsUuids.length ? obsUuids.map((u) => ({ 'observation-uuid': u })) : undefined,
           });
@@ -821,7 +859,7 @@ export function buildOscalPoam(envelopes: EvidenceFile[], opts: PoamEmitOptions)
           uuid: itemUuid,
           title: `[${f.severity.toUpperCase()}] ${ksiId} / ${f.rule}`,
           description: poamItemDescription(f, ksiId, ksiName),
-          props: findingProps(f, prov, ksiId, dl),
+          props: findingProps(f, prov, ksiId, dl, acc ?? undefined),
           'related-findings': findingUuids.map((u) => ({ 'finding-uuid': u })),
           'related-observations': obsUuids.length ? obsUuids.map((u) => ({ 'observation-uuid': u })) : undefined,
           'related-risks': riskUuid ? [{ 'risk-uuid': riskUuid }] : undefined,
@@ -941,6 +979,10 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
   // still produces a POA&M.
   const supplyChainItems = opts.supplyChainItems ?? supplyChainPoamItems(opts.outDir);
   const vendorScreenItems = opts.vendorScreenItems ?? [];
+  // LOOP-B.B3: load the cached signed risk-acceptance snapshot (written by the
+  // reader when --pull-risk-acceptances runs; absent → empty → every risk stays
+  // open). Passed to buildOscalPoam so matching findings flip to deviation-approved.
+  const acceptances = opts.acceptances ?? loadCachedAcceptances(opts.outDir);
 
   // Pre-flight: if there are zero failing findings across all envelopes AND no
   // supply-chain items AND no prohibited-vendor items, the OSCAL POA&M schema
@@ -968,7 +1010,7 @@ export function emitOscalPoam(opts: PoamEmitOptions): PoamEmitResult {
     };
   }
 
-  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems, vendorScreenItems });
+  const { doc, result } = buildOscalPoam(envelopes, { ...opts, supplyChainItems, vendorScreenItems, acceptances });
   const path = opts.outPath ?? resolve(opts.outDir, 'poam.json');
   writeFileSync(path, JSON.stringify(doc, null, 2));
 

@@ -28,9 +28,14 @@
 import type { MiddlewareHandler } from 'hono';
 import { db } from './db.ts';
 
-export type Role = 'viewer' | 'contributor' | 'ksi-owner' | 'auditor' | 'admin';
+// LOOP-B.B3 added three FedRAMP separation-of-duties roles for the risk-acceptance
+// workflow: iso (Information System Owner — creates/revokes), ao (Authorizing
+// Official — approves), and assessor (3PAO — read-only). Keeping them distinct
+// from admin preserves the AO-approval separation of duties (an iso can create a
+// deviation request but cannot approve it; only an ao or admin can).
+export type Role = 'viewer' | 'contributor' | 'ksi-owner' | 'auditor' | 'iso' | 'ao' | 'assessor' | 'admin';
 
-export const ROLES: Role[] = ['viewer', 'contributor', 'ksi-owner', 'auditor', 'admin'];
+export const ROLES: Role[] = ['viewer', 'contributor', 'ksi-owner', 'auditor', 'iso', 'ao', 'assessor', 'admin'];
 
 /** Bitmasks would be premature here; use explicit permissions for legibility. */
 export type Permission =
@@ -41,15 +46,27 @@ export type Permission =
   | 'manage:tokens'
   | 'manage:users'
   | 'read:audit_log'
-  | 'manage:2fa_policy';
+  | 'manage:2fa_policy'
+  // LOOP-B.B3 risk-acceptance workflow
+  | 'read:risk_acceptance'
+  | 'create:risk_acceptance'
+  | 'approve:risk_acceptance'
+  | 'revoke:risk_acceptance';
 
 const PERMISSIONS_BY_ROLE: Record<Role, ReadonlySet<Permission>> = {
-  viewer:       new Set(['read:items']),
-  contributor:  new Set(['read:items', 'edit:items:assigned']),
-  'ksi-owner':  new Set(['read:items', 'edit:items:assigned', 'edit:items:domain']),
-  auditor:      new Set(['read:items', 'read:audit_log']),
+  viewer:       new Set(['read:items', 'read:risk_acceptance']),
+  contributor:  new Set(['read:items', 'edit:items:assigned', 'read:risk_acceptance']),
+  'ksi-owner':  new Set(['read:items', 'edit:items:assigned', 'edit:items:domain', 'read:risk_acceptance']),
+  auditor:      new Set(['read:items', 'read:audit_log', 'read:risk_acceptance']),
+  // iso creates + revokes deviation requests but cannot self-approve.
+  iso:          new Set(['read:items', 'read:risk_acceptance', 'create:risk_acceptance', 'revoke:risk_acceptance']),
+  // ao is the approval authority; may also revoke.
+  ao:           new Set(['read:items', 'read:risk_acceptance', 'approve:risk_acceptance', 'revoke:risk_acceptance']),
+  // assessor (3PAO) is strictly read-only.
+  assessor:     new Set(['read:items', 'read:risk_acceptance']),
   admin:        new Set(['read:items', 'edit:items:assigned', 'edit:items:domain', 'edit:items:all',
-                         'manage:tokens', 'manage:users', 'read:audit_log', 'manage:2fa_policy']),
+                         'manage:tokens', 'manage:users', 'read:audit_log', 'manage:2fa_policy',
+                         'read:risk_acceptance', 'create:risk_acceptance', 'approve:risk_acceptance', 'revoke:risk_acceptance']),
 };
 
 /** Map legacy 'member'/'admin' to granular roles for back-compat. */

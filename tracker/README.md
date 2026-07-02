@@ -218,6 +218,26 @@ The tracker has grown well past the original v0.1 scope. Now included:
 - **Audit-log search UI** with filters + CSV export.
 - **Online backup/restore** (`npm run backup` / `restore`).
 - **Collector-runs view** surfacing impact level + the NIST 800-53 benchmark headline.
+- **Risk-acceptance workflow** (LOOP-B.B3) — signed, audited deviation / risk-adjustment
+  decisions (NIST CA-5 / RA-7 / FedRAMP Deviation Request). Every acceptance is signed
+  with a resident Ed25519 key (`server/risk-acceptance-sign.ts`, key registry in the
+  `signing_keys` table); Authorizing-Official approval writes a second signature; an
+  hourly enforcer expires acceptances past their `expiration_date`. The cloud-evidence
+  POA&M emitter pulls approved, unexpired acceptances (verifying each signature) and
+  flips matching risks to OSCAL `deviation-approved`. Three separation-of-duties roles
+  back it (see below).
+
+### RBAC roles
+
+`viewer` < `contributor` < `ksi-owner` < `auditor` < `admin`, plus three
+LOOP-B.B3 risk-acceptance roles:
+
+- **`iso`** (Information System Owner) — creates and revokes risk acceptances.
+- **`ao`** (Authorizing Official) — approves risk acceptances (and may revoke). An
+  `iso` cannot self-approve; approval authority is deliberately separate.
+- **`assessor`** (3PAO) — read-only access to risk acceptances.
+
+`admin` retains all permissions. Assign roles in the **Users & roles** admin UI.
 
 ## Still intentionally out of scope
 

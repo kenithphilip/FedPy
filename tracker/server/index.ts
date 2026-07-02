@@ -16,6 +16,8 @@ import { twoFaRoutes } from './routes/2fa.ts';
 import { auditRoutes } from './routes/audit.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { attachmentRoutes } from './routes/attachments.ts';
+import { riskAcceptanceRoutes } from './routes/risk-acceptance.ts';
+import { startRiskAcceptanceEnforcer } from './risk-acceptance-enforcer.ts';
 
 // Initialize DB / schema
 db();
@@ -59,6 +61,10 @@ app.route('/api/2fa', twoFaRoutes);
 app.route('/api/audit', auditRoutes);
 app.route('/api/users', adminRoutes);
 app.route('/api', attachmentRoutes);
+app.route('/api/risk-acceptances', riskAcceptanceRoutes);
+
+// LOOP-B.B3: boot the risk-acceptance expiry enforcer (runs immediately + hourly).
+startRiskAcceptanceEnforcer();
 
 // Serve built client in production
 const clientDist = resolve(process.cwd(), 'client/dist');

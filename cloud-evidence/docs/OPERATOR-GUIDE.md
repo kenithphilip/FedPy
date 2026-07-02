@@ -240,6 +240,8 @@ are set.
 | `--oscal` | `out/assessment-results.json` | OSCAL 1.1.2 Assessment Results. |
 | `--oscal-ssp` | `out/ssp.json` | Draft OSCAL 1.1.2 System Security Plan. |
 | `--oscal-poam` | `out/poam.json` | OSCAL 1.1.2 Plan of Action and Milestones. |
+| `--pull-risk-acceptances <tracker-url>` | `out/.risk-acceptances.json` (+ detached sig) | LOOP-B.B3. Pull the tracker's approved risk acceptances, verify each record's Ed25519 signature against the tracker's published public key, and write the signed snapshot. Approved, unexpired acceptances matching a finding `(ksi_id, rule, provider)` flip its POA&M risk to `deviation-approved`, override the deadline to the acceptance `expiration_date`, and attach `acceptance-*` + `compensating-control-uuid` props. Runs BEFORE `--oscal-poam`. Requires `--tracker-api-token`. Omit for air-gapped runs (the POA&M emitter falls back to any cached `out/.risk-acceptances.json`; absent that, every risk stays `open`). |
+| `--tracker-api-token <token>` | (auth input) | LOOP-B.B3. Bearer token for the tracker risk-acceptance API (pairs with `--pull-risk-acceptances`; env `CLOUD_EVIDENCE_TRACKER_TOKEN`). |
 | `--risk-score` | `out/risk-scores.json` (+ `.epss-cache.json`) | LOOP-B.B1. Compute a per-finding composite risk score (CVSS 3.1/4.0 + FIRST EPSS + inventory-derived criticality + exposure), rewrite each `KSI-*.json` envelope in place with a `risk_score` block, and surface the score as OSCAL props on every POA&M risk/poam-item. Runs BEFORE `--oscal-poam` and before signing. |
 | `--risk-config <path>` | (config input) | Path to `risk-config.yaml` (weights, EPSS settings, CVE→CVSS overrides, band thresholds). Defaults: auto-discover `./risk-config.yaml`, else built-in defaults. See `risk-config.example.yaml`. |
 | `--subprocessors-config <path>` | `out/subprocessor-inventory.json` + `out/subprocessor-inventory.xlsx` | LOOP-J.J2. Emit the signed SA-9 Subprocessor Inventory from an operator YAML/JSON config (and/or the `config.yaml` `subprocessors` Google-Sheet block; both merge, config wins on a name conflict). Adds SA-9 fields (risk_tier, monitoring_methods, contracted_controls, incident_notification_sla_hours, data_residency, subprocessor_subprocessors, oversight_party_uuid). Runs BEFORE `--oscal-ssp` (which reads it for `leveraged-authorizations[]`) and before signing. See `examples/subprocessors.yaml`. |
@@ -354,6 +356,8 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_OSCAL` | `0` | Emit OSCAL Assessment Results. |
 | `CLOUD_EVIDENCE_OSCAL_SSP` | `0` | Emit draft OSCAL SSP. |
 | `CLOUD_EVIDENCE_OSCAL_POAM` | `0` | Emit OSCAL POA&M. |
+| `CLOUD_EVIDENCE_TRACKER_URL` | (none) | LOOP-B.B3. Tracker base URL to pull signed risk acceptances from before the POA&M emit (equivalent to `--pull-risk-acceptances`). |
+| `CLOUD_EVIDENCE_TRACKER_TOKEN` | (none) | LOOP-B.B3. Bearer token for the tracker risk-acceptance API (equivalent to `--tracker-api-token`). |
 | `CLOUD_EVIDENCE_RISK_SCORE` | `0` | Compute per-finding composite risk scores (equivalent to `--risk-score`, LOOP-B.B1). |
 | `CLOUD_EVIDENCE_STRICT_RISK` | `0` | Fail the run if any POA&M deadline falls through to severity-fallback (equivalent to `--strict-risk`, LOOP-B.B2). |
 | `CLOUD_EVIDENCE_RISK_CONFIG` | (none) | Path to `risk-config.yaml` (equivalent to `--risk-config`). |
@@ -605,6 +609,7 @@ Files emitted depend on the flags you pass.
 | `risk-scores.json` | No | `--risk-score` | JSON + detached Ed25519 | yes (detached sig + run manifest) |
 | `.epss-cache.json` | No | `--risk-score` (live EPSS) | JSON (provenance-stamped) | yes (detached sig + run manifest) |
 | `deadline-audit.json` | No | `--oscal-poam` (LOOP-B.B2) | JSON + detached Ed25519 | yes (detached sig + run manifest) |
+| `.risk-acceptances.json` | No | `--pull-risk-acceptances <url>` (LOOP-B.B3) | JSON (provenance-stamped) + detached Ed25519 | yes (detached sig + run manifest) |
 | `ap.json` | No | `--oscal-ap` | OSCAL 1.1.2 | Yes |
 | `roe.docx` + `roe.json` | No | `--roe` | OOXML + JSON | Yes |
 | `submission-bundle.tar.gz` | No | `--submission-bundle` | POSIX ustar + gzip | bundle is signed |

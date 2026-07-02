@@ -15,6 +15,10 @@ import { ApiTokens } from './pages/ApiTokens';
 import { TwoFactor } from './pages/TwoFactor';
 import { RbacAdmin } from './pages/RbacAdmin';
 import { AuditSearch } from './pages/AuditSearch';
+import { RiskAcceptance } from './pages/RiskAcceptance';
+import { RiskAcceptanceCreate } from './pages/RiskAcceptanceCreate';
+import { RiskAcceptanceDetail } from './pages/RiskAcceptanceDetail';
+import { canViewRiskAcceptances } from './lib/risk-acceptance-view';
 
 export function App() {
   return (
@@ -98,6 +102,12 @@ function Shell() {
         <NavLink to="/indicators">KSIs</NavLink>
         <NavLink to="/crosswalk">NIST crosswalk</NavLink>
         <NavLink to="/definitions">Definitions</NavLink>
+        {canViewRiskAcceptances(user!.role) && (
+          <>
+            <div className="group">Risk</div>
+            <NavLink to="/risk-acceptance">Risk acceptances</NavLink>
+          </>
+        )}
         <div className="group">Reports</div>
         <NavLink to="/export">Export</NavLink>
         <NavLink to="/collector-runs">Collector runs</NavLink>
@@ -130,6 +140,9 @@ function Shell() {
           <Route path="/two-factor" element={<TwoFactor />} />
           <Route path="/users" element={<RbacAdmin />} />
           <Route path="/audit-log" element={<AuditSearch />} />
+          <Route path="/risk-acceptance" element={<RiskAcceptance />} />
+          <Route path="/risk-acceptance/new" element={<RiskAcceptanceCreate />} />
+          <Route path="/risk-acceptance/:id" element={<RiskAcceptanceDetail />} />
         </Routes>
       </main>
     </div>

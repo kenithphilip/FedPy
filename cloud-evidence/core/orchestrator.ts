@@ -63,6 +63,7 @@ import { timestampManifest } from './timestamp.ts';
 import { emitOscalAssessmentResults } from './oscal.ts';
 import { emitOscalSsp } from './oscal-ssp.ts';
 import { emitOscalPoam, type PoamEmitResult } from './oscal-poam.ts';
+import { pullActiveAcceptances } from './risk-acceptance-reader.ts';
 import { runPoamMonthly, type PoamMonthlyResult } from './poam-monthly.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
@@ -328,6 +329,10 @@ interface Args {
   sspLastReviewed: string | null;
   /** Authorization date (YYYY-MM-DD) anchoring the monthly report's annual-cycle math. */
   authorizationDate: string | null;
+  /** LOOP-B.B3: tracker base URL to pull signed risk acceptances from before the POA&M emit. */
+  trackerUrl: string | null;
+  /** LOOP-B.B3: Bearer token for the tracker risk-acceptance API. */
+  trackerApiToken: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -405,6 +410,8 @@ function parseArgs(argv: string[]): Args {
     samplingPct: process.env.CLOUD_EVIDENCE_SAMPLING_PCT ? Number(process.env.CLOUD_EVIDENCE_SAMPLING_PCT) : null,
     sspLastReviewed: process.env.CLOUD_EVIDENCE_SSP_LAST_REVIEWED ?? null,
     authorizationDate: process.env.CLOUD_EVIDENCE_AUTHORIZATION_DATE ?? null,
+    trackerUrl: process.env.CLOUD_EVIDENCE_TRACKER_URL ?? null,
+    trackerApiToken: process.env.CLOUD_EVIDENCE_TRACKER_TOKEN ?? null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -601,6 +608,13 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--authorization-date':
         args.authorizationDate = argv[++i] ?? null;
+        break;
+      case '--pull-risk-acceptances':
+        // LOOP-B.B3: pull signed risk acceptances from the tracker before the POA&M emit.
+        args.trackerUrl = argv[++i] ?? null;
+        break;
+      case '--tracker-api-token':
+        args.trackerApiToken = argv[++i] ?? null;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -2263,6 +2277,29 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`Risk scoring failed: ${e.message}`);
       log.error({ event: 'risk_score.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- LOOP-B.B3: pull signed risk acceptances from the tracker (if configured)
+  // BEFORE the POA&M emit, so approved+unexpired acceptances flip matching risks
+  // to deviation-approved. When --pull-risk-acceptances is unset, the POA&M
+  // emitter falls back to any cached out/.risk-acceptances.json snapshot (so
+  // air-gapped runs work); absent that, every risk stays open — never silent. ----
+  if (args.trackerUrl) {
+    if (!args.trackerApiToken) {
+      console.error('--pull-risk-acceptances requires --tracker-api-token (or CLOUD_EVIDENCE_TRACKER_TOKEN).');
+      process.exitCode = 2;
+    } else {
+      try {
+        const pulled = await pullActiveAcceptances(args.trackerUrl, args.trackerApiToken, args.outDir);
+        console.log(`Risk acceptances: pulled ${pulled.length} approved record(s) from ${args.trackerUrl} → out/.risk-acceptances.json`);
+        ledger.record('risk_acceptances.pull', { status: 'ok', count: pulled.length });
+      } catch (e: any) {
+        // Non-fatal: fall back to any cached snapshot. The POA&M emit still runs.
+        console.warn(`Risk-acceptance pull failed (${e?.message ?? e}); using cached snapshot if present.`);
+        log.warn({ event: 'risk_acceptances.pull_failed', err: String(e) });
+        ledger.record('risk_acceptances.pull', { status: 'info', reason: String(e?.message ?? e) });
+      }
     }
   }
 
