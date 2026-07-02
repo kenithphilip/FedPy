@@ -601,7 +601,7 @@ when the CSP is a DoD-prime customer.
 | T.T2 | Per-Practice Evidence Aggregator + Satisfaction Matrix | done | `9744702` (2026-06-20) | T.T1, LOOP-B.B1, LOOP-J.J2, LOOP-J.J3, KSI envelopes from LOOPs B-K | 5-6 working days |
 | T.T3 | CISA Common Form Generator (unsigned canonical PDF) | done | `4feaa6f` (2026-06-21) | T.T2, LOOP-A.A4 (bundler) | 5-6 working days |
 | T.T4 | Annual Re-Attestation Workflow + Material-Change Detector | done | `ed4f906` (2026-07-01) | T.T3, LOOP-A.A4 (bundler); Tracker DB deferred | 4-5 working days |
-| T.T5 | SP 800-218A SSDF-AI Extension | done | `<TBD-step6>` (2026-07-02) | T.T2, LOOP-O.O5 (graceful-degrade) | 3-4 working days |
+| T.T5 | SP 800-218A SSDF-AI Extension | done | `b5e9b03` (2026-07-02) | T.T2, LOOP-O.O5 (graceful-degrade) | 3-4 working days |
 
 Total estimated effort: **21-26 working days** (≈ 4 weeks) for a single
 implementer.
