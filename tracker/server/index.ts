@@ -18,6 +18,7 @@ import { adminRoutes } from './routes/admin.ts';
 import { attachmentRoutes } from './routes/attachments.ts';
 import { riskAcceptanceRoutes } from './routes/risk-acceptance.ts';
 import { compensatingControlRoutes } from './routes/compensating-controls.ts';
+import { organisationalRisksRoutes, riskRegisterRoutes } from './routes/risk-register.ts';
 import { startRiskAcceptanceEnforcer } from './risk-acceptance-enforcer.ts';
 
 // Initialize DB / schema
@@ -64,6 +65,8 @@ app.route('/api/users', adminRoutes);
 app.route('/api', attachmentRoutes);
 app.route('/api/risk-acceptances', riskAcceptanceRoutes);
 app.route('/api/compensating-controls', compensatingControlRoutes);
+app.route('/api/organisational-risks', organisationalRisksRoutes);
+app.route('/api/risk-register', riskRegisterRoutes);
 
 // LOOP-B.B3: boot the risk-acceptance expiry enforcer (runs immediately + hourly).
 startRiskAcceptanceEnforcer();

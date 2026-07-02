@@ -2,13 +2,13 @@
 slice_id: B.B5
 title: Central Risk Register (RA-3 aggregated deliverable, JSON + XLSX + tracker UI)
 loop: B
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: <TBD-step6>
+completed_date: 2026-07-02
 depends_on: [LOOP-A.A1, LOOP-A.A4, B.B1, B.B2, B.B3, B.B4]
 blocks: [C.C7, I.I1, E.E1]
 estimated_effort: 3-4 working days
-last_updated: 2026-06-06
+last_updated: 2026-07-02
 ---
 
 # B.B5 — Central Risk Register (RA-3 aggregated deliverable, JSON + XLSX + tracker UI)
@@ -416,8 +416,53 @@ npm test -- server/routes/risk-register.test.ts client/src/pages/RiskRegister.te
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-02 · impl-b-b5 · Shipped the full slice end to end across BOTH workspaces
+  (COMPLETING LOOP-B). cloud-evidence: core/risk-register.ts (pure aggregator +
+  signed JSON emit; JOINs poam.json risks + acceptance + CC + organisational
+  snapshots; NIST 800-30 band derivation + INHERENT_RISK_MATRIX Table I-2 +
+  residual reduction + acceptance-preferred de-dup + REQUIRES-OPERATOR-INPUT
+  propagation), core/risk-register-xlsx.ts (20-col A..T sheet, frozen header
+  pane, conditional red-fill/bold-red/wrap via core/zip.ts store-only OOXML),
+  core/organisational-risk-reader.ts (HTTP pull + signed .organisational-risks.json
+  snapshot). Extended core/inventory-coverage.ts (risk_register_coverage sibling),
+  core/submission-bundle.ts (3 WELL_KNOWN roles), core/orchestrator.ts
+  (--risk-register + --pull-organisational-risks wiring after POA&M, before sign).
+  tracker: server/schema.sql (organisational_risks table, additive), server/rbac.ts
+  (read:risk_register + create/close:organisational_risk perms — iso/ao/admin create),
+  server/routes/risk-register.ts (organisational CRUD + close-out + aggregated
+  GET /api/risk-register + GET /export.xlsx; server-side inherent via Table I-2 Q5;
+  NIST-catalog + CC cross-checks; ≥30d review-date gate), server/risk-register-xlsx.ts
+  (tracker-local renderer copy — separate workspace), client pages RiskRegister/
+  OrganisationalRiskCreate/OrganisationalRiskDetail + lib risk-register-{api,view}.ts
+  + App.tsx routes/nav. Resolved §10 Q1-Q8 (see below). Reconciliations →
+  LOOP-B-RISKS B.B5-11 (no SheetJS → valid-OOXML round-trip), B.B5-12 (renderer
+  duplicated across workspaces), B.B5-13 (tracker endpoint returns organisational
+  + acceptance subset; authoritative RA-3 register is the collector's
+  out/risk-register.json). Verification: cloud-evidence typecheck clean, 1391/1391
+  tests (+19: 13 aggregator + 4 xlsx + 2 reader), check:reo green (G1+G2+G3);
+  tracker typecheck clean, 178/178 tests (+19: 10 routes + 9 view). Commit <TBD-step6>.
 ```
+
+### §10 Open questions — resolved (impl-b-b5, 2026-07-02)
+- **Q1** (second "By Category" sheet): DEFERRED — single "Risk Register" sheet;
+  tests pin column count for sheet 1. A category-rollup sheet can be added later.
+- **Q2** (aggregated endpoint location): tracker server owns `GET /api/risk-register`
+  (UI-facing); the orchestrator emits the offline `out/risk-register.json`. The
+  tracker cannot import the cloud-evidence aggregator (separate npm workspace), so
+  it re-implements the tracker-resident join (B.B5-13).
+- **Q3** (remediated findings): the aggregator reads only OSCAL POA&M risks whose
+  `status != 'closed'`, so remediated findings drop off automatically.
+- **Q4** (owner field): role label ("ISO"/"AO") for finding + acceptance entries;
+  the tracker user's display name for organisational entries.
+- **Q5** (recompute inherent): the server + aggregator compute inherent
+  deterministically from the Table I-2 matrix; residual is operator-set (the UI
+  shows a "Suggested inherent" hint).
+- **Q6** (per-period snapshot for trends): OUT OF SCOPE — LOOP-E.E1 monthly ConMon
+  consumes B.B5 snapshots over time.
+- **Q7** (frozen header rows): YES — OOXML `<sheetView><pane ySplit="1" .../>`;
+  tests pin the pane element.
+- **Q8** (acceptance-expiration warning column): DEFERRED to a follow-up (amber
+  conditional formatting out of scope for first ship).
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
 The implementing session MUST check every box:

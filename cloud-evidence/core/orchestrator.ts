@@ -65,6 +65,8 @@ import { emitOscalSsp } from './oscal-ssp.ts';
 import { emitOscalPoam, type PoamEmitResult } from './oscal-poam.ts';
 import { pullActiveAcceptances } from './risk-acceptance-reader.ts';
 import { pullCompensatingControls } from './compensating-control-reader.ts';
+import { pullOrganisationalRisks } from './organisational-risk-reader.ts';
+import { emitRiskRegister } from './risk-register.ts';
 import { runPoamMonthly, type PoamMonthlyResult } from './poam-monthly.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
@@ -336,6 +338,16 @@ interface Args {
   trackerApiToken: string | null;
   /** LOOP-B.B4: tracker base URL to pull signed compensating controls from before the POA&M emit (defaults to trackerUrl). */
   compensatingControlsUrl: string | null;
+  /**
+   * When true (LOOP-B.B5), aggregate the OSCAL POA&M risks (B.B1+B.B2) + signed
+   * acceptances (B.B3) + compensating controls (B.B4) + operator-entered
+   * organisational risks into out/risk-register.json + out/risk-register.xlsx
+   * (the NIST RA-3 deliverable). Runs AFTER the POA&M emit (which it reads) and
+   * BEFORE signing so both artifacts are covered by the run manifest.
+   */
+  riskRegister: boolean;
+  /** LOOP-B.B5: tracker base URL to pull organisational risks from before the register emit (defaults to trackerUrl). */
+  organisationalRisksUrl: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -416,6 +428,8 @@ function parseArgs(argv: string[]): Args {
     trackerUrl: process.env.CLOUD_EVIDENCE_TRACKER_URL ?? null,
     trackerApiToken: process.env.CLOUD_EVIDENCE_TRACKER_TOKEN ?? null,
     compensatingControlsUrl: process.env.CLOUD_EVIDENCE_COMPENSATING_CONTROLS_URL ?? null,
+    riskRegister: process.env.CLOUD_EVIDENCE_RISK_REGISTER === '1',
+    organisationalRisksUrl: process.env.CLOUD_EVIDENCE_ORGANISATIONAL_RISKS_URL ?? null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -624,6 +638,15 @@ function parseArgs(argv: string[]): Args {
         // LOOP-B.B4: pull signed compensating controls from the tracker before the
         // POA&M emit. Defaults to the same tracker URL as --pull-risk-acceptances.
         args.compensatingControlsUrl = argv[++i] ?? null;
+        break;
+      case '--risk-register':
+        // LOOP-B.B5: aggregate the Central Risk Register (RA-3) after the POA&M emit.
+        args.riskRegister = true;
+        break;
+      case '--pull-organisational-risks':
+        // LOOP-B.B5: pull operator-entered organisational risks from the tracker
+        // before the register emit. Defaults to the --pull-risk-acceptances URL.
+        args.organisationalRisksUrl = argv[++i] ?? null;
         break;
       case '--ap-roe-href':
         args.apRoeHref = argv[++i] ?? null;
@@ -2437,6 +2460,55 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`OSCAL POA&M emission failed: ${e.message}`);
       log.error({ event: 'oscal_poam.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- LOOP-B.B5: Central Risk Register (RA-3). Pull operator-entered
+  // organisational risks from the tracker (if configured), then aggregate the
+  // just-emitted POA&M risks (B.B1+B.B2) + cached signed acceptances (B.B3) +
+  // compensating controls (B.B4) + organisational risks into a signed
+  // out/risk-register.json + out/risk-register.xlsx. Runs AFTER the POA&M emit
+  // (which it reads) and BEFORE signing so both artifacts are covered by the run
+  // manifest. Air-gapped runs use whatever cached snapshots exist — never
+  // fabricates a risk. ----
+  if (args.riskRegister) {
+    const orgUrl = args.organisationalRisksUrl ?? args.trackerUrl;
+    if (orgUrl) {
+      if (!args.trackerApiToken) {
+        console.error('--pull-organisational-risks requires --tracker-api-token (or CLOUD_EVIDENCE_TRACKER_TOKEN).');
+        process.exitCode = 2;
+      } else {
+        try {
+          const pulled = await pullOrganisationalRisks(orgUrl, args.trackerApiToken, args.outDir);
+          console.log(`Organisational risks: pulled ${pulled.length} record(s) from ${orgUrl} → out/.organisational-risks.json`);
+          ledger.record('organisational_risks.pull', { status: 'ok', count: pulled.length });
+        } catch (e: any) {
+          console.warn(`Organisational-risk pull failed (${e?.message ?? e}); using cached snapshot if present.`);
+          log.warn({ event: 'organisational_risks.pull_failed', err: String(e) });
+          ledger.record('organisational_risks.pull', { status: 'info', reason: String(e?.message ?? e) });
+        }
+      }
+    }
+    try {
+      const rr = emitRiskRegister({ outDir: args.outDir, runId });
+      console.log(
+        `Risk register: ${rr.jsonPath} (${rr.entries_total} entries: ` +
+        `${rr.entries_by_source.finding} finding / ${rr.entries_by_source.acceptance} acceptance / ` +
+        `${rr.entries_by_source.organisational} organisational; ${rr.open_count} open, ` +
+        `${rr.high_inherent_count} high-inherent) + ${rr.xlsxPath}`,
+      );
+      ledger.record('risk_register.emit', {
+        status: 'info',
+        entries_total: rr.entries_total,
+        finding: rr.entries_by_source.finding,
+        acceptance: rr.entries_by_source.acceptance,
+        organisational: rr.entries_by_source.organisational,
+        open_count: rr.open_count,
+        high_inherent_count: rr.high_inherent_count,
+      });
+    } catch (e: any) {
+      console.error(`Risk register emission failed: ${e.message}`);
+      log.error({ event: 'risk_register.fail', err_message: e?.message });
     }
   }
 

@@ -56,28 +56,37 @@ export type Permission =
   | 'read:compensating_control'
   | 'create:compensating_control'      // create draft + edit draft
   | 'activate:compensating_control'    // AO sign-off (draft → active)
-  | 'retire:compensating_control';     // retire an active control
+  | 'retire:compensating_control'      // retire an active control
+  // LOOP-B.B5 central risk register — operator-entered organisational risks
+  | 'read:risk_register'
+  | 'create:organisational_risk'       // create + edit an open organisational risk
+  | 'close:organisational_risk';       // close out an organisational risk
 
 const PERMISSIONS_BY_ROLE: Record<Role, ReadonlySet<Permission>> = {
-  viewer:       new Set(['read:items', 'read:risk_acceptance', 'read:compensating_control']),
-  contributor:  new Set(['read:items', 'edit:items:assigned', 'read:risk_acceptance', 'read:compensating_control']),
-  'ksi-owner':  new Set(['read:items', 'edit:items:assigned', 'edit:items:domain', 'read:risk_acceptance', 'read:compensating_control']),
-  auditor:      new Set(['read:items', 'read:audit_log', 'read:risk_acceptance', 'read:compensating_control']),
+  viewer:       new Set(['read:items', 'read:risk_acceptance', 'read:compensating_control', 'read:risk_register']),
+  contributor:  new Set(['read:items', 'edit:items:assigned', 'read:risk_acceptance', 'read:compensating_control', 'read:risk_register']),
+  'ksi-owner':  new Set(['read:items', 'edit:items:assigned', 'edit:items:domain', 'read:risk_acceptance', 'read:compensating_control', 'read:risk_register']),
+  auditor:      new Set(['read:items', 'read:audit_log', 'read:risk_acceptance', 'read:compensating_control', 'read:risk_register']),
   // iso creates + revokes deviation requests but cannot self-approve. For B.B4 the
   // iso implements (creates/edits) compensating controls + may retire them, but
-  // cannot activate (AO sign-off is the separation-of-duties gate).
+  // cannot activate (AO sign-off is the separation-of-duties gate). For B.B5 the
+  // iso owns the risk register — creates/edits/closes organisational risks.
   iso:          new Set(['read:items', 'read:risk_acceptance', 'create:risk_acceptance', 'revoke:risk_acceptance',
-                         'read:compensating_control', 'create:compensating_control', 'retire:compensating_control']),
+                         'read:compensating_control', 'create:compensating_control', 'retire:compensating_control',
+                         'read:risk_register', 'create:organisational_risk', 'close:organisational_risk']),
   // ao is the approval authority; may also revoke. For B.B4 the ao activates a
-  // compensating control (writes the second signature) + may retire.
+  // compensating control (writes the second signature) + may retire. For B.B5 the
+  // ao may also create/close organisational risks (executive risk ownership).
   ao:           new Set(['read:items', 'read:risk_acceptance', 'approve:risk_acceptance', 'revoke:risk_acceptance',
-                         'read:compensating_control', 'activate:compensating_control', 'retire:compensating_control']),
+                         'read:compensating_control', 'activate:compensating_control', 'retire:compensating_control',
+                         'read:risk_register', 'create:organisational_risk', 'close:organisational_risk']),
   // assessor (3PAO) is strictly read-only.
-  assessor:     new Set(['read:items', 'read:risk_acceptance', 'read:compensating_control']),
+  assessor:     new Set(['read:items', 'read:risk_acceptance', 'read:compensating_control', 'read:risk_register']),
   admin:        new Set(['read:items', 'edit:items:assigned', 'edit:items:domain', 'edit:items:all',
                          'manage:tokens', 'manage:users', 'read:audit_log', 'manage:2fa_policy',
                          'read:risk_acceptance', 'create:risk_acceptance', 'approve:risk_acceptance', 'revoke:risk_acceptance',
-                         'read:compensating_control', 'create:compensating_control', 'activate:compensating_control', 'retire:compensating_control']),
+                         'read:compensating_control', 'create:compensating_control', 'activate:compensating_control', 'retire:compensating_control',
+                         'read:risk_register', 'create:organisational_risk', 'close:organisational_risk']),
 };
 
 /** Map legacy 'member'/'admin' to granular roles for back-compat. */

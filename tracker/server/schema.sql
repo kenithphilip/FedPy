@@ -284,3 +284,38 @@ CREATE TABLE IF NOT EXISTS compensating_controls (
 CREATE INDEX IF NOT EXISTS idx_cc_status ON compensating_controls(status);
 CREATE INDEX IF NOT EXISTS idx_cc_expiration ON compensating_controls(expiration_date);
 CREATE INDEX IF NOT EXISTS idx_cc_uuid ON compensating_controls(uuid);
+
+-- ─── LOOP-B.B5: Central Risk Register — organisational risks ───────────────────
+-- Operator-entered Tier 1/2 risks (NIST SP 800-39 §2.3) that have no finding
+-- source: third-party, supply-chain, environmental, contractual, operational, …
+-- Likelihood/impact/inherent/residual use the NIST SP 800-30 Rev 1 qualitative
+-- scale VERBATIM (Very Low … Very High); treatment follows ISO 31000:2018 §6.5.3.
+-- The cloud-evidence risk-register aggregator (core/risk-register.ts) pulls the
+-- open rows via GET /api/organisational-risks and copies them verbatim into the
+-- signed out/risk-register.json (satisfying NIST SP 800-53 Rev 5 RA-3).
+CREATE TABLE IF NOT EXISTS organisational_risks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT NOT NULL UNIQUE,                       -- v4 uuid; written to the register entry uuid
+  title TEXT NOT NULL,                             -- 5-200 chars
+  description TEXT NOT NULL,                        -- >= 100 chars
+  category TEXT NOT NULL CHECK (category IN ('third-party','supply-chain','environmental','contractual','operational','organisational','other')),
+  likelihood TEXT NOT NULL CHECK (likelihood IN ('very-low','low','moderate','high','very-high')),
+  impact TEXT NOT NULL CHECK (impact IN ('very-low','low','moderate','high','very-high')),
+  inherent_risk TEXT NOT NULL CHECK (inherent_risk IN ('very-low','low','moderate','high','very-high')),
+  residual_risk TEXT NOT NULL CHECK (residual_risk IN ('very-low','low','moderate','high','very-high')),
+  treatment TEXT NOT NULL CHECK (treatment IN ('accept','mitigate','transfer','avoid')),
+  owner_user_id INTEGER NOT NULL REFERENCES users(id),
+  review_date TEXT NOT NULL,                        -- ISO datetime; server enforces >= today+30d on create
+  nist_control_ids TEXT,                            -- JSON array, optional; validated against catalog
+  compensating_control_uuids TEXT,                  -- JSON array of B.B4 UUIDs, optional; cross-checked
+  status TEXT NOT NULL CHECK (status IN ('open','closed')),
+  closed_at TEXT,
+  closed_by_user_id INTEGER REFERENCES users(id),
+  closure_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_org_risk_category ON organisational_risks(category);
+CREATE INDEX IF NOT EXISTS idx_org_risk_status ON organisational_risks(status);
+CREATE INDEX IF NOT EXISTS idx_org_risk_review ON organisational_risks(review_date);
+CREATE INDEX IF NOT EXISTS idx_org_risk_inherent ON organisational_risks(inherent_risk);

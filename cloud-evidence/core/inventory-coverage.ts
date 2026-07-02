@@ -440,3 +440,27 @@ export function augmentCoverageWithSsdfMaterialChange<T extends Record<string, u
 ): T & { ssdf_material_change_coverage: SsdfMaterialChangeCoverage } {
   return { ...report, ssdf_material_change_coverage: { ...coverage } };
 }
+
+/** Central Risk Register aggregation counts (LOOP-B.B5). Sibling field — never a G2 fillRate cell. */
+export interface RiskRegisterCoverage {
+  entries_total: number;
+  finding_entries: number;
+  acceptance_entries: number;
+  organisational_entries: number;
+  open_count: number;
+  high_inherent_count: number;
+}
+
+/**
+ * Augment a coverage report with the LOOP-B.B5 Central Risk Register aggregation
+ * counts as a sibling top-level field (`risk_register_coverage`). Like the
+ * T.T3/T.T4/W.W1/W.W2 siblings this is NOT an Appendix-M `columns[].fillRate`
+ * cell, so the G2 coverage-regression guardrail (which only compares fillRate)
+ * can never flag it. Pure: returns a new object, does not mutate the input.
+ */
+export function augmentCoverageWithRiskRegister<T extends Record<string, unknown>>(
+  report: T,
+  coverage: RiskRegisterCoverage,
+): T & { risk_register_coverage: RiskRegisterCoverage } {
+  return { ...report, risk_register_coverage: { ...coverage } };
+}
