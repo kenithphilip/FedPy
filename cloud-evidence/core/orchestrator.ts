@@ -74,6 +74,8 @@ import { emitSection889AnnualRep } from './section889-annual-rep.ts';
 import { emitSsdfSatisfactionMatrix, type SsdfProductConfig } from './ssdf-evidence-aggregator.ts';
 import { emitSsdfCommonForm } from './ssdf-common-form.ts';
 import { emitSsdfMaterialChanges, type SsdfProduct } from './ssdf-material-change-detector.ts';
+import { emitSsdfAiAugmentation } from './ssdf-ai-extension.ts';
+import { renderAiAugmentationXlsx } from './ssdf-ai-extension-xlsx.ts';
 import { emitConmonMonthlyReport } from './conmon-report.ts';
 import { emitRiskScores } from './risk-score-emit.ts';
 import { emitSubprocessorInventory } from './subprocessor-inventory.ts';
@@ -2719,6 +2721,53 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`SSDF re-attestation detector failed: ${e.message}`);
       log.error({ event: 'ssdf_material_change.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- NIST SP 800-218A SSDF-AI extension (LOOP-T.T5) ----
+  // Augments the T.T2 satisfaction matrix with the 800-218A AI-model R/C/N items
+  // for every in-scope product whose LOOP-O.O5 model card declares an AI use case
+  // or dual-use foundation-model status. Runs AFTER the T.T2 matrix emit (its
+  // join base) + BEFORE T.T3 / signing so the artefacts are covered by the run
+  // manifest + RFC 3161 TSR. Gated by --ssdf-attestation AND
+  // config.ssdf.ai_augmentation_enabled AND >=1 in-scope model card; with
+  // LOOP-O.O5 unshipped there are no model cards, so the step no-ops
+  // (coverage:skipped) — the realizable-core posture as T.T2/T.T3/T.T4. Never
+  // fabricates AI evidence (REO Rule 4): an augmentation with no AI-specific
+  // evidence inherits its parent task; a new 800-218A AI task with no base parent
+  // is requires-operator-input.
+  if (args.ssdfAttestation && !args.dryRun) {
+    try {
+      const ssdfCfg = (config as any)?.ssdf ?? {};
+      const aug = emitSsdfAiAugmentation({
+        outDir: args.outDir,
+        runId,
+        cspName: args.cspName ?? (config as any)?.csp_name ?? 'REQUIRES-OPERATOR-INPUT',
+        aiAugmentationEnabled: ssdfCfg.ai_augmentation_enabled === true,
+        primaryCatalogue: ssdfCfg.primary_catalogue === 'final' ? 'final' : 'IPD',
+        productsInScope: Array.isArray(ssdfCfg.ai_products_in_scope) ? ssdfCfg.ai_products_in_scope.map((s: any) => String(s)) : undefined,
+        deltaPath: 'docs/sources/ssdf-800-218A-delta.json',
+        renderXlsx: renderAiAugmentationXlsx,
+      });
+      if (aug.skipped) {
+        log.info({ event: 'ssdf_ai_augmentation.skipped', reason: aug.reason });
+      } else {
+        console.log(
+          `SSDF 800-218A AI augmentation: ${aug.json_path} ` +
+          `(${aug.products_in_scope} in-scope product(s); ${aug.rollup.total_augmentations_evaluated} augmentations — ` +
+          `${aug.rollup.satisfied} satisfied, ${aug.rollup.partially_satisfied} partial, ${aug.rollup.requires_operator_input} need operator input)`,
+        );
+        ledger.record('ssdf_ai_augmentation.emit', {
+          status: 'info',
+          augmentation_id: aug.augmentation_id,
+          products_in_scope: aug.products_in_scope,
+          augmentations_evaluated: aug.rollup.total_augmentations_evaluated,
+          requires_operator_input: aug.rollup.requires_operator_input,
+        });
+      }
+    } catch (e: any) {
+      console.error(`SSDF 800-218A AI augmentation failed: ${e.message}`);
+      log.error({ event: 'ssdf_ai_augmentation.fail', err_message: e?.message });
     }
   }
 

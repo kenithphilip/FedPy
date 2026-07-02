@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "version": "IPD",
+  "publication": {
+    "sp": "800-218A",
+    "title": "Secure Software Development Practices for Generative AI and Dual-Use Foundation Models: An SSDF Community Profile",
+    "publication_date": "2024-04-29"
+  },
+  "sha256_source_pdf": "ac31ee546574d7e9d0db8d93de5a1bd735cefd336fdc0f96a8613e0f63f584a2",
+  "statistics": { "practice_count": 1, "task_count": 1, "augmentation_count": 1, "new_ai_task_count": 0 },
+  "practices": [
+    {
+      "practice_id": "PO.1",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Define Security Requirements for Software Development",
+      "tasks": [
+        {
+          "task_id": "PO.1.1",
+          "task_statement": "Identify and document all security requirements for the organization's software development infrastructures and processes.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.1.1.R1",
+              "parent_task_id": "PO.99.99",
+              "item_type": "R",
+              "statement": "This augmentation references a parent task id that does not exist in the base SSDF v1.1 catalogue.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": ["both"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

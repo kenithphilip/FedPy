@@ -429,6 +429,11 @@ export function loadMatrices(dir: string): LoadedMatrix[] {
   const out: LoadedMatrix[] = [];
   for (const name of names.sort()) {
     if (!MATRIX_FILE_RE.test(name)) continue;
+    // The T.T5 augmented matrix (ssdf-satisfaction-matrix.augmented.json) also
+    // matches MATRIX_FILE_RE; skip it here so a product is not double-counted.
+    // A future T.T3 revision can opt into the augmented file to render an
+    // AI-aware form companion (the renderer change belongs to T.T3's own slice).
+    if (name.endsWith('.augmented.json')) continue;
     const path = resolve(dir, name);
     let bytes: Buffer;
     try {

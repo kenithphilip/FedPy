@@ -87,6 +87,10 @@ const ALLOWLIST = new Set([
   'scripts/extract-iam-actions.mjs',
   'scripts/extract-nist-baselines.mjs',
   'scripts/extract-nist-r5.mjs',
+  // extract-800-218A re-emits verbatim NIST SP 800-218A Table 1 text (which
+  // includes phrases like "adversarial samples") into a vendored data/ catalogue;
+  // it introduces no stubs of its own (LOOP-T.T5).
+  'scripts/extract-800-218A.mjs',
   'scripts/extract-oscal-schemas.mjs',
 ]);
 

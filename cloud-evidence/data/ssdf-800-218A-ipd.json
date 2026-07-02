@@ -1,0 +1,1625 @@
+{
+  "schema_version": "1.0",
+  "version": "IPD",
+  "publication": {
+    "sp": "800-218A",
+    "title": "Secure Software Development Practices for Generative AI and Dual-Use Foundation Models: An SSDF Community Profile",
+    "publication_date": "2024-04-29"
+  },
+  "sha256_source_pdf": "ac31ee546574d7e9d0db8d93de5a1bd735cefd336fdc0f96a8613e0f63f584a2",
+  "statistics": {
+    "practice_count": 20,
+    "task_count": 48,
+    "augmentation_count": 62,
+    "new_ai_task_count": 6
+  },
+  "practices": [
+    {
+      "practice_id": "PO.1",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Define Security Requirements for Software Development",
+      "tasks": [
+        {
+          "task_id": "PO.1.1",
+          "task_statement": "Identify and document all security requirements for the organization’s software development infrastructures and processes, and maintain the requirements over time.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Map 1.3, 1.5, 1.6"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.1.1.R1",
+              "parent_task_id": "PO.1.1",
+              "item_type": "R",
+              "statement": "Include AI model development in the security requirements for software development infrastructure and processes.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Map 1.3, 1.5, 1.6"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.1.2",
+          "task_statement": "Identify and document all security requirements for organization-developed software to meet, and maintain the requirements over time.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 1.1, 1.2, 3.2, 4.1, 5.1, 6.1; Map 1.1"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.1.2.R1",
+              "parent_task_id": "PO.1.2",
+              "item_type": "R",
+              "statement": "Organizational policies should support all current requirements specific to AI model development security for organization-developed software. These requirements should include the areas of AI model development, AI model operations, and data science. Requirements may come from many sources, including laws, regulations, contracts, and standards.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 1.1, 1.2, 3.2, 4.1, 5.1, 6.1; Map 1.1"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.1.2.C1",
+              "parent_task_id": "PO.1.2",
+              "item_type": "C",
+              "statement": "Consider reusing or expanding the organization’s existing data classification policy and processes.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 1.1, 1.2, 3.2, 4.1, 5.1, 6.1; Map 1.1"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.1.3",
+          "task_statement": "Communicate requirements to all third parties who will provide commercial software components to the organization for reuse by the organization’s own software.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Map"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.1.3.R1",
+              "parent_task_id": "PO.1.3",
+              "item_type": "R",
+              "statement": "Include AI model development security in the requirements being communicated for third-party software components.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Map"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PO.2",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Implement Roles and Responsibilities",
+      "tasks": [
+        {
+          "task_id": "PO.2.1",
+          "task_statement": "Create new roles and alter responsibilities for existing roles as needed to encompass all parts of the SDLC. Periodically review and maintain the defined roles and responsibilities, updating them as needed.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 2.1 Notes Specific to AI Model Development"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.2.1.R1",
+              "parent_task_id": "PO.2.1",
+              "item_type": "R",
+              "statement": "Include AI model development security in SDLC-related roles and responsibilities throughout the SDLC. The roles and responsibilities should include AI model development, AI model operations, and data science.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 2.1 Notes Specific to AI Model Development"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.2.1.N1",
+              "parent_task_id": "PO.2.1",
+              "item_type": "N",
+              "statement": "Roles and responsibilities involving AI system producers, AI model producers, and other third-party providers can be documented in agreements.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 2.1 Notes Specific to AI Model Development"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.2.2",
+          "task_statement": "Provide role-based training for all personnel with responsibilities that contribute to secure development. Periodically review personnel proficiency and role-based training, and update the training as needed.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 2.2",
+            "OWASP: LLM04-"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.2.2.R1",
+              "parent_task_id": "PO.2.2",
+              "item_type": "R",
+              "statement": "Role-based training should include understanding cybersecurity vulnerabilities and threats to AI models and their possible mitigations.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 2.2",
+                "OWASP: LLM04-"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.2.3",
+          "task_statement": "Obtain upper management or authorizing official commitment to secure development, and convey that commitment to all with development-related roles and responsibilities.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.2.3.R1",
+              "parent_task_id": "PO.2.3",
+              "item_type": "R",
+              "statement": "Leadership should commit to secure development practices involving AI models.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PO.3",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Implement Supporting Toolchains",
+      "tasks": [
+        {
+          "task_id": "PO.3.1",
+          "task_statement": "Specify which tools or tool types must or should be included in each toolchain to mitigate identified risks, as well as how the toolchain components are to be integrated with each other.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.1",
+            "OWASP: LLM08"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.3.1.R1",
+              "parent_task_id": "PO.3.1",
+              "item_type": "R",
+              "statement": "Plan to develop and implement automated toolchains that secure AI model development and reduce human effort, especially at the scale often used by AI models.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1",
+                "OWASP: LLM08"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.3.1.N1",
+              "parent_task_id": "PO.3.1",
+              "item_type": "N",
+              "statement": "Ideally, automated toolchains will perform the vast majority of the work related to securing AI model development.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1",
+                "OWASP: LLM08"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.3.1.N2",
+              "parent_task_id": "PO.3.1",
+              "item_type": "N",
+              "statement": "See PO.4, PO.5, PS, and PW for information on tool types.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1",
+                "OWASP: LLM08"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.3.2",
+          "task_statement": "Follow recommended security practices to deploy, operate, and maintain tools and toolchains.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.1",
+            "OWASP: LLM05-3, LLM05-9, LLM08, LLM09"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.3.2.R1",
+              "parent_task_id": "PO.3.2",
+              "item_type": "R",
+              "statement": "Execute the plan to develop and implement automated toolchains that secure AI model development and reduce human effort, especially at the scale often used by AI models.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1",
+                "OWASP: LLM05-3, LLM05-9, LLM08, LLM09"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.3.2.R2",
+              "parent_task_id": "PO.3.2",
+              "item_type": "R",
+              "statement": "Verify the security of toolchains at a frequency commensurate with risk.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1",
+                "OWASP: LLM05-3, LLM05-9, LLM08, LLM09"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.3.3",
+          "task_statement": "Configure tools to generate artifacts of their support of secure software development practices as defined by the organization.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.1 Notes Specific to AI Model Development records of secure software development practices. Examples of artifacts specific to AI model development include attestations of"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.3.3.N1",
+              "parent_task_id": "PO.3.3",
+              "item_type": "N",
+              "statement": "An artifact is “a piece of evidence” [15]. Evidence is “grounds for belief or disbelief; data on which to base proof or to establish truth or falsehood” [16]. Artifacts provide",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1 Notes Specific to AI Model Development records of secure software development practices. Examples of artifacts specific to AI model development include attestations of"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PO.4",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Define and Use Criteria for Software Security Checks",
+      "tasks": [
+        {
+          "task_id": "PO.4.1",
+          "task_statement": "Define criteria for software security checks and track throughout the SDLC.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.3, 2.7; Manage 1.1",
+            "OWASP: LLM01-"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.4.1.C1",
+              "parent_task_id": "PO.4.1",
+              "item_type": "C",
+              "statement": "Consider requiring review and approval from a human-in-the-loop for software security checks beyond risk-based thresholds.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.3, 2.7; Manage 1.1",
+                "OWASP: LLM01-"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.4.2",
+          "task_statement": "Implement processes, mechanisms, etc. to gather and safeguard the necessary information in support of the criteria.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Low",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Measure 2.3, 2.7; Manage 1.1",
+            "OWASP: LLM01-"
+          ],
+          "augmentations": []
+        }
+      ]
+    },
+    {
+      "practice_id": "PO.5",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Implement and Maintain Secure Environments for Software Development",
+      "tasks": [
+        {
+          "task_id": "PO.5.1",
+          "task_statement": "Separate and protect each environment involved in software development.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM01-1, LLM01-4, LLM04, LLM08, LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.5.1.C1",
+              "parent_task_id": "PO.5.1",
+              "item_type": "C",
+              "statement": "Consider separating execution environments from each other to the extent feasible, such as by using sandboxing or containers.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM01-1, LLM01-4, LLM04, LLM08, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.5.1.R1",
+              "parent_task_id": "PO.5.1",
+              "item_type": "R",
+              "statement": "Monitor, track, and limit resource usage and rates for AI model users.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM01-1, LLM01-4, LLM04, LLM08, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.5.2",
+          "task_statement": "Secure and harden development endpoints (endpoints for software designers, developers, testers, builders, etc.) to perform development tasks using a risk-based approach.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "OWASP: LLM01-1, LLM05-3, LLM05-9, LLM08"
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "PO.5.3",
+          "task_statement": "Continuously monitor software execution performance and behavior in software development environments to identify potential suspicious activity and other issues.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.4",
+            "OWASP: LLM03-7, LLM04, LLM05-8, LLM09, LLM10 Protect Software (PS)"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.5.3.R1",
+              "parent_task_id": "PO.5.3",
+              "item_type": "R",
+              "statement": "Perform continuous security and performance monitoring for all development environment components that host an AI model or related resources (e.g., model APIs, weights, configuration parameters, training datasets).",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.4",
+                "OWASP: LLM03-7, LLM04, LLM05-8, LLM09, LLM10 Protect Software (PS)"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PO.5.3.R2",
+              "parent_task_id": "PO.5.3",
+              "item_type": "R",
+              "statement": "Continuous monitoring and analysis tools should generate alerts when detected activity involving an AI model passes a risk threshold or otherwise merits additional investigation.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.4",
+                "OWASP: LLM03-7, LLM04, LLM05-8, LLM09, LLM10 Protect Software (PS)"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PS.1",
+      "practice_group": "PS",
+      "practice_group_name": "Protect the Software",
+      "practice_name": "Protect All Forms of Code from Unauthorized Access and Tampering",
+      "tasks": [
+        {
+          "task_id": "PS.1.1",
+          "task_statement": "Store all forms of code – including source code, executable code, and configuration-as-code – based on the principle of least privilege so that only authorized personnel, tools, services, etc. have access.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PS.1.1.R1",
+              "parent_task_id": "PS.1.1",
+              "item_type": "R",
+              "statement": "Secure code storage should include AI models, model weights, pipelines, reward models, and any other AI model elements that need their confidentiality, integrity, and/or availability protected.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.1.R2",
+              "parent_task_id": "PS.1.1",
+              "item_type": "R",
+              "statement": "Follow the principle of least privilege to minimize direct access to AI models and model elements regardless of where they are stored or executed.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.1.R3",
+              "parent_task_id": "PS.1.1",
+              "item_type": "R",
+              "statement": "Store reward models separately from AI models and data.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.1.C1",
+              "parent_task_id": "PS.1.1",
+              "item_type": "C",
+              "statement": "Consider preventing all human access to model weights.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.1.C2",
+              "parent_task_id": "PS.1.1",
+              "item_type": "C",
+              "statement": "Consider requiring all AI model development to be performed within organization-approved environments only.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PS.1.2",
+          "task_statement": "Protect all training, testing, fine-tuning, and aligning data from unauthorized access and modification.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM03, LLM06, LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PS.1.2.R1",
+              "parent_task_id": "PS.1.2",
+              "item_type": "R",
+              "statement": "Continuously monitor the confidentiality and integrity of training, testing, fine-tuning, and aligning data.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM03, LLM06, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.2.C1",
+              "parent_task_id": "PS.1.2",
+              "item_type": "C",
+              "statement": "Consider securely storing training, testing, fine-tuning, and aligning data for future use and reference if feasible.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM03, LLM06, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PS.1.3",
+          "task_statement": "Protect all model weights and configuration parameter data from unauthorized access and modification.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM10 Notes Specific to AI Model Development party authorization, and air-gapped"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PS.1.3.R1",
+              "parent_task_id": "PS.1.3",
+              "item_type": "R",
+              "statement": "Keep model weights and configuration parameters separate from training, testing, fine-tuning, and aligning data.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10 Notes Specific to AI Model Development party authorization, and air-gapped"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.3.R2",
+              "parent_task_id": "PS.1.3",
+              "item_type": "R",
+              "statement": "Continuously monitor the confidentiality (for closed models only) and integrity of model weights and configuration parameters.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10 Notes Specific to AI Model Development party authorization, and air-gapped"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.3.R3",
+              "parent_task_id": "PS.1.3",
+              "item_type": "R",
+              "statement": "Follow the principle of least privilege to restrict access to AI model weights, configuration parameters, and services during development.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10 Notes Specific to AI Model Development party authorization, and air-gapped"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.1.3.R4",
+              "parent_task_id": "PS.1.3",
+              "item_type": "R",
+              "statement": "Specify and implement additional risk-proportionate cybersecurity practices around model weights, such as encryption, multi-",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10 Notes Specific to AI Model Development party authorization, and air-gapped"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PS.2",
+      "practice_group": "PS",
+      "practice_group_name": "Protect the Software",
+      "practice_name": "Provide a Mechanism for Verifying Software Release Integrity",
+      "tasks": [
+        {
+          "task_id": "PS.2.1",
+          "task_statement": "Make software integrity verification information available to software acquirers.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [],
+          "augmentations": [
+            {
+              "augmentation_id": "PS.2.1.R1",
+              "parent_task_id": "PS.2.1",
+              "item_type": "R",
+              "statement": "Generate and provide cryptographic hashes or digital signatures for an AI model and its components.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PS.3",
+      "practice_group": "PS",
+      "practice_group_name": "Protect the Software",
+      "practice_name": "Archive and Protect Each Software Release",
+      "tasks": [
+        {
+          "task_id": "PS.3.1",
+          "task_statement": "Securely archive the necessary files and supporting data (e.g., integrity verification information, provenance data) to be retained for each software release.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Low",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PS.3.1.R1",
+              "parent_task_id": "PS.3.1",
+              "item_type": "R",
+              "statement": "Perform versioning and tracking for infrastructure tools (e.g., pre-processing, transforms, collection) that support dataset creation and model training.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PS.3.2",
+          "task_statement": "Collect, safeguard, maintain, and share provenance data for all components of each software release (e.g., in a software bill of materials [SBOM], through Supply-chain Levels for Software Artifacts [SLSA]).",
+          "ssdf_1_1_tag": "modified",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM03-1, LLM05-4, LLM05-5, LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PS.3.2.R1",
+              "parent_task_id": "PS.3.2",
+              "item_type": "R",
+              "statement": "Track the provenance of an AI model and its components, including the training libraries and frameworks used to build the model.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM03-1, LLM05-4, LLM05-5, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PS.3.2.C1",
+              "parent_task_id": "PS.3.2",
+              "item_type": "C",
+              "statement": "Consider disclosing the provenance of the training, testing, fine-tuning, and aligning data used for an AI model.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM03-1, LLM05-4, LLM05-5, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.1",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Design Software to Meet Security Requirements and Mitigate Security Risks",
+      "tasks": [
+        {
+          "task_id": "PW.1.1",
+          "task_statement": "Use forms of risk modeling – such as threat modeling, attack modeling, or attack surface mapping – to help assess the security risk for the software.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 4.1, 4.2; Map 5.1; Measure 1.1; Manage 1.2, 1.3",
+            "OWASP: LLM01, LLM02, LLM03, LLM04, LLM05, LLM06, LLM07, LLM08, LLM09, LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.1.1.R1",
+              "parent_task_id": "PW.1.1",
+              "item_type": "R",
+              "statement": "Incorporate relevant AI model-specific vulnerability and threat types in risk modeling. Examples of these vulnerability and threat types include poisoning of training data, malicious code or other unwanted content in inputs and outputs, denial-of-service conditions, supply chain attacks, unauthorized information disclosure, and theft of AI model weights.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.1, 4.2; Map 5.1; Measure 1.1; Manage 1.2, 1.3",
+                "OWASP: LLM01, LLM02, LLM03, LLM04, LLM05, LLM06, LLM07, LLM08, LLM09, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PW.1.2",
+          "task_statement": "Track and maintain the software’s security requirements, risks, and design decisions.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Govern 4.1, 4.2; Map 2.1, 2.2, 2.3, 3.2, 3.3, 4.1, 4.2, 5.2; Manage 1.2, 1.3, 1.4 Notes Specific to AI Model Development"
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "PW.1.3",
+          "task_statement": "Where appropriate, build in support for using standardized security features and services (e.g., enabling software to integrate with existing log management, identity management, access control, and vulnerability management systems) instead of creating proprietary implementations of security features and services.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [],
+          "augmentations": []
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.2",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Review the Software Design to Verify Compliance with Security Requirements and Risk Information",
+      "tasks": [
+        {
+          "task_id": "PW.2.1",
+          "task_statement": "Have 1) a qualified person (or people) who were not involved with the design and/or 2) automated processes instantiated in the toolchain review the software design to confirm and enforce that it meets all of the security requirements and satisfactorily addresses the identified risk information.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Measure 2.7; Manage 1.1"
+          ],
+          "augmentations": []
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.3",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Confirm the Integrity of Training, Testing, Fine-Tuning, and Aligning Data Before Use",
+      "tasks": [
+        {
+          "task_id": "PW.3.1",
+          "task_statement": "Analyze data for signs of data poisoning, bias, homogeneity, and tampering before using it for AI model training, testing, fine-tuning, or aligning purposes, and mitigate the risks as necessary.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.1; Manage 1.2, 1.3",
+            "OWASP: LLM03, LLM06"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.3.1.R1",
+              "parent_task_id": "PW.3.1",
+              "item_type": "R",
+              "statement": "Verify the provenance and integrity of all training, testing, fine-tuning, and aligning data before use.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1; Manage 1.2, 1.3",
+                "OWASP: LLM03, LLM06"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PW.3.1.R2",
+              "parent_task_id": "PW.3.1",
+              "item_type": "R",
+              "statement": "Select and apply appropriate methods for analyzing and altering the training, testing, fine-tuning, and aligning data for an AI model. Examples of methods include anomaly detection, bias detection, data cleaning, data curation, data filtering, data sanitization, fact-checking, and noise reduction.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1; Manage 1.2, 1.3",
+                "OWASP: LLM03, LLM06"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PW.3.1.C1",
+              "parent_task_id": "PW.3.1",
+              "item_type": "C",
+              "statement": "Consider using a human-in-the-loop to examine data, such as with exploratory data analysis techniques [17].",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.1; Manage 1.2, 1.3",
+                "OWASP: LLM03, LLM06"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PW.3.2",
+          "task_statement": "Track the provenance of all training, testing, fine-tuning, and aligning data used for an AI model.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Measure 2.1",
+            "OWASP: LLM03-Notes Specific to AI Model Development"
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "PW.3.3",
+          "task_statement": "Include adversarial samples in the training and testing data to improve attack detection.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "OWASP: LLM03-6, LLM05-7"
+          ],
+          "augmentations": []
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.4",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Reuse Existing, Well-Secured Software When Feasible Instead of Duplicating Functionality",
+      "tasks": [
+        {
+          "task_id": "PW.4.1",
+          "task_statement": "Acquire and maintain well-secured software components (e.g., software libraries, modules, middleware, frameworks) from commercial, open-source, and other third-party developers for use by the organization’s software.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM05"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.4.1.C1",
+              "parent_task_id": "PW.4.1",
+              "item_type": "C",
+              "statement": "Consider using an existing AI model instead of creating a new one.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM05"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PW.4.2",
+          "task_statement": "Create and maintain well-secured software components in-house following SDLC processes to meet common internal software development needs that cannot be better met by third-party software components.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Low",
+          "no_additions": true,
+          "informative_references": [],
+          "augmentations": []
+        },
+        {
+          "task_id": "PW.4.4",
+          "task_statement": "Verify that acquired commercial, open-source, and all other third-party software components comply with the requirements, as defined by the organization, throughout their life cycles.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "OWASP: LLM05-"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.4.4.R1",
+              "parent_task_id": "PW.4.4",
+              "item_type": "R",
+              "statement": "Verify the integrity, provenance, and security of an existing AI model or any other acquired AI components — including training, testing, fine-tuning, and aligning datasets; reward models; adaptation layers; and configuration parameters — before using them.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM05-"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PW.4.4.R2",
+              "parent_task_id": "PW.4.4",
+              "item_type": "R",
+              "statement": "Scan and thoroughly test acquired AI models and their components for vulnerabilities before use.",
+              "notes": "",
+              "informative_references": [
+                "OWASP: LLM05-"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.5",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Create Source Code by Adhering to Secure Coding Practices",
+      "tasks": [
+        {
+          "task_id": "PW.5.1",
+          "task_statement": "Follow all secure coding practices that are appropriate to the development languages and environment to meet the organization’s requirements.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Manage 1.2, 1.3, 1.4",
+            "OWASP: LLM01, LLM02, LLM04-1, LLM06, LLM07, LLM09-9, LLM10 Notes Specific to AI Model Development"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.5.1.R1",
+              "parent_task_id": "PW.5.1",
+              "item_type": "R",
+              "statement": "Expand secure coding practices to include AI technology-specific considerations.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Manage 1.2, 1.3, 1.4",
+                "OWASP: LLM01, LLM02, LLM04-1, LLM06, LLM07, LLM09-9, LLM10 Notes Specific to AI Model Development"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PW.5.1.R2",
+              "parent_task_id": "PW.5.1",
+              "item_type": "R",
+              "statement": "Code the handling of inputs (including prompts and user data) and outputs carefully. All inputs and outputs should be logged, analyzed, and validated within the context of the AI model, and those with issues should be sanitized or dropped.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Manage 1.2, 1.3, 1.4",
+                "OWASP: LLM01, LLM02, LLM04-1, LLM06, LLM07, LLM09-9, LLM10 Notes Specific to AI Model Development"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PW.5.1.R3",
+              "parent_task_id": "PW.5.1",
+              "item_type": "R",
+              "statement": "Encode inputs and outputs to prevent the execution of unauthorized code.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Manage 1.2, 1.3, 1.4",
+                "OWASP: LLM01, LLM02, LLM04-1, LLM06, LLM07, LLM09-9, LLM10 Notes Specific to AI Model Development"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.6",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Configure the Compilation, Interpreter, and Build Processes to Improve Executable Security",
+      "tasks": [
+        {
+          "task_id": "PW.6.1",
+          "task_statement": "Use compiler, interpreter, and build tools that offer features to improve executable security.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Low",
+          "no_additions": true,
+          "informative_references": [],
+          "augmentations": []
+        },
+        {
+          "task_id": "PW.6.2",
+          "task_statement": "Determine which compiler, interpreter, and build tool features should be used and how each should be configured, then implement and use the approved configurations.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Low",
+          "no_additions": true,
+          "informative_references": [],
+          "augmentations": []
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.7",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Review and/or Analyze Human-Readable Code to Identify Vulnerabilities and Verify Compliance with Security Requirements",
+      "tasks": [
+        {
+          "task_id": "PW.7.1",
+          "task_statement": "Determine whether code review (a person looks directly at the code to find issues) and/or code analysis (tools are used to find issues in code, either in a fully automated way or in conjunction with a person) should be used, as defined by the organization.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.7.1.R1",
+              "parent_task_id": "PW.7.1",
+              "item_type": "R",
+              "statement": "Code review and analysis policies or guidelines should include code for AI models and other related components.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "PW.7.1.C1",
+              "parent_task_id": "PW.7.1",
+              "item_type": "C",
+              "statement": "Consider performing scans of AI model code in addition to testing the AI models.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PW.7.2",
+          "task_statement": "Perform the code review and/or code analysis based on the organization’s secure coding standards, and record and triage all discovered issues and recommended remediations in the development team’s workflow or issue tracking system.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.3, 2.7; Manage 1.1, 1.2, 1.3, 1.4",
+            "OWASP: LLM03-7d, LLM07-4"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.7.2.R1",
+              "parent_task_id": "PW.7.2",
+              "item_type": "R",
+              "statement": "Scan all AI models for malware, vulnerabilities, backdoors, and other security issues in accordance with the organization’s code review and analysis policies or guidelines.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.3, 2.7; Manage 1.1, 1.2, 1.3, 1.4",
+                "OWASP: LLM03-7d, LLM07-4"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.8",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Test Executable Code to Identify Vulnerabilities and Verify Compliance with Security Requirements",
+      "tasks": [
+        {
+          "task_id": "PW.8.1",
+          "task_statement": "Determine whether executable code testing should be performed to find vulnerabilities not identified by previous reviews, analysis, or testing and, if so, which types of testing should be used.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.8.1.R1",
+              "parent_task_id": "PW.8.1",
+              "item_type": "R",
+              "statement": "Include AI models in code testing policies and guidelines. Several forms of code testing can be used for AI models, including unit testing, integration testing, penetration testing, red teaming, and adversarial testing.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "PW.8.2",
+          "task_statement": "Scope the testing, design the tests, perform the testing, and document the results, including recording and triaging all discovered issues and recommended remediations in the development team’s workflow or issue tracking system.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.2, 2.3, 2.7; Manage 1.1, 1.2, 1.3, 1.4",
+            "OWASP: LLM03-7d, LLM05-7,"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.8.2.R1",
+              "parent_task_id": "PW.8.2",
+              "item_type": "R",
+              "statement": "Test all AI models for vulnerabilities in accordance with the organization’s code testing policies or guidelines.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.2, 2.3, 2.7; Manage 1.1, 1.2, 1.3, 1.4",
+                "OWASP: LLM03-7d, LLM05-7,"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.9",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Configure Software to Have Secure Settings by Default",
+      "tasks": [
+        {
+          "task_id": "PW.9.1",
+          "task_statement": "Define a secure baseline by determining how to configure each setting",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Measure 2.7 Notes Specific to AI Model Development the software at the time of installation to reduce the likelihood of the software being deployed with weak security settings, putting it at greater risk of compromise. that has an effect on security or a security-related setting so that the default settings are secure and do not weaken the security functions provided by the platform, network infrastructure, or services."
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "PW.9.2",
+          "task_statement": "Implement the default settings (or groups of default settings, if applicable), and document each setting for software administrators.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Measure 2.7; Manage 1.2, 1.3, 1.4"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.9.2.N1",
+              "parent_task_id": "PW.9.2",
+              "item_type": "N",
+              "statement": "Documenting settings can be performed earlier in the process, such as when defining a secure baseline (see PW.9.1).",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Measure 2.7; Manage 1.2, 1.3, 1.4"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "RV.1",
+      "practice_group": "RV",
+      "practice_group_name": "Respond to Vulnerabilities",
+      "practice_name": "Identify and Confirm Vulnerabilities on an Ongoing Basis",
+      "tasks": [
+        {
+          "task_id": "RV.1.1",
+          "task_statement": "Gather information from software acquirers, users, and public sources on potential vulnerabilities in the software and third-party components that the software uses, and investigate all credible reports.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 4.3, 5.1, 6.1, 6.2; Measure 1.2, 2.4, 2.5, 2.7, 3.1, 3.2, 3.3; Manage 4.1",
+            "OWASP: LLM03-7a, LLM09, LLM10"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "RV.1.1.R1",
+              "parent_task_id": "RV.1.1",
+              "item_type": "R",
+              "statement": "Log, monitor, and analyze all inputs and outputs for AI models to detect possible security and performance issues (see PO.5.3).",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3, 5.1, 6.1, 6.2; Measure 1.2, 2.4, 2.5, 2.7, 3.1, 3.2, 3.3; Manage 4.1",
+                "OWASP: LLM03-7a, LLM09, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.1.1.R2",
+              "parent_task_id": "RV.1.1",
+              "item_type": "R",
+              "statement": "Make the users of AI models aware of mechanisms for reporting potential security and performance issues.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3, 5.1, 6.1, 6.2; Measure 1.2, 2.4, 2.5, 2.7, 3.1, 3.2, 3.3; Manage 4.1",
+                "OWASP: LLM03-7a, LLM09, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.1.1.R3",
+              "parent_task_id": "RV.1.1",
+              "item_type": "R",
+              "statement": "Monitor vulnerability and incident databases for information on AI-related concerns, including the machine learning frameworks and libraries used to build AI models.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3, 5.1, 6.1, 6.2; Measure 1.2, 2.4, 2.5, 2.7, 3.1, 3.2, 3.3; Manage 4.1",
+                "OWASP: LLM03-7a, LLM09, LLM10"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "RV.1.2",
+          "task_statement": "Review, analyze, and/or test the software’s code to identify or confirm the presence of previously undetected vulnerabilities.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 4.3; Measure 1.3, 2.4, 2.7, 3.1; Manage 4.1",
+            "OWASP: LLM03-7b, LLM03-7d"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "RV.1.2.R1",
+              "parent_task_id": "RV.1.2",
+              "item_type": "R",
+              "statement": "Scan and test AI models frequently to identify previously undetected vulnerabilities.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3; Measure 1.3, 2.4, 2.7, 3.1; Manage 4.1",
+                "OWASP: LLM03-7b, LLM03-7d"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.1.2.R2",
+              "parent_task_id": "RV.1.2",
+              "item_type": "R",
+              "statement": "Rely mainly on automation for ongoing scanning and testing, and involve a human-in-the-loop as needed.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3; Measure 1.3, 2.4, 2.7, 3.1; Manage 4.1",
+                "OWASP: LLM03-7b, LLM03-7d"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.1.2.R3",
+              "parent_task_id": "RV.1.2",
+              "item_type": "R",
+              "statement": "Conduct periodic audits of AI models.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3; Measure 1.3, 2.4, 2.7, 3.1; Manage 4.1",
+                "OWASP: LLM03-7b, LLM03-7d"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "RV.1.3",
+          "task_statement": "Have a policy that addresses vulnerability disclosure and remediation, and implement the roles, responsibilities, and processes needed to support that policy.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 4.3, 5.1, 6.1; Measure 3.1,"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "RV.1.3.R1",
+              "parent_task_id": "RV.1.3",
+              "item_type": "R",
+              "statement": "Include AI model vulnerabilities in organization vulnerability disclosure and remediation policies.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3, 5.1, 6.1; Measure 3.1,"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.1.3.R2",
+              "parent_task_id": "RV.1.3",
+              "item_type": "R",
+              "statement": "Make users of AI models aware of their inherent limitations and how to report any cybersecurity problems that they encounter.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 4.3, 5.1, 6.1; Measure 3.1,"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "RV.2",
+      "practice_group": "RV",
+      "practice_group_name": "Respond to Vulnerabilities",
+      "practice_name": "Assess, Prioritize, and Remediate Vulnerabilities",
+      "tasks": [
+        {
+          "task_id": "RV.2.1",
+          "task_statement": "Analyze each vulnerability to gather sufficient information about risk to",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Govern 4.3, 5.1, 6.1; Measure 2.7, Notes Specific to AI Model Development with risk to reduce the window of opportunity for attackers. plan its remediation or other risk response. 3.1; Manage 1.2, 2.3, 4.1"
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "RV.2.2",
+          "task_statement": "Plan and implement risk responses for vulnerabilities.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 5.1, 5.2, 6.1; Measure 3.3; Manage 1.3, 2.1,"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "RV.2.2.R1",
+              "parent_task_id": "RV.2.2",
+              "item_type": "R",
+              "statement": "Risk responses for AI models should consider the time and expenses that may be associated with rebuilding them.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 5.1, 5.2, 6.1; Measure 3.3; Manage 1.3, 2.1,"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.2.2.R2",
+              "parent_task_id": "RV.2.2",
+              "item_type": "R",
+              "statement": "Be prepared to roll back to a previous AI model, since that may be the most feasible response in some cases.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 5.1, 5.2, 6.1; Measure 3.3; Manage 1.3, 2.1,"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            },
+            {
+              "augmentation_id": "RV.2.2.C1",
+              "parent_task_id": "RV.2.2",
+              "item_type": "C",
+              "statement": "Consider being prepared to stop using an AI model at any time and to continue operations through other means until the AI model’s risks are sufficiently addressed.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 5.1, 5.2, 6.1; Measure 3.3; Manage 1.3, 2.1,"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "practice_id": "RV.3",
+      "practice_group": "RV",
+      "practice_group_name": "Respond to Vulnerabilities",
+      "practice_name": "Analyze Vulnerabilities to Identify Their Root Causes",
+      "tasks": [
+        {
+          "task_id": "RV.3.1",
+          "task_statement": "Analyze identified vulnerabilities to determine their root causes.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": false,
+          "informative_references": [
+            "AI RMF: Govern 5.1, 6.1; Measure 2.7, 3.1; Manage 2.3, 4.1"
+          ],
+          "augmentations": [
+            {
+              "augmentation_id": "RV.3.1.N1",
+              "parent_task_id": "RV.3.1",
+              "item_type": "N",
+              "statement": "The ability to review training, testing, fine-tuning, and aligning data after the fact can help identify some root causes.",
+              "notes": "",
+              "informative_references": [
+                "AI RMF: Govern 5.1, 6.1; Measure 2.7, 3.1; Manage 2.3, 4.1"
+              ],
+              "applies_to": [
+                "both"
+              ]
+            }
+          ]
+        },
+        {
+          "task_id": "RV.3.2",
+          "task_statement": "Analyze the root causes over time to identify patterns, such as a particular secure coding practice not being followed consistently.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Govern 5.1, 6.1; Measure 2.7, 3.1; Manage 4.1, 4.3"
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "RV.3.3",
+          "task_statement": "Review the software for similar vulnerabilities to eradicate a class of vulnerabilities, and proactively fix them rather than waiting for external reports.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Govern 5.1, 5.2, 6.1; Measure 2.7, 3.1; Manage 4.1, 4.2, 4.3"
+          ],
+          "augmentations": []
+        },
+        {
+          "task_id": "RV.3.4",
+          "task_statement": "Review the SDLC process, and update it if appropriate to prevent (or reduce the likelihood of) the root cause recurring in updates to the software or in new software that is created.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "Medium",
+          "no_additions": true,
+          "informative_references": [
+            "AI RMF: Govern 5.2, 6.1; Measure 2.7, 3.1; Manage 4.2, 4.3 References 293 [1] Executive Order 14110 (2023) Safe, Secure, and Trustworthy Development and Use of Artificial Intelligence. (The White House, Washington, DC), DCPD-202300949, October 30, 2022. Available at https://www.govinfo.gov/app/details/DCPD-202300949 [2] National Institute of Standards and Technology (2023) Artificial Intelligence Risk Management Framework (AI RMF 1.0). (National Institute of Standards and Technology, Gaithersburg, MD) NIST Artificial Intelligence (AI) Report, NIST AI 100-1. https://doi.org/10.6028/NIST.AI.100-1 [3] Vassilev A, Oprea A, Fordyce A, Anderson H (2024) Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations. (National Institute of Standards and Technology, Gaithersburg, MD) NIST Artificial Intelligence (AI) Report, NIST AI 100-2e2023. https://doi.org/10.6028/NIST.AI.100-2e2023 [4] Schwartz R, Vassilev A, Greene K, Perine L, Burt A, Hall P (2022) Towards a Standard for Identifying and Managing Bias in Artificial Intelligence. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Special Publication (SP) 1270. https://doi.org/10.6028/NIST.SP.1270 [5] NIST (2024) Dioptra. (National Institute of Standards and Technology, Gaithersburg, MD.) Available at https://pages.nist.gov/dioptra/ [6] Souppaya MP, Scarfone KA, Dodson DF (2022) Secure Software Development Framework (SSDF) Version 1.1: Recommendations for Mitigating the Risk of Software Vulnerabilities. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Special Publication (SP) 800-218. https://doi.org/10.6028/NIST.SP.800-218 [7] Executive Order 14028 (2021) Improving the Nation’s Cybersecurity. (The White House, Washington, DC), DCPD-202100401, May 12, 2021. Available at https://www.govinfo.gov/app/details/DCPD-202100401 [8] National Institute of Standards and Technology (2024) The NIST Cybersecurity Framework (CSF) 2.0 (National Institute of Standards and Technology, Gaithersburg, MD). https://doi.org/10.6028/NIST.CSWP.29 [9] Joint Task Force (2020) Security and Privacy Controls for Information Systems and Organizations. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Special Publication (SP) 800-53, Rev. 5. Includes updates as of December 10, 2020. https://doi.org/10.6028/NIST.SP.800-53r5 [10] Boyens JM, Smith AM, Bartol N, Winkler K, Holbrook A, Fallon M (2022) Cybersecurity Supply Chain Risk Management Practices for Systems and Organizations. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Special Publication (SP) 800-161r1. https://doi.org/10.6028/NIST.SP.800-161r1 [11] NIST (2023) NIST AI RMF Playbook. (National Institute of Standards and Technology, Gaithersburg, MD.) Available at https://airc.nist.gov/AI_RMF_Knowledge_Base/Playbook [12] National Institute of Standards and Technology (2020) NIST Privacy Framework: A Tool for Improving Privacy Through Enterprise Risk Management, Version 1.0. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Cybersecurity White Paper (CSWP) NIST CSWP 10. https://doi.org/10.6028/NIST.CSWP.10 [13] Stine KM, Quinn SD, Witte GA, Gardner RK (2020) Integrating Cybersecurity and Enterprise Risk Management (ERM). (National Institute of Standards and Technology, Gaithersburg, MD), NIST Interagency or Internal Report (IR) 8286. https://doi.org/10.6028/NIST.IR.8286 [14] OWASP (2023) OWASP Top 10 for LLM Applications Version 1.1. Available at https://llmtop10.com [15] Waltermire DA, Scarfone KA, Casipe M (2011) Specification for the Open Checklist Interactive Language (OCIL) Version 2.0. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Interagency or Internal Report (IR) 7692. https://doi.org/10.6028/NIST.IR.7692 [16] Ross RS, McEvilley M, Winstead M (2022) Engineering Trustworthy Secure Systems. (National Institute of Standards and Technology, Gaithersburg, MD), NIST Special Publication (SP) NIST SP 800-160v1r1. https://doi.org/10.6028/NIST.SP.800-160v1r1 [17] NIST/SEMATECH (2012) What is EDA? Engineering Statistics Handbook, eds Croarkin C, Tobias P (National Institute of Standards and Technology, Gaithersburg, MD), Section 1.1.1. Available at https://www.itl.nist.gov/div898/handbook/eda/section1/eda11.htm Appendix A. Glossary 352 artificial intelligence A machine-based system that can, for a given set of human-defined objectives, make predictions, recommendations, or decisions influencing real or virtual environments. [1] artificial intelligence model A component of an information system that implements AI technology and uses computational, statistical, or machine-learning techniques to produce outputs from a given set of inputs. [1] artificial intelligence red-teaming A structured testing effort to find flaws and vulnerabilities in an AI system, often in a controlled environment and in collaboration with developers of AI. [1] artificial intelligence system Any data system, software, hardware, application, tool, or utility that operates in whole or in part using AI. [1] dual-use foundation model An AI model that is trained on broad data; generally uses self-supervision; contains at least tens of billions of parameters; is applicable across a wide range of contexts; and that exhibits, or could be easily modified to exhibit, high levels of performance at tasks that pose a serious risk to security, national economic security, national public health or safety, or any combination of those matters, such as by: (i) substantially lowering the barrier of entry for non-experts to design, synthesize, acquire, or use chemical, biological, radiological, or nuclear (CBRN) weapons; (ii) enabling powerful offensive cyber operations through automated vulnerability discovery and exploitation against a wide range of potential targets of cyber attacks; or (iii) permitting the evasion of human control or oversight through means of deception or obfuscation. Models meet this definition even if they are provided to end users with technical safeguards that attempt to prevent users from taking advantage of the relevant unsafe capabilities. [1] generative artificial intelligence The class of AI models that emulate the structure and characteristics of input data in order to generate derived synthetic content. This can include images, videos, audio, text, and other digital content. [1] model weight A numerical parameter within an AI model that helps determine the model’s outputs in response to inputs. [1] provenance Metadata pertaining to the origination or source of specified data. [12]"
+          ],
+          "augmentations": []
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "emitter": "scripts/extract-800-218A.mjs",
+    "emittedAt": "2024-04-29",
+    "sourceCalls": [
+      "pdf-parse:docs/sources/nist-sp-800-218A.ipd.pdf"
+    ],
+    "sourceDigests": [
+      {
+        "kind": "nist-pdf",
+        "path": "docs/sources/nist-sp-800-218A.ipd.pdf",
+        "sha256": "ac31ee546574d7e9d0db8d93de5a1bd735cefd336fdc0f96a8613e0f63f584a2"
+      },
+      {
+        "kind": "ssdf-base-catalog",
+        "path": "data/ssdf-800-218-v1.1.json",
+        "sha256": "join-key-only"
+      }
+    ],
+    "signingKeyId": "unsigned-vendored-reference"
+  }
+}

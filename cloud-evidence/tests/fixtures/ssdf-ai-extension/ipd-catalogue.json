@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "version": "IPD",
+  "publication": {
+    "sp": "800-218A",
+    "title": "Secure Software Development Practices for Generative AI and Dual-Use Foundation Models: An SSDF Community Profile",
+    "publication_date": "2024-04-29"
+  },
+  "sha256_source_pdf": "ac31ee546574d7e9d0db8d93de5a1bd735cefd336fdc0f96a8613e0f63f584a2",
+  "statistics": { "practice_count": 2, "task_count": 3, "augmentation_count": 3, "new_ai_task_count": 1 },
+  "practices": [
+    {
+      "practice_id": "PO.1",
+      "practice_group": "PO",
+      "practice_group_name": "Prepare the Organization",
+      "practice_name": "Define Security Requirements for Software Development",
+      "tasks": [
+        {
+          "task_id": "PO.1.1",
+          "task_statement": "Identify and document all security requirements for the organization's software development infrastructures and processes, and maintain the requirements over time.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": ["AI RMF: Map 1.3, 1.5, 1.6"],
+          "augmentations": [
+            {
+              "augmentation_id": "PO.1.1.R1",
+              "parent_task_id": "PO.1.1",
+              "item_type": "R",
+              "statement": "Include AI model development in the security requirements for software development infrastructure and processes.",
+              "notes": "",
+              "informative_references": ["AI RMF: Map 1.3, 1.5, 1.6"],
+              "applies_to": ["both"]
+            }
+          ]
+        },
+        {
+          "task_id": "PO.1.2",
+          "task_statement": "Identify and document all security requirements for organization-developed software to meet, and maintain the requirements over time.",
+          "ssdf_1_1_tag": "unchanged",
+          "base_task_present": true,
+          "priority": "High",
+          "no_additions": true,
+          "informative_references": [],
+          "augmentations": []
+        }
+      ]
+    },
+    {
+      "practice_id": "PW.3",
+      "practice_group": "PW",
+      "practice_group_name": "Produce Well-Secured Software",
+      "practice_name": "Confirm the Integrity of Training, Testing, Fine-Tuning, and Aligning Data Before Use",
+      "tasks": [
+        {
+          "task_id": "PW.3.1",
+          "task_statement": "Analyze data for signs of data poisoning, bias, homogeneity, and tampering before using it for AI model training, testing, fine-tuning, or aligning.",
+          "ssdf_1_1_tag": "not-part-of-ssdf-1.1",
+          "base_task_present": false,
+          "priority": "High",
+          "no_additions": false,
+          "informative_references": ["OWASP: LLM03, LLM06"],
+          "augmentations": [
+            {
+              "augmentation_id": "PW.3.1.R1",
+              "parent_task_id": "PW.3.1",
+              "item_type": "R",
+              "statement": "Verify the provenance (when known) and integrity of training, testing, fine-tuning, and aligning data before use.",
+              "notes": "",
+              "informative_references": ["OWASP: LLM03, LLM06"],
+              "applies_to": ["both"]
+            },
+            {
+              "augmentation_id": "PW.3.1.C1",
+              "parent_task_id": "PW.3.1",
+              "item_type": "C",
+              "statement": "Consider using a human-in-the-loop to examine data, such as with exploratory data analysis techniques.",
+              "notes": "",
+              "informative_references": [],
+              "applies_to": ["dual-use-foundation-model"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

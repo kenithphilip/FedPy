@@ -32,6 +32,8 @@ cloud-evidence/data/*
 !cloud-evidence/data/ndaa-1634-named-entities.json
 !cloud-evidence/data/fascsa-orders.json
 !cloud-evidence/data/ssdf-800-218-v1.1.json
+!cloud-evidence/data/ssdf-800-218A-ipd.json
+!cloud-evidence/data/ssdf-800-218A-final.json
 # Curated extractor input (LOOP-T.T1) — version-controlled reference data, not
 # runtime state. Re-include the scripts/data dir so the file below un-ignores.
 !cloud-evidence/scripts/data/

@@ -15,6 +15,7 @@
     "gen:iam-actions": "node scripts/extract-iam-actions.mjs",
     "gen:oscal-schemas": "node scripts/extract-oscal-schemas.mjs",
     "build:ssdf-catalog": "tsx scripts/extract-ssdf-practices.mjs",
+    "build:ssdf-ai-catalog": "tsx scripts/extract-800-218A.mjs",
     "lint:no-stubs": "node scripts/lint-no-stubs.mjs",
     "check:provenance": "node scripts/check-provenance.mjs",
     "check:coverage-regression": "node scripts/check-coverage-regression.mjs",

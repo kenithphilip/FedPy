@@ -68,6 +68,20 @@ output_dir: ./out
 ssdf:
   # Optional human label for the attestation regime (free text).
   regime: "OMB M-22-18 as amended by M-23-16"
+  # ── T.T5 — NIST SP 800-218A SSDF-AI extension (all optional) ──
+  # When ai_augmentation_enabled is true AND --ssdf-attestation is set AND at
+  # least one model card under out/model-cards/ (LOOP-O.O5) is in AI scope, the
+  # orchestrator augments the T.T2 matrix with the 800-218A R/C/N items for
+  # AI-bearing products. Default false — with LOOP-O.O5 unshipped there are no
+  # model cards, so the step no-ops (coverage:skipped).
+  ai_augmentation_enabled: false
+  # Which committed 800-218A catalogue to treat as primary. Default 'IPD' per the
+  # T.T5 spec brief; 'final' selects the canonical July-2024 publication. The
+  # emitted delta sidecar + drift threshold surface any IPD-vs-final divergence.
+  primary_catalogue: IPD
+  # Optional explicit in-scope product allow-list. Empty ⇒ auto-detect from every
+  # model card whose ai_use_case is non-empty (or is a dual-use foundation model).
+  ai_products_in_scope: []
   # Products assessed by the T.T2 satisfaction matrix (one matrix per product).
   # The T.T4 re-attestation cadence / material-change detector (also gated by
   # --ssdf-attestation) reads the OPTIONAL fields below. When `regime` is absent

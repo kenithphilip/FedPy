@@ -126,7 +126,10 @@ type Role =
   | 'ssdf-common-form-json'
   | 'ssdf-material-change-events-json'
   | 'ssdf-attestation-ledger'
-  | 'ssdf-attestation-snapshot';
+  | 'ssdf-attestation-snapshot'
+  | 'ssdf-ai-augmentation-json'
+  | 'ssdf-ai-augmentation-xlsx'
+  | 'ssdf-satisfaction-matrix-augmented';
 
 interface WellKnownArtifact {
   role: Role;
@@ -194,6 +197,9 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'ssdf-material-change-events-json', filename: 'ssdf-material-change-events.json', description: 'SSDF annual re-attestation cadence + material-change detector output — signed; per-(product × agency) next-due cadence rows + typed MaterialChangeEvent[] diffing successive T.T2 matrix snapshots (OMB M-23-16 §III binding-clause trigger) (LOOP-T.T4)' },
   { role: 'ssdf-attestation-ledger', filename: 'ssdf-attestation-ledger.jsonl', description: 'Append-only ledger of detector runs (run_id, product, matrix sha256, snapshot path, regime, agencies, events, next-due) — the matrix-snapshot version-chain index (LOOP-T.T4)' },
   { role: 'ssdf-attestation-snapshot', filename: /^ssdf-attestation-snapshots\/[a-z0-9-]+\/[0-9a-f]{64}\.json$/, description: 'Immutable content-addressed snapshot of a T.T2 satisfaction matrix, hashed into the ledger so the material-change diff baseline is reconstructable (LOOP-T.T4)' },
+  { role: 'ssdf-ai-augmentation-json', filename: 'ssdf-ai-augmentation.json', description: 'NIST SP 800-218A AI augmentation matrix — signed; per-in-scope-product join of the 800-218A R/C/N item catalogue to the T.T2 matrix + LOOP-O.O5 model cards, gated by --ssdf-attestation + config.ssdf.ai_augmentation_enabled (LOOP-T.T5)' },
+  { role: 'ssdf-ai-augmentation-xlsx', filename: 'ssdf-ai-augmentation.xlsx', description: 'Operator-readable XLSX twin of ssdf-ai-augmentation.json — Summary + per-product matrix + IPD-vs-final delta + statutory-lineage worksheets (LOOP-T.T5)' },
+  { role: 'ssdf-satisfaction-matrix-augmented', filename: 'ssdf-satisfaction-matrix.augmented.json', description: 'T.T2 satisfaction matrix re-emitted with 800-218A augmentations interleaved under each parent task (+ new AI tasks appended); signed; read by a future T.T3 revision to render an AI-aware form companion (LOOP-T.T5)' },
 ];
 
 // ─── Tar (POSIX ustar) writer ────────────────────────────────────────────────

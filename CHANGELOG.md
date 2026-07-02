@@ -6,6 +6,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added — LOOP-T.T5: SP 800-218A SSDF-AI Extension (completes LOOP-T, 5 of 5)
+
+Shipped the AI-model augmentation layer of the SSDF self-attestation programme —
+NIST SP 800-218A ("Secure Software Development Practices for Generative AI and
+Dual-Use Foundation Models: An SSDF Community Profile", final 2024-07-26). T.T5
+augments the T.T2 per-practice satisfaction matrix with the 800-218A
+AI-model-specific Recommendation / Consideration / Note items for any in-scope
+product whose LOOP-O.O5 model card declares an AI use case or dual-use
+foundation-model status, so a producer signing the CISA Common Form for an
+AI-bearing product can machine-verifiably attest to the full augmented framework
+rather than the base SSDF alone. Statutory lineage: EO 14028 §4(e) → EO 14110
+§4.2(a)(i) (rescinded by EO 14148, 2025-01-20) → NIST SP 800-218A (not withdrawn)
+→ OMB M-26-05 (risk-based tailored regime). The augmentation catalogue is
+extracted **verbatim** from the published NIST PDFs (both the IPD and the final
+publication were downloaded from the pinned CSRC URLs and committed to
+`docs/sources/` with `.sha256` siblings) — no augmentation text, id, priority, or
+informative reference is invented (REO Rule 1).
+
+**New files.** `scripts/extract-800-218A.mjs` (offline, deterministic extractor
+via `pdf-parse` — the T.T1 convention) emits `data/ssdf-800-218A-ipd.json`,
+`data/ssdf-800-218A-final.json`, and `docs/sources/ssdf-800-218A-delta.json`
+(final catalogue: 20 practices, 48 tasks, 86 R/C/N items, 6 new AI tasks; wired
+as `npm run build:ssdf-ai-catalog`). `core/ssdf-ai-extension.ts` is the pure
+aggregator (catalogue loader + integrity check, model-card walker with graceful
+absence, the §6.6 derivation engine, evidence-pointer merge, roll-up,
+guardrail-safe augmented-matrix re-emit, provenance + detached Ed25519 signing,
+additive `inventory-coverage.json` augmentation). `core/ssdf-ai-extension-xlsx.ts`
+renders the operator workbook (Summary + per-product columns A..O + IPD-vs-final
+delta + statutory-lineage worksheets). Tests: `tests/core/ssdf-ai-extension.test.ts`
+(29) + `tests/core/ssdf-ai-extension-xlsx.test.ts` (4) with two catalogue
+fixtures. **Modified files.** `core/orchestrator.ts` (+new step under the existing
+`--ssdf-attestation` gate, after T.T2, before T.T3), `core/submission-bundle.ts`
+(+3 `WELL_KNOWN` roles), `core/ssdf-common-form.ts` (minimal reader diff — skip
+`.augmented.json` to avoid double-counting), `config.yaml` (+`ssdf.ai_augmentation_enabled`
+/`primary_catalogue`/`ai_products_in_scope`), `package.json`, `scripts/lint-no-stubs.mjs`
+(allowlist the verbatim-catalogue extractor).
+
+**Outputs** (all under the run manifest + RFC 3161 TSR): `out/ssdf-ai-augmentation.json`
+(+`.sig`), `out/ssdf-ai-augmentation.xlsx`, `out/ssdf-satisfaction-matrix.augmented.json`
+(+`.sig`). Per-augmentation status ∈ {satisfied, partially-satisfied, not-satisfied,
+not-assessed, requires-operator-input, not-applicable}. Augmentations interleave
+under each base task as `ai_augmentations[]` (not sibling task rows) so
+`check:ssdf-no-silent-pass` still sees only the base tasks; the 6 new 800-218A AI
+tasks (PW.3.1–3.3, PS.1.2/1.3, PO.5.3 — absent from base SSDF v1.1) append as
+`requires-operator-input` rows when evidence-less.
+
+**Verification.** `npx tsc --noEmit` clean; **1341/1341 tests passing** (+33);
+`npm run check:reo` returns 0 (G1 lint:no-stubs, G3 check:provenance, G2
+coverage-regression skip, check:ssdf-no-silent-pass all green).
+
+**Spec reconciliation + REO posture.** (1) The published 800-218A uses per-task
+Recommendation/Consideration/Note ids `<task>.R/.C/.N<n>` — NOT the spec
+§2.6/§4.1-assumed `<task>.A<n>` (LOOP-T-RISKS T.T5-16). (2) 800-218A re-introduces
+tasks absent from base SSDF v1.1; these are `base_task_present:false` and roll up
+`requires-operator-input` when evidence-less (T.T5-17). (3) RFC 3161 coverage is
+the run-manifest TSR, not a per-file `.tsr` (T.T5-21). (4) **Realizable-core /
+graceful degradation** (T.T5-20): LOOP-O.O5 is unimplemented, so no model cards
+exist — the orchestrator step is fully wired + fixture-tested but no-ops
+(`coverage:skipped`, reason `no-model-cards`) in a normal run, the same posture as
+T.T2/T.T3/T.T4/W.W3/W.W4; it never fabricates AI evidence (REO Rule 4). Deferred:
+the React `/ssdf/ai-augmentation` worksheet page (no tracker subsystem in this
+repo — T.T5-22). Shipping T.T5 **completes LOOP-T (5 of 5)**.
+
 ### Added — LOOP-T.T4: Annual SSDF Re-Attestation Workflow + Material-Change Detector
 
 Shipped the lifecycle layer of the SSDF self-attestation programme — the
