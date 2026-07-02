@@ -62,7 +62,7 @@ signature; the system never auto-approves and never fabricates an acceptance (no
 snapshot ⇒ every risk stays `open`, logged `risk-acceptance:missing-snapshot`).
 Statutory drivers: NIST SP 800-53 Rev 5 CA-5 + RA-7; NIST SP 800-37 Rev 2 Task
 R-2; OSCAL POA&M v1.1.2 `risk.status`; FedRAMP Continuous Monitoring Strategy &
-Guide (Deviation Request); FIPS 186-5 (Ed25519); RFC 8785 (JCS). Commit `TBD-B3`.
+Guide (Deviation Request); FIPS 186-5 (Ed25519); RFC 8785 (JCS). Commit `99f5afe`.
 
 ### Added — LOOP-T.T5: SP 800-218A SSDF-AI Extension (completes LOOP-T, 5 of 5)
 

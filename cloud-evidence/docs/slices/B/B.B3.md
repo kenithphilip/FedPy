@@ -3,7 +3,7 @@ slice_id: B.B3
 title: Risk acceptance workflow (tracker DB + signed audit record + OSCAL deviation-approved propagation)
 loop: B
 status: done
-commit: TBD-B3
+commit: 99f5afe
 completed_date: 2026-07-02
 depends_on: [LOOP-A.A1, LOOP-A.A3, B.B1, B.B2]
 blocks: [B.B4, B.B5, E.E5, F.F1, C.C7]
