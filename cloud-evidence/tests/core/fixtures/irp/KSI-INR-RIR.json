@@ -1,0 +1,72 @@
+{
+  "ksi_id": "KSI-INR-RIR",
+  "ksi_name": "Reviewing Incident Response Procedures",
+  "ksi_statement": "Persistently review the effectiveness of documented incident response procedures.",
+  "scope": "HYBRID",
+  "frmr_version": "0.9.43-beta",
+  "run_id": "fixture-inr-rir",
+  "collected_at": "2026-05-01T00:00:00Z",
+  "providers": [
+    {
+      "provider": "aws",
+      "account_id": "111111111111",
+      "region_set": ["us-east-1"],
+      "evidence": [],
+      "findings": [
+        {
+          "rule": "aws.cloudtrail.org_trail_active",
+          "passed": true,
+          "severity": "high",
+          "current_state": {
+            "summary": "Organization CloudTrail is active in all regions; management + data events are logged.",
+            "observations": { "trail_count": 1, "is_multi_region": true }
+          },
+          "target_state": { "summary": "Org-wide audit logging active.", "rationale": "NIST AU-2/IR-4." }
+        },
+        {
+          "rule": "aws.guardduty.enabled",
+          "passed": true,
+          "severity": "medium",
+          "current_state": {
+            "summary": "GuardDuty threat detection is enabled in the monitored regions.",
+            "observations": { "detector_count": 1 }
+          },
+          "target_state": { "summary": "Threat detection active.", "rationale": "NIST IR-4." }
+        },
+        {
+          "rule": "aws.securityhub.finding_triage_lifecycle_active",
+          "passed": true,
+          "severity": "low",
+          "current_state": {
+            "summary": "Security Hub finding-triage lifecycle is active; findings move out of NEW.",
+            "observations": { "new": 3, "notified": 12 }
+          },
+          "target_state": { "summary": "Findings are being triaged.", "rationale": "NIST CA-7/IR-4." }
+        },
+        {
+          "rule": "aws.cloudtrail.insights_enabled",
+          "passed": false,
+          "severity": "medium",
+          "current_state": {
+            "summary": "CloudTrail Insights is not enabled — anomalous API call-rate detection is off.",
+            "observations": { "insights_enabled": false }
+          },
+          "target_state": { "summary": "Anomalous-API-rate detection on.", "rationale": "NIST IR-4/SI-4." },
+          "gap": {
+            "description": "No anomalous-API-rate detection.",
+            "affected_resources": [{ "type": "aws_cloudtrail", "identifier": "org-trail" }]
+          }
+        }
+      ]
+    }
+  ],
+  "rollup": {
+    "pass": false,
+    "passing_findings": 3,
+    "failing_findings": 1,
+    "warnings": [],
+    "missing_evidence": [],
+    "alternatives_in_play": 0
+  },
+  "nist_controls": ["ir-4", "ir-4.1"]
+}

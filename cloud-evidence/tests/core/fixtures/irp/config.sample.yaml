@@ -1,0 +1,84 @@
+# Sample operator config for the Incident Response Plan (LOOP-C.C3, --irp).
+# Consumed only when --irp / --irp-test-aar is set. Mirrors the config.yaml
+# `irp:` section shape. Every field is verbatim operator input; omit a field to
+# get a REQUIRES-OPERATOR-INPUT (or, for the escalation matrix / classification
+# levels, a REQUIRES-OPERATOR-INPUT-VERIFY FedRAMP-baseline default) in the doc.
+irp:
+  # IR structure. Defaults to 800-61r3 (current NIST standard). Use 800-61r2 only
+  # for reviewers still on the withdrawn four-phase model.
+  spec_version: 800-61r3
+
+  # §2 Roles & Responsibilities — the six IR-team roles.
+  team_roster:
+    - role: "IR Lead"
+      name: "Sam Okafor"
+      org: "Acme Corp — Security"
+      email: "ir-lead@acme.example"
+      phone: "+1-555-0100"
+      on_call: true
+    - role: "IR Analyst"
+      name: "Jordan Lee"
+      org: "Acme Corp — SOC"
+      email: "soc@acme.example"
+      phone: "+1-555-0101"
+      on_call: true
+
+  # §8 Escalation matrix. Omit to get the FedRAMP-ICP baseline (verify-marked).
+  escalation:
+    - severity: critical
+      sla_minutes: 60
+      notify: ["IR Lead", "Executive Liaison", "FedRAMP PMO", "CISA US-CERT"]
+    - severity: high
+      sla_minutes: 60
+      notify: ["IR Lead", "Communications"]
+
+  # §7 External contacts. Omit to get the published role-based defaults.
+  external_contacts:
+    - entity: "FedRAMP PMO"
+      contact: "info@fedramp.gov"
+      channel: email
+      sla_hours: 1
+    - entity: "CISA"
+      contact: "report@cisa.gov"
+      channel: web-form
+      sla_hours: 4
+
+  # §6 Communications plan.
+  communications:
+    internal: "IR Lead notifies the on-call rotation via PagerDuty; status posted to #incident."
+    external: "Communications Lead notifies affected agency POCs + the FedRAMP PMO per §9."
+    media: "No public statement without Legal + Executive Liaison approval."
+
+  # §3 Incident classification levels. Omit to get the FedRAMP-baseline rows.
+  classification_levels:
+    - severity: "Critical"
+      definition: "Confirmed compromise of federal-data confidentiality/integrity/availability."
+      examples: ["Confirmed exfiltration of federal customer data"]
+
+  # CP-4/IR-3 test After-Action Report input (--irp-test-aar).
+  test:
+    test_date: "2026-05-01"
+    test_type: tabletop
+    test_coordinator: "Sam Okafor"
+    participants:
+      - role: "Incident Commander"
+        name: "Sam Okafor"
+        org: "Acme Corp"
+    scenarios:
+      - id: "S1"
+        description: "Simulated credential-stuffing against the authenticated surface."
+        severity: high
+        detection_time_minutes: 12
+        response_time_minutes: 25
+        containment_time_minutes: 40
+        eradication_time_minutes: 70
+        recovery_time_minutes: 95
+        outcome: pass
+    lessons_learned:
+      - id: "L1"
+        phase: respond
+        finding: "On-call paging had a 5-minute delay."
+        severity: medium
+        recommendation: "Tune the PagerDuty escalation policy."
+        owner: "SRE"
+        due_date: "2026-06-01"

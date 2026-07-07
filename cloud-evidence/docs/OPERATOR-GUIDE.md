@@ -269,6 +269,9 @@ are set.
 | `--iscp-rpo-hours` | number | §4.1 Recovery Point Objective in hours (overrides `config.yaml: iscp.rpo.hours`). |
 | `--iscp-test-date` | ISO date | AAR test date (overrides `config.yaml: iscp.test.test_date`). |
 | `--iscp-test-type` | `tabletop`\|`functional`\|`full-interruption` | AAR test type (overrides `config.yaml: iscp.test.test_type`). |
+| `--irp` | `out/irp.docx` | LOOP-C.C3. Incident Response Plan (IR-8/IR-3/IR-4/IR-6) — 11 sections structured per NIST SP 800-61 Rev. 3 (CSF 2.0 phases). §4 Detect auto-filled from the real signed KSI-INR-RIR evidence (one row per collector finding + a coverage % from the pass ratio; <95% warns); §9 Reporting SLAs bake the FedRAMP Incident Communications Procedures baselines (1h PMO / 1h agency / 4h CISA); §3 classification levels + §7 external contacts (`info@fedramp.gov`, `report@cisa.gov` — no personal PII) + §8 escalation matrix default to verify-marked FedRAMP baselines. Team roster + communications plan fall back to `REQUIRES-OPERATOR-INPUT`. Deterministic; integrity anchored by the signed submission-bundle INDEX.json. Structured input via `config.yaml: irp.*`. Runs after `--iscp`, before signing. |
+| `--irp-test-aar` | `out/irp-test-aar.docx` | LOOP-C.C3. Incident Response Test After-Action Report (IR-3) — 7 sections with the 5-phase timing matrix (detection → response → containment → eradication → recovery, minutes since onset). Test scenarios + lessons learned are operator-supplied (`config.yaml: irp.test.*`) — never fabricated (empty → a `REQUIRES-OPERATOR-INPUT` row). High/critical lessons route to a §6 POA&M footer note; the §7 sign-off cells stay `REQUIRES-OPERATOR-INPUT` (never auto-signed). Anchors to `out/irp.docx` (SHA-256) when `--irp` ran the same run. |
+| `--irp-spec-version` | `800-61r2`\|`800-61r3` | IR spec version (default `800-61r3`, the current NIST standard; `800-61r2` renders the withdrawn four-phase §5 model). Overrides `config.yaml: irp.spec_version`. |
 | `--ap-roe-href` | path / URL | URL or path embedded in the AP's RoE link (LOOP-A.A2). |
 | `--ap-sampling-href` | path / URL | URL or path embedded in the AP's sampling-methodology link. |
 | `--3pao-name` | string | The 3PAO organization name embedded in the AP. |
@@ -395,6 +398,9 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_ISCP_RPO_HOURS` | (none) | §4.1 Recovery Point Objective hours (overrides `config.yaml: iscp.rpo.hours`). |
 | `CLOUD_EVIDENCE_ISCP_TEST_DATE` | (none) | AAR test date, ISO (overrides `config.yaml: iscp.test.test_date`). |
 | `CLOUD_EVIDENCE_ISCP_TEST_TYPE` | (none) | AAR test type: tabletop\|functional\|full-interruption (overrides `config.yaml: iscp.test.test_type`). |
+| `CLOUD_EVIDENCE_IRP` | `0` | LOOP-C.C3. Emit the Incident Response Plan (IR-8/IR-3/IR-4/IR-6) as `out/irp.docx`. |
+| `CLOUD_EVIDENCE_IRP_TEST_AAR` | `0` | LOOP-C.C3. Emit the Incident Response Test After-Action Report (IR-3) as `out/irp-test-aar.docx`. |
+| `CLOUD_EVIDENCE_IRP_SPEC_VERSION` | (none) | IR spec version: 800-61r2\|800-61r3 (default 800-61r3; overrides `config.yaml: irp.spec_version`). |
 | `CLOUD_EVIDENCE_AP_ROE_HREF` | (none) | URL embedded in AP RoE link. |
 | `CLOUD_EVIDENCE_AP_SAMPLING_HREF` | (none) | URL embedded in AP sampling-methodology link. |
 | `CLOUD_EVIDENCE_3PAO_NAME` | (none) | 3PAO org name embedded in AP. |
@@ -647,6 +653,8 @@ Files emitted depend on the flags you pass.
 | `cmp.docx` | No | `--cmp` (LOOP-C.C1) | OOXML docx (Configuration Management Plan, CM-9; §4 from inventory, §7 from ksi-map) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519), same as roe.docx/ssp.docx |
 | `iscp.docx` | No | `--iscp` (LOOP-C.C2) | OOXML docx (Information System Contingency Plan, CP-2/CP-9/CP-10; §4.2 from RPL-family KSI files, Appendix B from subprocessor inventory) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519) |
 | `iscp-test-aar.docx` | No | `--iscp-test-aar` (LOOP-C.C2) | OOXML docx (Contingency Plan Test After-Action Report, CP-4; operator-supplied scenarios + lessons; anchors to iscp.docx SHA-256) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519) |
+| `irp.docx` | No | `--irp` (LOOP-C.C3) | OOXML docx (Incident Response Plan, IR-8/IR-3/IR-4/IR-6, NIST SP 800-61 Rev. 3 CSF 2.0 phases; §4 Detect from KSI-INR-RIR evidence, §9 Reporting SLAs from the FedRAMP Incident Communications Procedures) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519) |
+| `irp-test-aar.docx` | No | `--irp-test-aar` (LOOP-C.C3) | OOXML docx (Incident Response Test After-Action Report, IR-3; operator-supplied scenarios + 5-phase timing matrix + lessons; anchors to irp.docx SHA-256) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519) |
 | `submission-bundle.tar.gz` | No | `--submission-bundle` | POSIX ustar + gzip | bundle is signed |
 | `inventory.json` + `inventory-workbook.csv` + `…xlsx` + `inventory-oscal.json` + `inventory-cmdb.json` + `inventory-diff.json` + `inventory-cost.json` | No | `--inventory-workbook` | JSON / CSV / XLSX | yes |
 | `crosswalk-report.json` | No | `--crosswalk` | JSON | yes |

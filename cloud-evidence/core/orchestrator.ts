@@ -77,6 +77,15 @@ import {
   emitIscpTestAarDocx,
   type IscpTestParticipant, type IscpTestScenario, type IscpTestLessonLearned,
 } from './iscp-test-aar.ts';
+import {
+  emitIrpDocx,
+  type IrpSpecVersion, type IrpTeamMember, type IrpEscalationRule,
+  type IrpExternalContact, type IrpCommunicationsPlan, type IrpClassificationLevel,
+} from './irp-emit.ts';
+import {
+  emitIrpTestAarDocx,
+  type IrpTestParticipant, type IrpTestScenario, type IrpTestLessonLearned,
+} from './irp-test-aar.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -219,6 +228,25 @@ interface Args {
   iscpTestDate: string | null;
   /** AAR test type (tabletop|functional|full-interruption) — overrides config. */
   iscpTestType: string | null;
+  /**
+   * When true (LOOP-C.C3), render the Incident Response Plan (out/irp.docx) —
+   * IR-8 / IR-3 / IR-4 / IR-6, structured per NIST SP 800-61 Rev. 3 (CSF 2.0
+   * phases). §4 Detect auto-fills from the real KSI-INR-RIR evidence; §9
+   * Reporting SLAs come from the FedRAMP Incident Communications Procedures; the
+   * IR-team roster + communications plan fall back to REQUIRES-OPERATOR-INPUT.
+   * Runs after the ISCP emit + before signing so irp.docx is covered by the
+   * submission bundle. Structured input comes from config.yaml:irp.*.
+   */
+  irp: boolean;
+  /**
+   * When true (LOOP-C.C3), render the Incident Response Test After-Action Report
+   * (out/irp-test-aar.docx) — IR-3. Test scenarios + the 5-phase timing matrix +
+   * lessons learned are operator-supplied via config.yaml:irp.test.*; the report
+   * anchors to the IRP under test (out/irp.docx SHA-256) when emitted the same run.
+   */
+  irpTestAar: boolean;
+  /** IR spec version (800-61r2|800-61r3, default r3) — overrides config.yaml:irp.spec_version. */
+  irpSpecVersion: string | null;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -437,6 +465,9 @@ function parseArgs(argv: string[]): Args {
     iscpRpoHours: process.env.CLOUD_EVIDENCE_ISCP_RPO_HOURS ? Number(process.env.CLOUD_EVIDENCE_ISCP_RPO_HOURS) : null,
     iscpTestDate: process.env.CLOUD_EVIDENCE_ISCP_TEST_DATE ?? null,
     iscpTestType: process.env.CLOUD_EVIDENCE_ISCP_TEST_TYPE ?? null,
+    irp: process.env.CLOUD_EVIDENCE_IRP === '1',
+    irpTestAar: process.env.CLOUD_EVIDENCE_IRP_TEST_AAR === '1',
+    irpSpecVersion: process.env.CLOUD_EVIDENCE_IRP_SPEC_VERSION ?? null,
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -630,6 +661,15 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--iscp-test-type':
         args.iscpTestType = argv[++i] ?? null;
+        break;
+      case '--irp':
+        args.irp = true;
+        break;
+      case '--irp-test-aar':
+        args.irpTestAar = true;
+        break;
+      case '--irp-spec-version':
+        args.irpSpecVersion = argv[++i] ?? null;
         break;
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
@@ -961,6 +1001,20 @@ Post-run artifacts:
   --iscp-test-date <iso> AAR test date, ISO (overrides config.yaml: iscp.test.test_date)
   --iscp-test-type <t>   AAR test type: tabletop | functional | full-interruption
                          (overrides config.yaml: iscp.test.test_type)
+  --irp                  Emit the Incident Response Plan (IR-8 / IR-3 / IR-4 / IR-6)
+                         Word document (out/irp.docx), structured per NIST SP 800-61 Rev. 3
+                         (CSF 2.0 phases). §4 Detect is auto-filled from the real KSI-INR-RIR
+                         evidence; §9 Reporting SLAs come from the FedRAMP Incident
+                         Communications Procedures; the IR-team roster + communications plan
+                         fall back to REQUIRES-OPERATOR-INPUT. Structured input comes from
+                         config.yaml: irp.* (LOOP-C.C3). (env: CLOUD_EVIDENCE_IRP)
+  --irp-test-aar         Emit the Incident Response Test After-Action Report (IR-3) Word
+                         document (out/irp-test-aar.docx). Test scenarios + the 5-phase timing
+                         matrix + lessons learned are operator-supplied via config.yaml: irp.test.*;
+                         anchors to the IRP under test when --irp ran the same run (LOOP-C.C3).
+                         (env: CLOUD_EVIDENCE_IRP_TEST_AAR)
+  --irp-spec-version <v> IR spec version: 800-61r2 | 800-61r3 (default 800-61r3, the current
+                         NIST standard; overrides config.yaml: irp.spec_version)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1254,6 +1308,27 @@ interface Config {
       participants?: IscpTestParticipant[];
       scenarios?: IscpTestScenario[];
       lessons_learned?: IscpTestLessonLearned[];
+      test_coordinator?: string;
+    };
+  };
+  /**
+   * Incident Response Plan operator config (LOOP-C.C3). Consumed only when
+   * --irp / --irp-test-aar is set. CLI flags / env vars take precedence.
+   */
+  irp?: {
+    spec_version?: IrpSpecVersion;
+    team_roster?: IrpTeamMember[];
+    escalation?: IrpEscalationRule[];
+    external_contacts?: IrpExternalContact[];
+    communications?: IrpCommunicationsPlan;
+    classification_levels?: IrpClassificationLevel[];
+    /** IR-3 test After-Action Report input. */
+    test?: {
+      test_date?: string;
+      test_type?: 'tabletop' | 'functional' | 'red-team';
+      participants?: IrpTestParticipant[];
+      scenarios?: IrpTestScenario[];
+      lessons_learned?: IrpTestLessonLearned[];
       test_coordinator?: string;
     };
   };
@@ -2583,6 +2658,96 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`ISCP Test AAR emission failed: ${e.message}`);
       log.error({ event: 'iscp-test-aar.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Incident Response Plan (LOOP-C.C3) — an IR-8/IR-3/IR-4/IR-6 Word
+  // document (out/irp.docx), structured per NIST SP 800-61 Rev. 3 (CSF 2.0
+  // phases). §4 Detect auto-fills from the real KSI-INR-RIR evidence; §9
+  // Reporting SLAs come from the FedRAMP Incident Communications Procedures;
+  // team roster + communications plan fall back to REQUIRES-OPERATOR-INPUT.
+  // Structured input comes from config.yaml:irp.*; CLI/env override. Runs after
+  // the ISCP emit + before the IRP AAR (which anchors to irp.docx) + before
+  // signing so all are covered by the submission bundle. ----
+  if (args.irp) {
+    try {
+      const ip = config.irp;
+      const r = emitIrpDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        specVersion: (args.irpSpecVersion as IrpSpecVersion | null) ?? ip?.spec_version ?? undefined,
+        irTeamRoster: ip?.team_roster,
+        escalationMatrix: ip?.escalation,
+        externalContacts: ip?.external_contacts,
+        communicationsPlan: ip?.communications,
+        classificationLevels: ip?.classification_levels,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      const cov = r.detection_coverage_percent != null ? `${r.detection_coverage_percent}% detection coverage` : 'no INR-RIR evidence';
+      console.log(
+        `IRP (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.detection_source_count} detection source(s), ${cov}; ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('irp.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        detection_source_count: r.detection_source_count,
+        detection_coverage_percent: r.detection_coverage_percent,
+        team_member_count: r.team_member_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`IRP emission failed: ${e.message}`);
+      log.error({ event: 'irp.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Incident Response Test After-Action Report (LOOP-C.C3) — an IR-3 Word
+  // document (out/irp-test-aar.docx). Test scenarios + the 5-phase timing matrix
+  // + lessons learned are operator-supplied (config.yaml:irp.test.*) — never
+  // fabricated; the report anchors to out/irp.docx (the plan under test) when it
+  // was emitted this run. Runs before signing so it is covered by the bundle. ----
+  if (args.irpTestAar) {
+    try {
+      const t = config.irp?.test;
+      const r = emitIrpTestAarDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        testDate: t?.test_date ?? undefined,
+        testType: t?.test_type ?? undefined,
+        participants: t?.participants,
+        scenarios: t?.scenarios,
+        lessonsLearned: t?.lessons_learned,
+        testCoordinator: t?.test_coordinator,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `IRP Test AAR (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.scenario_count} scenario(s), ${r.failed_scenario_count} failed, ${r.poam_candidate_count} POA&M candidate(s); ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('irp-test-aar.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        scenario_count: r.scenario_count,
+        failed_scenario_count: r.failed_scenario_count,
+        poam_candidate_count: r.poam_candidate_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`IRP Test AAR emission failed: ${e.message}`);
+      log.error({ event: 'irp-test-aar.fail', err_message: e?.message });
     }
   }
 

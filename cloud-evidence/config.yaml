@@ -158,3 +158,71 @@ cmp:
   tooling: []
     # - name: "AWS Systems Manager"
     #   purpose: "Automated configuration + patch/state compliance for AWS resources"
+
+# ─── Incident Response Plan (LOOP-C.C3) ────────────────────────────────────────
+# Only consumed when --irp / --irp-test-aar is set. The IRP (irp.docx) auto-fills
+# §4 Detect from the real KSI-INR-RIR evidence and bakes the FedRAMP Incident
+# Communications Procedures SLAs into §9; the fields below are operator-supplied.
+# Omit a field to get a verbatim REQUIRES-OPERATOR-INPUT marker (or, for the
+# escalation matrix + classification levels, a REQUIRES-OPERATOR-INPUT-VERIFY
+# FedRAMP-baseline default). CLI flags / env vars override these values.
+irp:
+  # IR structure. Defaults to 800-61r3 (current NIST standard). Use 800-61r2 only
+  # for reviewers still on the withdrawn four-phase model.
+  spec_version: 800-61r3
+  # §2 IR-team roster (roles: IR Lead, IR Analyst, Forensics, Communications,
+  # Legal, Executive Liaison). Each entry is verbatim operator input.
+  team_roster: []
+    # - role: "IR Lead"
+    #   name: "Jane Doe"
+    #   org: "Your Company — Security"
+    #   email: "ir-lead@your-company.example"
+    #   phone: "+1-555-0100"
+    #   on_call: true
+  # §8 escalation matrix. Omit to get the FedRAMP-ICP baseline (verify-marked).
+  escalation: []
+    # - severity: critical      # critical | high | medium | low
+    #   sla_minutes: 60
+    #   notify: ["IR Lead", "Executive Liaison", "FedRAMP PMO", "CISA US-CERT"]
+  # §7 external contacts. Omit to get the published role-based defaults
+  # (info@fedramp.gov, report@cisa.gov, agency POC = REQUIRES-OPERATOR-INPUT).
+  external_contacts: []
+    # - entity: "Agency POC"     # FedRAMP PMO | CISA | US-CERT | Agency POC | Law Enforcement
+    #   contact: "soc@agency.gov"
+    #   channel: email           # email | phone | web-form
+    #   sla_hours: 1
+  # §6 communications plan.
+  communications: null
+    # internal: "IR Lead pages the on-call rotation; status posted to #incident."
+    # external: "Communications Lead notifies affected agency POCs + the FedRAMP PMO."
+    # media: "No public statement without Legal + Executive Liaison approval."
+  # §3 incident classification levels. Omit to get the FedRAMP-baseline rows.
+  classification_levels: []
+    # - severity: "Critical"
+    #   definition: "Confirmed compromise of federal-data CIA."
+    #   examples: ["Confirmed exfiltration of federal customer data"]
+  # IR-3 test After-Action Report input (--irp-test-aar). Scenarios + timing are
+  # operator-supplied — never fabricated (empty → a REQUIRES-OPERATOR-INPUT row).
+  test:
+    test_date: null              # ISO date; omit to leave REQUIRES-OPERATOR-INPUT
+    test_type: null              # tabletop | functional | red-team
+    test_coordinator: null
+    participants: []
+    scenarios: []
+      # - id: "S1"
+      #   description: "Simulated credential-stuffing attack"
+      #   severity: high
+      #   detection_time_minutes: 12
+      #   response_time_minutes: 25
+      #   containment_time_minutes: 40
+      #   eradication_time_minutes: 70
+      #   recovery_time_minutes: 95
+      #   outcome: pass          # pass | fail | partial
+    lessons_learned: []
+      # - id: "L1"
+      #   phase: respond         # detect | respond | recover | lessons
+      #   finding: "On-call paging had a 5-minute delay."
+      #   severity: medium
+      #   recommendation: "Tune the escalation policy."
+      #   owner: "SRE"
+      #   due_date: "2026-06-01"
