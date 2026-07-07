@@ -3,7 +3,7 @@ slice_id: C.C4
 title: Privacy Threshold Analysis (PTA) + Privacy Impact Assessment (PIA)
 loop: C
 status: done
-commit: <TBD-step6>
+commit: ed26d8d
 completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, INV-1..S6 inventory chain with data_classification tagging, SSP-1]
 blocks: [LOOP-E annual review workflows, LOOP-I narrative library]
@@ -18,7 +18,7 @@ Ships `pta.docx` (always emitted) and `pia.docx` (conditional — emitted when P
 
 ## Status
 - Status: done
-- Commit: `<TBD-step6>`
+- Commit: `ed26d8d`
 - Date: 2026-07-07
 - Verification: typecheck=clean, tests=1474/1474 (+17: 16 PTA/PIA [14 per §8 + error-guard + redaction] + 1 log-event), check:reo=0 (G1+G2+G3 green)
 
@@ -147,7 +147,7 @@ npm run check:provenance
   defensively, NOT the hard enum §7 assumed — core/inventory-emit.ts NOT modified;
   (C-C4-8) docx-primitives still not extracted — now 10 emitters to migrate under
   C-X-1. Open Qs Q1-Q5 all resolved (see §10). Tracker privacy_responses capture
-  deferred to LOOP-E (C-C4-9). Commit <TBD-step6>.
+  deferred to LOOP-E (C-C4-9). Commit ed26d8d.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
