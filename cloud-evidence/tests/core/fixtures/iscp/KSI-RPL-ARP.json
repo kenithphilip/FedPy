@@ -1,0 +1,20 @@
+{
+  "ksi_id": "KSI-RPL-ARP",
+  "ksi_name": "Aligning Recovery Plan",
+  "ksi_statement": "Persistently review the alignment of recovery plans with defined recovery objectives.",
+  "scope": "HYBRID",
+  "frmr_version": "0.9.43-beta",
+  "run_id": "r-fixture-iscp",
+  "collected_at": "2026-06-01T12:15:00.000Z",
+  "providers": [
+    {
+      "provider": "aws",
+      "evidence": [],
+      "findings": [
+        { "rule": "aws.recovery.alternate_site_configured", "passed": false, "severity": "high", "current_state": { "summary": "No alternate-region recovery configured.", "observations": {} }, "target_state": { "summary": "Alternate recovery processing available.", "rationale": "CP-7" }, "gap": { "description": "No cross-region failover.", "affected_resources": [] }, "nist_controls": ["cp-7"] }
+      ]
+    }
+  ],
+  "rollup": { "pass": false, "passing_findings": 0, "failing_findings": 1, "warnings": [], "missing_evidence": [], "alternatives_in_play": 0 },
+  "nist_controls": ["cp-2", "cp-6", "cp-7", "cp-10", "cp-10.2"]
+}

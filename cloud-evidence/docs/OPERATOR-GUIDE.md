@@ -263,6 +263,12 @@ are set.
 | `--cmp-rollback-authority` | string | §9 role authorized to order a rollback + trigger criteria. Or `config.yaml: cmp.rollback_authority`. |
 | `--cmp-change-windows` | string | §8 approved maintenance / change windows. Or `config.yaml: cmp.change_windows`. |
 | `--cmp-baseline-config-href` | path / URL | §5 link to the CM-2 Baseline Configuration doc (C.C9). Defaults to `./baseline-config.docx` when C.C9 emits in the same run. Or `config.yaml: cmp.baseline_config_href`. |
+| `--iscp` | `out/iscp.docx` | LOOP-C.C2. Information System Contingency Plan (CP-2/CP-9/CP-10) — 6 sections + 6 appendices per the FedRAMP SSP Appendix G ISCP Template + NIST SP 800-34 Rev. 1. §4.2 Recovery-evidence table auto-filled from the real signed RPL-family KSI files (`KSI-RPL-ABO/TRC/RRO/ARP.json`); §2.1 components from `out/inventory.json`; Appendix B vendor contacts from `out/subprocessor-inventory.json`. Recovery narratives (RTO/RPO, alternate site, activation, rosters) fall back to `REQUIRES-OPERATOR-INPUT`. Deterministic; integrity anchored by the signed submission-bundle INDEX.json. Structured input via `config.yaml: iscp.*`. Runs after `--cmp`, before signing. |
+| `--iscp-test-aar` | `out/iscp-test-aar.docx` | LOOP-C.C2. Contingency Plan Test After-Action Report (CP-4) — 6 sections per Appendix G Appendix F. Test scenarios + lessons learned are operator-supplied (`config.yaml: iscp.test.*`) — never fabricated (empty → a `REQUIRES-OPERATOR-INPUT` row). High/critical lessons route to a POA&M footer note; the §6 sign-off cells stay `REQUIRES-OPERATOR-INPUT` (never auto-signed). Anchors to `out/iscp.docx` (SHA-256) when `--iscp` ran the same run. |
+| `--iscp-rto-hours` | number | §4.1 Recovery Time Objective in hours (overrides `config.yaml: iscp.rto.hours`). |
+| `--iscp-rpo-hours` | number | §4.1 Recovery Point Objective in hours (overrides `config.yaml: iscp.rpo.hours`). |
+| `--iscp-test-date` | ISO date | AAR test date (overrides `config.yaml: iscp.test.test_date`). |
+| `--iscp-test-type` | `tabletop`\|`functional`\|`full-interruption` | AAR test type (overrides `config.yaml: iscp.test.test_type`). |
 | `--ap-roe-href` | path / URL | URL or path embedded in the AP's RoE link (LOOP-A.A2). |
 | `--ap-sampling-href` | path / URL | URL or path embedded in the AP's sampling-methodology link. |
 | `--3pao-name` | string | The 3PAO organization name embedded in the AP. |
@@ -383,6 +389,12 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_CMP_ROLLBACK_AUTHORITY` | (none) | §9 rollback authority + criteria (overrides `config.yaml: cmp.rollback_authority`). |
 | `CLOUD_EVIDENCE_CMP_CHANGE_WINDOWS` | (none) | §8 approved change/maintenance windows (overrides `config.yaml: cmp.change_windows`). |
 | `CLOUD_EVIDENCE_CMP_BASELINE_CONFIG_HREF` | (none) | §5 CM-2 Baseline Configuration doc link (overrides `config.yaml: cmp.baseline_config_href`). |
+| `CLOUD_EVIDENCE_ISCP` | `0` | LOOP-C.C2. Emit the Information System Contingency Plan (CP-2/CP-9/CP-10) as `out/iscp.docx`. |
+| `CLOUD_EVIDENCE_ISCP_TEST_AAR` | `0` | LOOP-C.C2. Emit the Contingency Plan Test After-Action Report (CP-4) as `out/iscp-test-aar.docx`. |
+| `CLOUD_EVIDENCE_ISCP_RTO_HOURS` | (none) | §4.1 Recovery Time Objective hours (overrides `config.yaml: iscp.rto.hours`). |
+| `CLOUD_EVIDENCE_ISCP_RPO_HOURS` | (none) | §4.1 Recovery Point Objective hours (overrides `config.yaml: iscp.rpo.hours`). |
+| `CLOUD_EVIDENCE_ISCP_TEST_DATE` | (none) | AAR test date, ISO (overrides `config.yaml: iscp.test.test_date`). |
+| `CLOUD_EVIDENCE_ISCP_TEST_TYPE` | (none) | AAR test type: tabletop\|functional\|full-interruption (overrides `config.yaml: iscp.test.test_type`). |
 | `CLOUD_EVIDENCE_AP_ROE_HREF` | (none) | URL embedded in AP RoE link. |
 | `CLOUD_EVIDENCE_AP_SAMPLING_HREF` | (none) | URL embedded in AP sampling-methodology link. |
 | `CLOUD_EVIDENCE_3PAO_NAME` | (none) | 3PAO org name embedded in AP. |
@@ -633,6 +645,8 @@ Files emitted depend on the flags you pass.
 | `ap.json` | No | `--oscal-ap` | OSCAL 1.1.2 | Yes |
 | `roe.docx` + `roe.json` | No | `--roe` | OOXML + JSON | Yes |
 | `cmp.docx` | No | `--cmp` (LOOP-C.C1) | OOXML docx (Configuration Management Plan, CM-9; §4 from inventory, §7 from ksi-map) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519), same as roe.docx/ssp.docx |
+| `iscp.docx` | No | `--iscp` (LOOP-C.C2) | OOXML docx (Information System Contingency Plan, CP-2/CP-9/CP-10; §4.2 from RPL-family KSI files, Appendix B from subprocessor inventory) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519) |
+| `iscp-test-aar.docx` | No | `--iscp-test-aar` (LOOP-C.C2) | OOXML docx (Contingency Plan Test After-Action Report, CP-4; operator-supplied scenarios + lessons; anchors to iscp.docx SHA-256) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519) |
 | `submission-bundle.tar.gz` | No | `--submission-bundle` | POSIX ustar + gzip | bundle is signed |
 | `inventory.json` + `inventory-workbook.csv` + `…xlsx` + `inventory-oscal.json` + `inventory-cmdb.json` + `inventory-diff.json` + `inventory-cost.json` | No | `--inventory-workbook` | JSON / CSV / XLSX | yes |
 | `crosswalk-report.json` | No | `--crosswalk` | JSON | yes |

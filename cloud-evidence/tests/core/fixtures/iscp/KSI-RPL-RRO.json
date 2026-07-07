@@ -1,0 +1,20 @@
+{
+  "ksi_id": "KSI-RPL-RRO",
+  "ksi_name": "Reviewing Recovery Objectives",
+  "ksi_statement": "Persistently review desired Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO).",
+  "scope": "HYBRID",
+  "frmr_version": "0.9.43-beta",
+  "run_id": "r-fixture-iscp",
+  "collected_at": "2026-06-01T12:10:00.000Z",
+  "providers": [
+    {
+      "provider": "aws",
+      "evidence": [],
+      "findings": [
+        { "rule": "aws.backup.rpo_documented", "passed": true, "severity": "info", "current_state": { "summary": "RTO/RPO register present.", "observations": {} }, "target_state": { "summary": "Objectives reviewed.", "rationale": "CP-2(3)" }, "nist_controls": ["cp-2.3"] }
+      ]
+    }
+  ],
+  "rollup": { "pass": true, "passing_findings": 1, "failing_findings": 0, "warnings": [], "missing_evidence": [], "alternatives_in_play": 0 },
+  "nist_controls": ["cp-2.3", "cp-9", "cp-10"]
+}

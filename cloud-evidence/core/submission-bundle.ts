@@ -80,6 +80,8 @@ type Role =
   | 'oscal-poam-xml'
   | 'rules-of-engagement-docx'
   | 'cmp-docx'
+  | 'iscp-docx'
+  | 'iscp-test-aar-docx'
   | 'inventory-workbook-xlsx'
   | 'inventory-workbook-csv'
   | 'inventory-coverage-report'
@@ -156,6 +158,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'oscal-poam-xml', filename: 'poam.xml', description: 'OSCAL POA&M — XML representation' },
   { role: 'rules-of-engagement-docx', filename: 'roe.docx', description: 'Rules of Engagement Word template — 3PAO completes + signs' },
   { role: 'cmp-docx', filename: 'cmp.docx', description: 'Configuration Management Plan (CM-9) — auto-filled from inventory + ksi-map; operator completes process narratives (LOOP-C.C1)' },
+  { role: 'iscp-docx', filename: 'iscp.docx', description: 'Information System Contingency Plan (CP-2 / CP-9 / CP-10) — §4.2 Recovery evidence auto-filled from the RPL-family KSI files; operator completes recovery narratives (LOOP-C.C2)' },
+  { role: 'iscp-test-aar-docx', filename: 'iscp-test-aar.docx', description: 'Contingency Plan Test After-Action Report (CP-4) — operator-supplied test scenarios + lessons learned; anchors to the ISCP under test (LOOP-C.C2)' },
   { role: 'inventory-workbook-xlsx', filename: 'inventory-workbook.xlsx', required: true, description: 'FedRAMP Integrated Inventory Workbook (Appendix M)' },
   { role: 'inventory-workbook-csv', filename: 'inventory-workbook.csv', description: 'Inventory Workbook — CSV representation' },
   { role: 'inventory-coverage-report', filename: 'inventory-coverage.json', description: 'Per-run cell-level coverage report against the FedRAMP Appendix M contract' },

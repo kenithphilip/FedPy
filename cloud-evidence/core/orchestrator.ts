@@ -72,6 +72,11 @@ import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
 import { emitCmpDocx, type CmpCcbRosterEntry, type CmpTooling } from './cmp-emit.ts';
+import { emitIscpDocx, type IscpTeamMember, type IscpVendorContact } from './iscp-emit.ts';
+import {
+  emitIscpTestAarDocx,
+  type IscpTestParticipant, type IscpTestScenario, type IscpTestLessonLearned,
+} from './iscp-test-aar.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -190,6 +195,30 @@ interface Args {
   cmpChangeWindows: string | null;
   /** §5 link to the CM-2 Baseline Configuration document (C.C9). */
   cmpBaselineConfigHref: string | null;
+  /**
+   * When true (LOOP-C.C2), render an Information System Contingency Plan Word
+   * document (out/iscp.docx) — CP-2 / CP-9 / CP-10. The §4.2 Recovery-evidence
+   * table is auto-filled from the real signed RPL-family KSI files; Appendix B
+   * from the real subprocessor inventory; recovery narratives fall back to
+   * REQUIRES-OPERATOR-INPUT. Runs BEFORE signing so iscp.docx is covered by the
+   * submission bundle. Structured input comes from config.yaml:iscp.*.
+   */
+  iscp: boolean;
+  /**
+   * When true (LOOP-C.C2), render the Contingency Plan Test After-Action Report
+   * (out/iscp-test-aar.docx) — CP-4. Test scenarios + lessons learned are
+   * operator-supplied via config.yaml:iscp.test.*; the report anchors to the
+   * ISCP under test (out/iscp.docx SHA-256) when emitted in the same run.
+   */
+  iscpTestAar: boolean;
+  /** §4.1 Recovery Time Objective (hours) — overrides config.yaml:iscp.rto.hours. */
+  iscpRtoHours: number | null;
+  /** §4.1 Recovery Point Objective (hours) — overrides config.yaml:iscp.rpo.hours. */
+  iscpRpoHours: number | null;
+  /** AAR test date (ISO) — overrides config.yaml:iscp.test.test_date. */
+  iscpTestDate: string | null;
+  /** AAR test type (tabletop|functional|full-interruption) — overrides config. */
+  iscpTestType: string | null;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -402,6 +431,12 @@ function parseArgs(argv: string[]): Args {
     cmpRollbackAuthority: process.env.CLOUD_EVIDENCE_CMP_ROLLBACK_AUTHORITY ?? null,
     cmpChangeWindows: process.env.CLOUD_EVIDENCE_CMP_CHANGE_WINDOWS ?? null,
     cmpBaselineConfigHref: process.env.CLOUD_EVIDENCE_CMP_BASELINE_CONFIG_HREF ?? null,
+    iscp: process.env.CLOUD_EVIDENCE_ISCP === '1',
+    iscpTestAar: process.env.CLOUD_EVIDENCE_ISCP_TEST_AAR === '1',
+    iscpRtoHours: process.env.CLOUD_EVIDENCE_ISCP_RTO_HOURS ? Number(process.env.CLOUD_EVIDENCE_ISCP_RTO_HOURS) : null,
+    iscpRpoHours: process.env.CLOUD_EVIDENCE_ISCP_RPO_HOURS ? Number(process.env.CLOUD_EVIDENCE_ISCP_RPO_HOURS) : null,
+    iscpTestDate: process.env.CLOUD_EVIDENCE_ISCP_TEST_DATE ?? null,
+    iscpTestType: process.env.CLOUD_EVIDENCE_ISCP_TEST_TYPE ?? null,
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -575,6 +610,26 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--cmp-baseline-config-href':
         args.cmpBaselineConfigHref = argv[++i] ?? null;
+        break;
+      case '--iscp':
+        // LOOP-C.C2: emit the Information System Contingency Plan (CP-2) Word doc.
+        args.iscp = true;
+        break;
+      case '--iscp-test-aar':
+        // LOOP-C.C2: emit the Contingency Plan Test After-Action Report (CP-4).
+        args.iscpTestAar = true;
+        break;
+      case '--iscp-rto-hours':
+        args.iscpRtoHours = argv[++i] != null ? Number(argv[i]) : null;
+        break;
+      case '--iscp-rpo-hours':
+        args.iscpRpoHours = argv[++i] != null ? Number(argv[i]) : null;
+        break;
+      case '--iscp-test-date':
+        args.iscpTestDate = argv[++i] ?? null;
+        break;
+      case '--iscp-test-type':
+        args.iscpTestType = argv[++i] ?? null;
         break;
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
@@ -890,6 +945,22 @@ Post-run artifacts:
                          (env: CLOUD_EVIDENCE_CMP_CHANGE_WINDOWS; or config.yaml: cmp.change_windows)
   --cmp-baseline-config-href <ref>  §5 link to the CM-2 Baseline Configuration doc
                          (env: CLOUD_EVIDENCE_CMP_BASELINE_CONFIG_HREF; or config.yaml: cmp.baseline_config_href)
+  --iscp                 Emit the Information System Contingency Plan (CP-2 / CP-9 / CP-10)
+                         Word document (out/iscp.docx). §4.2 Recovery evidence is auto-filled
+                         from the real signed RPL-family KSI files (KSI-RPL-ABO/TRC/RRO/ARP);
+                         Appendix B from the real subprocessor inventory; recovery narratives
+                         fall back to REQUIRES-OPERATOR-INPUT. Structured input comes from
+                         config.yaml: iscp.* (LOOP-C.C2). (env: CLOUD_EVIDENCE_ISCP)
+  --iscp-test-aar        Emit the Contingency Plan Test After-Action Report (CP-4) Word
+                         document (out/iscp-test-aar.docx). Test scenarios + lessons learned
+                         are operator-supplied via config.yaml: iscp.test.*; anchors to the
+                         ISCP under test when --iscp ran in the same run (LOOP-C.C2).
+                         (env: CLOUD_EVIDENCE_ISCP_TEST_AAR)
+  --iscp-rto-hours <n>   §4.1 Recovery Time Objective in hours (overrides config.yaml: iscp.rto.hours)
+  --iscp-rpo-hours <n>   §4.1 Recovery Point Objective in hours (overrides config.yaml: iscp.rpo.hours)
+  --iscp-test-date <iso> AAR test date, ISO (overrides config.yaml: iscp.test.test_date)
+  --iscp-test-type <t>   AAR test type: tabletop | functional | full-interruption
+                         (overrides config.yaml: iscp.test.test_type)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1159,6 +1230,32 @@ interface Config {
     baseline_config_href?: string;
     ccb_roster?: CmpCcbRosterEntry[];
     tooling?: CmpTooling[];
+  };
+  /**
+   * Information System Contingency Plan operator config (LOOP-C.C2). Consumed
+   * only when --iscp / --iscp-test-aar is set. CLI flags / env vars take
+   * precedence over these values.
+   */
+  iscp?: {
+    rto?: { hours: number; rationale: string };
+    rpo?: { hours: number; rationale: string };
+    recovery_priority?: 'mission-critical' | 'mission-essential' | 'standard';
+    alternate_site?: { type: 'hot' | 'warm' | 'cold' | 'cloud'; location: string; activation_procedure: string };
+    activation_authority?: string;
+    activation_criteria?: string[];
+    cp_coordinator?: { name: string; org: string; email: string; phone: string };
+    team_roster?: IscpTeamMember[];
+    vendor_contacts?: IscpVendorContact[];
+    backup_strategy_summary?: string;
+    /** CP-4 test After-Action Report input. */
+    test?: {
+      test_date?: string;
+      test_type?: 'tabletop' | 'functional' | 'full-interruption';
+      participants?: IscpTestParticipant[];
+      scenarios?: IscpTestScenario[];
+      lessons_learned?: IscpTestLessonLearned[];
+      test_coordinator?: string;
+    };
   };
 }
 
@@ -2384,6 +2481,108 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`CMP emission failed: ${e.message}`);
       log.error({ event: 'cmp.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Information System Contingency Plan (LOOP-C.C2) — a CP-2/CP-9/CP-10
+  // Word document (out/iscp.docx). The §4.2 Recovery-evidence table auto-fills
+  // from the real signed RPL-family KSI files; Appendix B from the real
+  // subprocessor inventory; recovery narratives fall back to
+  // REQUIRES-OPERATOR-INPUT. Structured input comes from config.yaml:iscp.*;
+  // CLI/env override. Runs BEFORE the AAR (which anchors to iscp.docx) + BEFORE
+  // signing so both are covered by the submission bundle. ----
+  if (args.iscp) {
+    try {
+      const ic = config.iscp;
+      const rtoHours = args.iscpRtoHours ?? ic?.rto?.hours ?? null;
+      const rpoHours = args.iscpRpoHours ?? ic?.rpo?.hours ?? null;
+      const rto = rtoHours != null
+        ? { hours: rtoHours, rationale: ic?.rto?.rationale ?? 'Operator-specified via --iscp-rto-hours.' }
+        : undefined;
+      const rpo = rpoHours != null
+        ? { hours: rpoHours, rationale: ic?.rpo?.rationale ?? 'Operator-specified via --iscp-rpo-hours.' }
+        : undefined;
+      const r = emitIscpDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        rto,
+        rpo,
+        recoveryPriority: ic?.recovery_priority,
+        alternateSite: ic?.alternate_site
+          ? { type: ic.alternate_site.type, location: ic.alternate_site.location, activationProcedure: ic.alternate_site.activation_procedure }
+          : undefined,
+        activationAuthority: ic?.activation_authority,
+        activationCriteria: ic?.activation_criteria,
+        cpCoordinator: ic?.cp_coordinator,
+        teamRoster: ic?.team_roster,
+        vendorContacts: ic?.vendor_contacts,
+        backupStrategySummary: ic?.backup_strategy_summary,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `ISCP (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.rpl_evidence_count} RPL evidence file(s), ${r.component_count} component(s), ${r.vendor_contact_count} vendor contact(s); ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('iscp.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        rpl_evidence_count: r.rpl_evidence_count,
+        component_count: r.component_count,
+        vendor_contact_count: r.vendor_contact_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`ISCP emission failed: ${e.message}`);
+      log.error({ event: 'iscp.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Contingency Plan Test After-Action Report (LOOP-C.C2) — a CP-4 Word
+  // document (out/iscp-test-aar.docx). Test scenarios + lessons learned are
+  // operator-supplied (config.yaml:iscp.test.*) — never fabricated; the report
+  // anchors to out/iscp.docx (the plan under test) when it was emitted this run.
+  // Runs BEFORE signing so it is covered by the submission bundle. ----
+  if (args.iscpTestAar) {
+    try {
+      const t = config.iscp?.test;
+      const r = emitIscpTestAarDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        testDate: args.iscpTestDate ?? t?.test_date ?? undefined,
+        testType: (args.iscpTestType as 'tabletop' | 'functional' | 'full-interruption' | null) ?? t?.test_type ?? undefined,
+        participants: t?.participants,
+        scenarios: t?.scenarios,
+        lessonsLearned: t?.lessons_learned,
+        testCoordinator: t?.test_coordinator,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `ISCP Test AAR (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.scenario_count} scenario(s), ${r.failed_scenario_count} failed, ${r.poam_candidate_count} POA&M candidate(s); ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('iscp-test-aar.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        scenario_count: r.scenario_count,
+        failed_scenario_count: r.failed_scenario_count,
+        poam_candidate_count: r.poam_candidate_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`ISCP Test AAR emission failed: ${e.message}`);
+      log.error({ event: 'iscp-test-aar.fail', err_message: e?.message });
     }
   }
 

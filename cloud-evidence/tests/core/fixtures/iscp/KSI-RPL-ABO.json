@@ -1,0 +1,20 @@
+{
+  "ksi_id": "KSI-RPL-ABO",
+  "ksi_name": "Aligning Backups with Objectives",
+  "ksi_statement": "Persistently review the alignment of machine-based information resource backups with defined recovery objectives.",
+  "scope": "HYBRID",
+  "frmr_version": "0.9.43-beta",
+  "run_id": "r-fixture-iscp",
+  "collected_at": "2026-06-01T12:00:00.000Z",
+  "providers": [
+    {
+      "provider": "aws",
+      "evidence": [],
+      "findings": [
+        { "rule": "aws.backup.plans_configured", "passed": true, "severity": "info", "current_state": { "summary": "Backup plans cover all in-scope volumes.", "observations": {} }, "target_state": { "summary": "All resources backed up.", "rationale": "CP-9" }, "nist_controls": ["cp-9"] }
+      ]
+    }
+  ],
+  "rollup": { "pass": true, "passing_findings": 3, "failing_findings": 0, "warnings": [], "missing_evidence": [], "alternatives_in_play": 0 },
+  "nist_controls": ["cp-9", "cp-9.1", "cp-9.8"]
+}

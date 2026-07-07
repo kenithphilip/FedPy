@@ -1,0 +1,20 @@
+{
+  "ksi_id": "KSI-RPL-TRC",
+  "ksi_name": "Testing Recovery Capabilities",
+  "ksi_statement": "Persistently test the capability to recover from incidents and contingencies, including alignment with defined recovery objectives.",
+  "scope": "HYBRID",
+  "frmr_version": "0.9.43-beta",
+  "run_id": "r-fixture-iscp",
+  "collected_at": "2026-06-01T12:05:00.000Z",
+  "providers": [
+    {
+      "provider": "aws",
+      "evidence": [],
+      "findings": [
+        { "rule": "aws.backup.restore_tested", "passed": true, "severity": "info", "current_state": { "summary": "Restore tests recorded within window.", "observations": {} }, "target_state": { "summary": "Recovery tested.", "rationale": "CP-4" }, "nist_controls": ["cp-4"] }
+      ]
+    }
+  ],
+  "rollup": { "pass": true, "passing_findings": 2, "failing_findings": 0, "warnings": [], "missing_evidence": [], "alternatives_in_play": 0 },
+  "nist_controls": ["cp-4", "cp-4.1", "cp-10.2"]
+}

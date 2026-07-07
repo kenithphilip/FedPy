@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-06-01T00:00:00.000Z",
+  "system_id": "acme-prod-1",
+  "run_id": "r-fixture-iscp",
+  "rows": [
+    { "name": "Amazon Web Services", "role": "IaaS hosting", "incident_notification_sla_hours": 24, "data_categories": "system + customer data", "source": "yaml-config" },
+    { "name": "Datadog", "role": "Observability", "incident_notification_sla_hours": 48, "data_categories": "telemetry", "source": "yaml-config" }
+  ],
+  "coverage": { "total_rows": 2 },
+  "warnings": [],
+  "requires_operator_input": [],
+  "provenance": { "emitter": "core/subprocessor-inventory.ts", "emittedAt": "2026-06-01T00:00:00.000Z", "sourceCalls": [], "sourceFiles": [], "signingKeyId": "fixture" }
+}

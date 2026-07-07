@@ -2,13 +2,13 @@
 slice_id: C.C2
 title: Information System Contingency Plan (ISCP) + Test AAR
 loop: C
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: HASHTBD
+completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, INV-1..S6 inventory chain, RPL-ABO/TRC/RRO/ARP collectors, SSP-1]
 blocks: [LOOP-E.E7 IRP/ISCP test cadence runner, LOOP-F.F7 SAR draft generator references]
 estimated_effort: 2 working days
-last_updated: 2026-06-06
+last_updated: 2026-07-07
 ---
 
 # C.C2 — Information System Contingency Plan (ISCP) + Test AAR
@@ -162,8 +162,29 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+| Date       | Session   | Action                                                                                          | Commit   | Notes |
+|------------|-----------|-------------------------------------------------------------------------------------------------|----------|-------|
+| 2026-07-07 | impl-c-c2 | Shipped both emitters end to end. core/iscp-emit.ts (ISCP, CP-2/CP-9/CP-10, 6 sections + 6      | HASHTBD  | typecheck/test/check:reo all green. cloud-evidence tests 1409→1433 (+24: 14 ISCP + 10 AAR ≥ 23 spec). Both .docx pass `unzip -t`. |
+|            |           | appendices) + core/iscp-test-aar.ts (AAR, CP-4, 6 sections). §4.2 auto-fills from real          |          |       |
+|            |           | KSI-RPL-*.json; §2.1 + Appendix B compose readInventoryComponents/groupComponents (from         |          |       |
+|            |           | cmp-emit.ts) + readSubprocessorContacts. Orchestrator --iscp/--iscp-test-aar + 4 value flags +   |          |       |
+|            |           | config.yaml#iscp.*; submission-bundle roles iscp-docx + iscp-test-aar-docx. Deterministic UUIDs; |          |       |
+|            |           | testDate defaults to REQUIRES-OPERATOR-INPUT (no new Date()).                                    |          |       |
 ```
+
+### §12.1 Spec reconciliations (recorded in LOOP-C-RISKS C-C2-7..10)
+- **C-C2-7** — RPL evidence file name: the real collector output is `KSI-RPL-*.json`, NOT the §5-listed `.signed.json` (the collector filters `.signed.json` out as a duplicate). `readRplEvidence` reads `KSI-RPL-<id>.json` first, `.signed.json` as a fallback. Fixtures named `.json` to match reality.
+- **C-C2-8** — Appendix B source: the real J.J2 output is `subprocessor-inventory.json` (`{rows:[…]}`), NOT the §5-listed `out/subprocessors.json`. `readSubprocessorContacts` reads the real name first, the spec name as a fallback, and tolerates both `{rows:[]}` and bare-array shapes. The SA-9 inventory has no contact/phone, so those cells stay `REQUIRES-OPERATOR-INPUT`.
+- **C-C2-9** — envelope shape: the narrow `KsiEvidence` interface consumes the envelope's top-level `collected_at` + `rollup.pass`, NOT the §5-assumed `findings[].metadata.last_collected_at` (no such field in core/envelope.ts).
+- **C-C2-10** — the shared `core/docx-primitives.ts` was again NOT extracted (per-slice §7 scope + anti-pattern rule); the two emitters keep local OOXML constants like the five shipped docx emitters. Now 6 emitters to migrate when C-X-1 lands.
+
+### §12.2 Open questions resolved
+- **Q1** — No per-row RFC 3161 TST in §4.2 (kept the table compact; chain-of-custody is carried by the per-row SHA-256 evidence citations + the signed bundle INDEX.json).
+- **Q2** — The ISCP §2 is the canonical contingency narrative; `readSspDescription` seeds it from `out/ssp.json` `system-characteristics.description` when present (FedRAMP Appendix G implies canonical).
+- **Q3** — §4.2 groups by KSI ID (one row per RPL KSI); each envelope already aggregates its providers into one `rollup.pass` + one `collected_at`.
+- **Q4** — The AAR anchors to the plan under test by citing the SHA-256 of `out/iscp.docx` when present.
+- **Q5** — `testType` defaults to `REQUIRES-OPERATOR-INPUT` (no `tabletop` default — avoids fabrication, REO Rule 1.7).
+- **Q6** — Appendix C is framework-only `REQUIRES-OPERATOR-INPUT`; per-cloud runbook linking is deferred (no config surface added this slice).
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
 - [ ] typecheck clean (`npm run typecheck`)
