@@ -3,7 +3,7 @@ slice_id: C.C6
 title: Continuous Monitoring Strategy + Plan
 loop: C
 status: done
-commit: TBDCOMMIT
+commit: a6ea46c
 completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, LOOP-A.A1 OSCAL POA&M, INV-S1 inventory coverage, VDR-* scanner collectors, ksi-map.ts]
 blocks: [LOOP-E.E1..E.E7 ConMon agent runs reading the doc as configuration, LOOP-G.G6 AFR-CCM]
@@ -18,7 +18,7 @@ Ships `conmon-strategy.docx` — the FedRAMP-required CA-7 strategy document. §
 
 ## Status
 - Status: done
-- Commit: TBDCOMMIT
+- Commit: a6ea46c
 - Date: 2026-07-07
 - Verification: typecheck=clean, tests=1495→1514 (+19), check:reo=green (G1 lint:no-stubs OK, G3 check:provenance OK, G2 check:coverage-regression SKIP [no local collect], check:ssdf-no-silent-pass OK)
 
@@ -137,7 +137,7 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-2026-07-07 | session impl-c-c6 | Shipped end to end per spec (commit TBDCOMMIT).
+2026-07-07 | session impl-c-c6 | Shipped end to end per spec (commit a6ea46c).
   - Created core/conmon-strategy-emit.ts (~640 lines): pure buildConmonStrategyBodyXml /
     renderConmonStrategyDocx + disk emitConmonStrategyDocx, mirroring fips199-emit.ts /
     cmp-emit.ts. 13 sections. §4 Controls Under Continuous Monitoring auto-derived from the
