@@ -257,3 +257,41 @@ fips199:
     # role: "Authorizing Official"
     # org: "Sponsoring Agency"
     # date: "2026-07-07"
+
+# ─── Continuous Monitoring Strategy + Plan (LOOP-C.C6) ─────────────────────────
+# Only consumed when --conmon-strategy is set. conmon-strategy.docx (CA-7 /
+# CA-7(1) / PM-31) auto-derives §4 Controls Under Continuous Monitoring from the
+# live core/ksi-map.ts and §5 Vulnerability Scanning from the run's real
+# KSI-*VDR* evidence; the §9 reporting endpoint keys off the impact level
+# (Low/Moderate → USDA Connect.gov, High → agency-direct) unless overridden here.
+# Everything below is operator-supplied; omit a field to get a
+# REQUIRES-OPERATOR-INPUT (or, for the escalation baseline,
+# REQUIRES-OPERATOR-INPUT-VERIFY) marker. The doc is ready for signature only
+# when team + escalation + deviation_request_process are all supplied.
+conmon:
+  # §10 team roster; role must be one of ConMon Lead / POA&M Coordinator /
+  # Scan Operator / Risk Reviewer.
+  team: []
+    # - role: "ConMon Lead"
+    #   name: "Dana Monitor"
+    #   org: "Acme Corp"
+    #   email: "dana.monitor@acme.example"
+  # §11 escalation thresholds; the leading integer in `sla` is the remediation-day
+  # count (rows are sorted shortest-deadline-first). Omit to render the published
+  # FedRAMP Rev5 / CISA BOD 22-01 baseline (KEV 21d / Critical 30d / High 30d /
+  # Moderate 90d / Low 180d) with a REQUIRES-OPERATOR-INPUT-VERIFY marker.
+  escalation: []
+    # - trigger: "CISA KEV catalog entry"
+    #   sla: "14 days"
+    #   notify: ["ConMon Lead", "ISSO"]
+  # §8 deviation-request process narrative; defaults to an RFC-0026-citation-only
+  # REQUIRES-OPERATOR-INPUT-VERIFY marker.
+  deviation_request_process: null
+  # §9 reporting endpoint override (usda-connect.gov | agency-direct | other);
+  # omit to derive from the impact level.
+  reporting_endpoint: null
+  # §12 collaborative ConMon: enabled only when true AND >1 agency_customers.
+  collaborative_conmon: false
+  agency_customers: []
+    # - agency: "Department of Example"
+    #   ato_letter_date: "2026-01-15"

@@ -1082,7 +1082,7 @@ LOOP-C is **complete** when ALL of the following are true:
 | C.C3 | IRP + Test AAR | done | `f521fe3` | 2026-07-07 |
 | C.C4 | PTA + PIA (conditional) | done | `ed26d8d` | 2026-07-07 |
 | C.C5 | FIPS 199 categorization worksheet | done | `bbfdaad` | 2026-07-07 |
-| C.C6 | ConMon Strategy + Plan | pending | — | — |
+| C.C6 | ConMon Strategy + Plan | done | `TBDCOMMIT` | 2026-07-07 |
 | C.C7 | Risk Management Strategy (RMS) | pending | — | — |
 | C.C8 | Authorization request cover letter | pending | — | — |
 | C.C9 | Baseline Configuration | pending | — | — |

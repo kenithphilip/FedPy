@@ -94,6 +94,10 @@ import {
   emitFips199Docx,
   type InformationType, type Fips199Approver,
 } from './fips199-emit.ts';
+import {
+  emitConmonStrategyDocx,
+  type ConmonTeamMember, type EscalationThreshold, type AgencyCustomer, type ReportingEndpoint,
+} from './conmon-strategy-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -280,6 +284,16 @@ interface Args {
    * fips199.information_types[].
    */
   fips199InfoTypes: InformationType[];
+  /**
+   * When true (LOOP-C.C6), render the Continuous Monitoring Strategy + Plan
+   * (out/conmon-strategy.docx, CA-7 / CA-7(1) / PM-31). §4 Controls Under
+   * Continuous Monitoring auto-derives from the live core/ksi-map.ts; §5
+   * Vulnerability Scanning auto-derives from the run's real KSI-*VDR* evidence;
+   * the §9 reporting endpoint keys off the impact level. Team roster +
+   * escalation SLAs + deviation process come from config.yaml:conmon.*. Runs
+   * before signing so conmon-strategy.docx is covered by the submission bundle.
+   */
+  conmonStrategy: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -504,6 +518,7 @@ function parseArgs(argv: string[]): Args {
     ptaPia: process.env.CLOUD_EVIDENCE_PTA_PIA === '1',
     fips199: process.env.CLOUD_EVIDENCE_FIPS199 === '1',
     fips199InfoTypes: [],
+    conmonStrategy: process.env.CLOUD_EVIDENCE_CONMON_STRATEGY === '1',
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -734,6 +749,10 @@ function parseArgs(argv: string[]): Args {
         }
         break;
       }
+      case '--conmon-strategy':
+        // LOOP-C.C6: emit the Continuous Monitoring Strategy + Plan (CA-7).
+        args.conmonStrategy = true;
+        break;
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
         args.prohibitedVendorsCatalog = true;
@@ -1097,6 +1116,13 @@ Post-run artifacts:
                          (repeatable; rationale may contain colons). c is low|moderate|high|n/a
                          (n/a only for confidentiality); i + a are low|moderate|high. Merged
                          ahead of config.yaml: fips199.information_types[].
+  --conmon-strategy      Emit the Continuous Monitoring Strategy + Plan (out/conmon-strategy.docx,
+                         CA-7 / CA-7(1) / PM-31). §4 Controls Under Continuous Monitoring is
+                         auto-derived from the live core/ksi-map.ts; §5 Vulnerability Scanning
+                         from the run's real KSI-*VDR* evidence; the §9 reporting endpoint keys
+                         off the impact level (Low/Moderate → USDA Connect.gov, High → agency-
+                         direct). Team roster + escalation SLAs + deviation process come from
+                         config.yaml: conmon.* (LOOP-C.C6). (env: CLOUD_EVIDENCE_CONMON_STRATEGY)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1437,6 +1463,21 @@ interface Config {
     i_rationale?: string;
     a_rationale?: string;
     approver?: Fips199Approver;
+  };
+  /**
+   * ConMon Strategy + Plan operator config (LOOP-C.C6). Consumed only when
+   * --conmon-strategy is set. Keys are the ConmonStrategyEmitOptions field names
+   * (team/escalation/deviation_request_process/reporting_endpoint/
+   * collaborative_conmon/agency_customers), the same convention the fips199 +
+   * irp sections use.
+   */
+  conmon?: {
+    team?: ConmonTeamMember[];
+    escalation?: EscalationThreshold[];
+    deviation_request_process?: string;
+    reporting_endpoint?: ReportingEndpoint;
+    collaborative_conmon?: boolean;
+    agency_customers?: AgencyCustomer[];
   };
 }
 
@@ -2955,6 +2996,54 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`FIPS 199 emission failed: ${e.message}`);
       log.error({ event: 'fips199.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Continuous Monitoring Strategy + Plan (LOOP-C.C6) — a CA-7 / CA-7(1) /
+  // PM-31 Word document (out/conmon-strategy.docx). §4 Controls Under Continuous
+  // Monitoring auto-derives from the live core/ksi-map.ts; §5 Vulnerability
+  // Scanning from the run's real KSI-*VDR* evidence; the §9 reporting endpoint
+  // keys off the impact level. Team roster + escalation SLAs + deviation process
+  // come from config.yaml:conmon.*. Runs after the FIPS 199 emit + before signing
+  // so conmon-strategy.docx is covered by the submission bundle. LOOP-E reads it
+  // as the configuration for the monthly ConMon runs. ----
+  if (args.conmonStrategy) {
+    try {
+      const cc = config.conmon;
+      const r = emitConmonStrategyDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        conmonTeamRoster: cc?.team,
+        escalationThresholds: cc?.escalation,
+        deviationRequestProcess: cc?.deviation_request_process,
+        reportingEndpoint: cc?.reporting_endpoint,
+        collaborativeConmon: cc?.collaborative_conmon,
+        agencyCustomers: cc?.agency_customers,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `ConMon Strategy (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.ksi_count} KSI(s), ${r.scanner_count} scanner(s), endpoint ${r.reporting_endpoint}${r.collaborative_conmon ? ', collaborative' : ''}; ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('conmon-strategy.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        ksi_count: r.ksi_count,
+        scanner_count: r.scanner_count,
+        reporting_endpoint: r.reporting_endpoint,
+        collaborative_conmon: r.collaborative_conmon,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`ConMon Strategy emission failed: ${e.message}`);
+      log.error({ event: 'conmon-strategy.fail', err_message: e?.message });
     }
   }
 

@@ -1,0 +1,43 @@
+{
+  "ksi_id": "KSI-AFR-VDR",
+  "ksi_name": "Vulnerability Detection and Response",
+  "ksi_statement": "Document the vulnerability detection and vulnerability response methodology used within the cloud service offering in alignment with the FedRAMP Vulnerability Detection and Response (VDR) process.",
+  "scope": "HYBRID",
+  "frmr_version": "0.9.43-beta",
+  "run_id": "r-conmon-fixture",
+  "collected_at": "2026-06-30T13:30:00.000Z",
+  "providers": [
+    {
+      "provider": "gcp",
+      "project_id": "acme-prod",
+      "region_set": ["us-central1"],
+      "evidence": [
+        {
+          "source": "containeranalysis.status",
+          "captured_at": "2026-06-30T13:30:00.000Z",
+          "data": { "enabled": true }
+        },
+        {
+          "source": "vdr.summary",
+          "captured_at": "2026-06-30T13:30:00.000Z",
+          "data": { "total": 4, "overdue": 0, "kev_count": 0, "oldest_open_days": 2 }
+        }
+      ],
+      "findings": [
+        {
+          "rule": "gcp.vdr.detection_capability_enabled",
+          "passed": true,
+          "severity": "info",
+          "current_state": {
+            "summary": "GCP Container/Artifact Analysis is enabled — continuous vulnerability detection is active.",
+            "observations": { "detection_enabled": true, "kev_source": "cisa-kev", "total_findings": 4 }
+          },
+          "target_state": { "summary": "A vulnerability-detection capability continuously scans all in-scope resources.", "rationale": "KSI/VDR / NIST RA-5, SI-2, SI-3, SI-5." },
+          "nist_controls": ["ra-5", "ra-5.2", "si-2", "si-3", "si-5"]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "rollup": { "pass": true, "passing_findings": 1, "failing_findings": 0, "warnings": [], "missing_evidence": [], "alternatives_in_play": 0 }
+}

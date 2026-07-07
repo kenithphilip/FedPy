@@ -1,0 +1,55 @@
+# Sample operator config for the LOOP-C.C6 ConMon Strategy + Plan emitter.
+# Maps to the config.yaml#conmon.* section; keys are the ConmonStrategyEmitOptions
+# field names verbatim. A fully-populated config yields a ready-for-signature doc.
+conmon:
+  # §10 ConMon team roster (role must be one of the four fixed roles).
+  team:
+    - role: "ConMon Lead"
+      name: "Dana Monitor"
+      org: "Acme Corp"
+      email: "dana.monitor@acme.example"
+    - role: "POA&M Coordinator"
+      name: "Sam Poam"
+      org: "Acme Corp"
+      email: "sam.poam@acme.example"
+    - role: "Scan Operator"
+      name: "Riley Scan"
+      org: "Acme Corp"
+      email: "riley.scan@acme.example"
+    - role: "Risk Reviewer"
+      name: "Jordan Risk"
+      org: "Acme Corp"
+      email: "jordan.risk@acme.example"
+  # §11 escalation thresholds (operator override of the FedRAMP baseline).
+  escalation:
+    - trigger: "CISA KEV catalog entry"
+      sla: "14 days"
+      notify: ["ConMon Lead", "ISSO"]
+    - trigger: "Critical vulnerability"
+      sla: "30 days"
+      notify: ["ConMon Lead"]
+    - trigger: "High vulnerability"
+      sla: "30 days"
+      notify: ["Scan Operator"]
+    - trigger: "Moderate vulnerability"
+      sla: "90 days"
+      notify: ["Scan Operator"]
+    - trigger: "Low vulnerability"
+      sla: "180 days"
+      notify: ["Scan Operator"]
+  # §8 deviation-request process narrative.
+  deviation_request_process: >-
+    The ISSO prepares a Deviation Request (DR) in the tracker, the ConMon Lead
+    reviews it, and the AO approves it before submission to the FedRAMP PMO via
+    the secure repository. Each DR records the affected finding, the DR type
+    (risk-adjustment / operational-requirement / false-positive), and the
+    supporting evidence.
+  # §9 reporting endpoint override (usda-connect.gov | agency-direct | other).
+  reporting_endpoint: "usda-connect.gov"
+  # §12 collaborative ConMon.
+  collaborative_conmon: true
+  agency_customers:
+    - agency: "Department of Example"
+      ato_letter_date: "2026-01-15"
+    - agency: "Bureau of Samples"
+      ato_letter_date: "2026-03-20"

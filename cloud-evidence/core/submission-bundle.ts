@@ -87,6 +87,7 @@ type Role =
   | 'pta-docx'
   | 'pia-docx'
   | 'fips199-docx'
+  | 'conmon-strategy-docx'
   | 'inventory-workbook-xlsx'
   | 'inventory-workbook-csv'
   | 'inventory-coverage-report'
@@ -174,6 +175,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'pta-docx', filename: 'pta.docx', description: 'Privacy Threshold Analysis (PT-2 / PT-3 / PT-6, AR-2 screening) — §3 PII-inventory evidence auto-derived from the real inventory.json data_classification tags (names redacted); operator completes the determination (LOOP-C.C4)' },
   { role: 'pia-docx', filename: 'pia.docx', conditional: true, description: 'Privacy Impact Assessment (PT-2 / PT-3 / PT-6 / AR-2) — CONDITIONAL: present only when the PTA determination is positive (or forced). FedRAMP SSP A04 (Rev4) structure with Rev5 PT-family control IDs; every category/source/safeguard is operator-supplied (LOOP-C.C4)' },
   { role: 'fips199-docx', filename: 'fips199.docx', description: 'FIPS 199 security-categorization worksheet (RA-2) — the system-level Security Category computed as the high-water-mark across operator-supplied SP 800-60 Vol. 2 information types; cross-checks against the SSP security-impact-level (CONSISTENT / MISMATCH) (LOOP-C.C5)' },
+  { role: 'conmon-strategy-docx', filename: 'conmon-strategy.docx', description: 'Continuous Monitoring Strategy + Plan (CA-7 / CA-7(1) / PM-31) — §4 Controls Under Continuous Monitoring auto-derived from the live core/ksi-map.ts; §5 Vulnerability Scanning auto-derived from the run\'s real KSI-*VDR* evidence; §9 reporting endpoint by impact level; team roster + escalation SLAs + deviation process operator-supplied (LOOP-C.C6)' },
   { role: 'inventory-workbook-xlsx', filename: 'inventory-workbook.xlsx', required: true, description: 'FedRAMP Integrated Inventory Workbook (Appendix M)' },
   { role: 'inventory-workbook-csv', filename: 'inventory-workbook.csv', description: 'Inventory Workbook — CSV representation' },
   { role: 'inventory-coverage-report', filename: 'inventory-coverage.json', description: 'Per-run cell-level coverage report against the FedRAMP Appendix M contract' },
