@@ -90,6 +90,10 @@ import {
   emitPtaPiaDocx,
   type PiaForceMode, type PtaResponses, type PiaResponses,
 } from './pta-pia-emit.ts';
+import {
+  emitFips199Docx,
+  type InformationType, type Fips199Approver,
+} from './fips199-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -261,6 +265,21 @@ interface Args {
    * before signing so the docs are covered by the submission bundle.
    */
   ptaPia: boolean;
+  /**
+   * When true (LOOP-C.C5), render the FIPS 199 security-categorization worksheet
+   * (out/fips199.docx, RA-2). The system-level Security Category is computed as
+   * the high-water-mark across the operator-supplied SP 800-60 Vol. 2 information
+   * types; the worksheet cross-checks against the SSP security-impact-level
+   * (CONSISTENT / MISMATCH). Structured input comes from config.yaml:fips199.*.
+   * Runs before signing so fips199.docx is covered by the submission bundle.
+   */
+  fips199: boolean;
+  /**
+   * Repeatable --fips199-info-type "code:name:c:i:a:rationale" entries (the
+   * rationale may itself contain colons). Merged ahead of config.yaml:
+   * fips199.information_types[].
+   */
+  fips199InfoTypes: InformationType[];
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -483,6 +502,8 @@ function parseArgs(argv: string[]): Args {
     irpTestAar: process.env.CLOUD_EVIDENCE_IRP_TEST_AAR === '1',
     irpSpecVersion: process.env.CLOUD_EVIDENCE_IRP_SPEC_VERSION ?? null,
     ptaPia: process.env.CLOUD_EVIDENCE_PTA_PIA === '1',
+    fips199: process.env.CLOUD_EVIDENCE_FIPS199 === '1',
+    fips199InfoTypes: [],
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -689,6 +710,30 @@ function parseArgs(argv: string[]): Args {
       case '--pta-pia':
         args.ptaPia = true;
         break;
+      case '--fips199':
+        // LOOP-C.C5: emit the FIPS 199 categorization worksheet (RA-2).
+        args.fips199 = true;
+        break;
+      case '--fips199-info-type': {
+        // "code:name:c:i:a:rationale" — the rationale may contain colons, so
+        // everything after the fifth colon is the rationale. Impact values are
+        // validated (and rejected on bad input) by fips199-emit at dispatch.
+        const raw = argv[++i] ?? '';
+        const p = raw.split(':');
+        if (p.length >= 5) {
+          args.fips199InfoTypes.push({
+            code: (p[0] ?? '').trim(),
+            name: (p[1] ?? '').trim(),
+            confidentiality: (p[2] ?? '').trim().toLowerCase(),
+            integrity: (p[3] ?? '').trim().toLowerCase(),
+            availability: (p[4] ?? '').trim().toLowerCase(),
+            rationale: p.slice(5).join(':').trim(),
+          } as InformationType);
+        } else {
+          console.error(`--fips199-info-type expects "code:name:c:i:a:rationale"; got "${raw}" — ignored.`);
+        }
+        break;
+      }
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
         args.prohibitedVendorsCatalog = true;
@@ -1041,6 +1086,17 @@ Post-run artifacts:
                          REQUIRES-OPERATOR-INPUT. Structured input comes from config.yaml:
                          privacy.* (pia_force_mode / pta / pia) (LOOP-C.C4).
                          (env: CLOUD_EVIDENCE_PTA_PIA)
+  --fips199              Emit the FIPS 199 security-categorization worksheet (out/fips199.docx,
+                         RA-2). The system-level Security Category is computed as the
+                         high-water-mark across the operator-supplied SP 800-60 Vol. 2
+                         information types; the worksheet cross-checks against the SSP
+                         security-impact-level (CONSISTENT / MISMATCH). Rationales + approver
+                         fall back to REQUIRES-OPERATOR-INPUT. Structured input comes from
+                         config.yaml: fips199.* (LOOP-C.C5). (env: CLOUD_EVIDENCE_FIPS199)
+  --fips199-info-type "code:name:c:i:a:rationale"   Add one FIPS 199 information type
+                         (repeatable; rationale may contain colons). c is low|moderate|high|n/a
+                         (n/a only for confidentiality); i + a are low|moderate|high. Merged
+                         ahead of config.yaml: fips199.information_types[].
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1368,6 +1424,19 @@ interface Config {
     pia_force_mode?: PiaForceMode;
     pta?: PtaResponses;
     pia?: PiaResponses;
+  };
+  /**
+   * FIPS 199 categorization-worksheet operator config (LOOP-C.C5). Consumed only
+   * when --fips199 is set. `information_types[]` carries the InformationType
+   * field names verbatim (code/name/confidentiality/integrity/availability/
+   * rationale); --fips199-info-type entries are merged ahead of these.
+   */
+  fips199?: {
+    information_types?: InformationType[];
+    c_rationale?: string;
+    i_rationale?: string;
+    a_rationale?: string;
+    approver?: Fips199Approver;
   };
 }
 
@@ -2834,6 +2903,58 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`PTA/PIA emission failed: ${e.message}`);
       log.error({ event: 'pta-pia.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- FIPS 199 categorization worksheet (LOOP-C.C5) — an RA-2 Word document
+  // (out/fips199.docx). The system-level Security Category is computed as the
+  // high-water-mark across the operator-supplied SP 800-60 Vol. 2 information
+  // types (config.yaml:fips199.information_types[] + --fips199-info-type); the
+  // worksheet cross-checks against the emitted SSP security-impact-level
+  // (CONSISTENT / MISMATCH). Rationales + approver fall back to
+  // REQUIRES-OPERATOR-INPUT. Runs after the SSP emit + before signing so
+  // fips199.docx is covered by the submission bundle. ----
+  if (args.fips199) {
+    try {
+      const fc = config.fips199;
+      const infoTypes = [...args.fips199InfoTypes, ...(fc?.information_types ?? [])];
+      const r = emitFips199Docx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        informationTypes: infoTypes.length > 0 ? infoTypes : undefined,
+        overallConfidentialityRationale: fc?.c_rationale ?? undefined,
+        overallIntegrityRationale: fc?.i_rationale ?? undefined,
+        overallAvailabilityRationale: fc?.a_rationale ?? undefined,
+        categorizationApprover: fc?.approver ?? undefined,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      const xref = r.ssp_crossref === 'consistent' ? 'SSP CONSISTENT'
+        : r.ssp_crossref === 'mismatch' ? 'SSP MISMATCH' : 'SSP not cross-referenced';
+      console.log(
+        `FIPS 199 (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.information_type_count} info type(s), overall ${r.overall_level.toUpperCase()}; ${xref}; ${sig})`
+      );
+      if (r.unknown_type_codes.length > 0) {
+        console.log(`  Unknown SP 800-60 V2 code(s) (accepted, verify): ${r.unknown_type_codes.join(', ')}`);
+      }
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('fips199.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        information_type_count: r.information_type_count,
+        overall_level: r.overall_level,
+        ssp_crossref: r.ssp_crossref,
+        unknown_type_code_count: r.unknown_type_codes.length,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`FIPS 199 emission failed: ${e.message}`);
+      log.error({ event: 'fips199.fail', err_message: e?.message });
     }
   }
 

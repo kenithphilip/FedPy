@@ -2,13 +2,13 @@
 slice_id: C.C5
 title: FIPS 199 categorization worksheet
 loop: C
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: <TBD>
+completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, SSP-1 oscal-ssp.ts]
 blocks: [C.C8 cover letter cross-link, LOOP-F.F7 SAR reference]
 estimated_effort: 1.5 working days
-last_updated: 2026-06-07
+last_updated: 2026-07-07
 ---
 
 # C.C5 — FIPS 199 categorization worksheet
@@ -17,10 +17,10 @@ last_updated: 2026-06-07
 Ships `fips199.docx` — the canonical CIA-impact-level categorization worksheet (RA-2). Computes the system-level Security Category as the high-water-mark across operator-supplied Information Types (drawn from NIST SP 800-60 Vol 2 Rev 1 catalogue). Cross-checks the result against `out/ssp.json`'s `system-characteristics.security-impact-level` field and emits CONSISTENT or MISMATCH. Every impact-level definition in §1.2 is quoted verbatim from FIPS 199 §3.
 
 ## Status
-- Status: pending
-- Commit: —
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `<TBD>`
+- Date: 2026-07-07
+- Verification: typecheck=clean, tests=1495 passing (+21), check:reo=green (G1 0 violations / G3 OK / G2 skip-no-local-report / ssdf-no-silent-pass OK)
 
 ## Why this slice exists
 NIST SP 800-53 Rev. 5 control **RA-2 (Security Categorization)** mandates the system owner categorize the information system per FIPS 199 + SP 800-60. The categorization drives baseline selection per FIPS 200 (and therefore the entire control catalogue applied). The SSP carries the *result* in `system-characteristics.security-impact-level`; FIPS 199 is the *worksheet* that shows the work. 3PAOs cross-check the worksheet against the SSP value during the RA-2 assessment.
@@ -130,20 +130,44 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-07 | impl-c-c5 | Shipped the full slice end to end.
+  Created: core/fips199-emit.ts (~560 lines — computeOverallSC / validateInformationType /
+    crossReferenceSsp / buildFips199BodyXml / renderFips199Docx / emitFips199Docx),
+    core/fips199-types.ts (~130 lines — SP 800-60 V2 R1 SaaS-relevant subset: 21 codes,
+    Appendix C; SOURCE_VERSION pinned), tests/core/fips199-emit.test.ts (16 tests),
+    tests/core/fips199-types.test.ts (5 tests), tests/core/fixtures/fips199/info-types.sample.yaml.
+  Extended: core/submission-bundle.ts (Role 'fips199-docx' + WELL_KNOWN entry),
+    core/orchestrator.ts (--fips199 flag + CLOUD_EVIDENCE_FIPS199 env + repeatable
+    --fips199-info-type parse + config.fips199 interface + dispatch after PTA/PIA, before
+    signing + help), config.yaml (fips199: section).
+  Verification: typecheck clean; 1474 -> 1495 tests (+21) all passing; check:reo green
+    (lint:no-stubs 0 violations, check:provenance OK, coverage-regression SKIP [no local
+    out/inventory-coverage.json], ssdf-no-silent-pass OK). Smoke run emitted a valid
+    fips199.docx (6 OOXML parts, unzip -t clean; overall MODERATE; SSP cross-ref CONSISTENT).
+  Open questions resolved: Q1 no hard 0-type reject (graceful REQUIRES-OPERATOR-INPUT
+    fallback; ready_for_signature gates on >=1 type + 3 rationales + approver); Q2
+    --fips199-info-type keeps colon form, rationale = everything after the 5th colon; Q3
+    unknown SP 800-60 code -> UNKNOWN-TYPE-CODE warn + accept; Q4 FIPS 200 cited as the
+    baseline bridge, applied baseline left to the SSP; Q5 no FedRAMP 20x Phase 2
+    categorization steps beyond FIPS 199 (RFC-0026 silent on RA-2).
+  New reconciliation risks: C-C5-7 (real ssp.json security-impact-level is a per-objective
+    OBJECT + a security-sensitivity-level string, not the spec's single-string enum —
+    crossReferenceSsp reads both), C-C5-8 (docx-primitives still not extracted — now 11
+    emitters). C-C5-1..6 pre-listed risks mitigated/reconciled (see LOOP-C-RISKS).
+  Commit: <TBD>.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by 12 + small fips199-types sanity tests)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (C.C5 row + Overall section)
-- [ ] LOOP-C-SPEC.md Section 7 row updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with `LOOP-C.C5:` in the message
-- [ ] Commit amended with commit hash recorded
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by 12 + small fips199-types sanity tests — +21 total: 16 emit + 5 types)
+- [x] check:reo green (G1 0 violations / G3 OK / G2 skip-no-local-report / ssdf-no-silent-pass OK)
+- [x] STATUS.md updated (C.C5 row + Overall section)
+- [x] LOOP-C-SPEC.md Section 7 row updated
+- [x] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with `LOOP-C.C5:` in the message
+- [x] Commit amended with commit hash recorded
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 1. Auto-loaded: `cloud-evidence/CLAUDE.md`.

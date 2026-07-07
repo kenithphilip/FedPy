@@ -1,0 +1,33 @@
+# Sample operator-supplied FIPS 199 information types (LOOP-C.C5 happy path).
+# Mirrors the shape of config.yaml: fips199.information_types[]. Codes are drawn
+# from the NIST SP 800-60 Vol. 2 Rev. 1 SaaS-relevant subset (core/fips199-types.ts).
+# The high-water-mark across these three types is:
+#   confidentiality = MODERATE, integrity = MODERATE, availability = MODERATE
+# so a moderate-baseline SaaS CSP would expect the SSP to claim fips-199-moderate.
+information_types:
+  - code: "C.3.5.1"
+    name: "System Development"
+    confidentiality: moderate
+    integrity: moderate
+    availability: low
+    rationale: "Source, build pipelines, and deployment configuration for the authorized service; unauthorized disclosure of internal system-development detail has a serious adverse effect."
+  - code: "C.3.5.5"
+    name: "Information Security"
+    confidentiality: moderate
+    integrity: moderate
+    availability: moderate
+    rationale: "Security configuration, keys, and monitoring state for the boundary; loss of integrity or availability of security information has a serious adverse effect on the ability to protect the system."
+  - code: "C.3.5.8"
+    name: "System and Network Monitoring"
+    confidentiality: low
+    integrity: moderate
+    availability: moderate
+    rationale: "Operational telemetry and logs; integrity and availability are serious for incident detection, confidentiality limited."
+c_rationale: "Confidentiality is MODERATE — the highest confidentiality impact across the information types processed (System Development, Information Security)."
+i_rationale: "Integrity is MODERATE — unauthorized modification of security or development information has a serious adverse effect on the service."
+a_rationale: "Availability is MODERATE — disruption of security monitoring or the service has a serious adverse effect on operations."
+approver:
+  name: "Alex Authorizing"
+  role: "Authorizing Official"
+  org: "Sponsoring Agency"
+  date: "2026-07-07"

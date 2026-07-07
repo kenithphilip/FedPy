@@ -226,3 +226,34 @@ irp:
       #   recommendation: "Tune the escalation policy."
       #   owner: "SRE"
       #   due_date: "2026-06-01"
+
+# ─── FIPS 199 categorization worksheet (LOOP-C.C5) ─────────────────────────────
+# Only consumed when --fips199 is set. The worksheet (fips199.docx) computes the
+# system-level Security Category as the high-water-mark across the information
+# types below (RA-2) and cross-checks it against the SSP security-impact-level.
+# Each information type is verbatim operator input; codes are drawn from the NIST
+# SP 800-60 Vol. 2 Rev. 1 SaaS-relevant subset (core/fips199-types.ts). A code
+# outside that subset is accepted with an UNKNOWN-TYPE-CODE annotation. Impact
+# values: confidentiality is low|moderate|high|n/a (n/a permitted only for
+# confidentiality); integrity + availability are low|moderate|high. Omit a
+# field to get a verbatim REQUIRES-OPERATOR-INPUT marker. --fips199-info-type
+# entries are merged ahead of this list.
+fips199:
+  information_types: []
+    # - code: "C.3.5.1"
+    #   name: "System Development"
+    #   confidentiality: moderate
+    #   integrity: moderate
+    #   availability: low
+    #   rationale: "Source + build pipelines for the authorized service."
+  # §5 per-objective rationale for the system-level categorization.
+  c_rationale: null
+  i_rationale: null
+  a_rationale: null
+  # §6 categorization approver (RA-2.c — AO or designated representative). The
+  # signature is captured out-of-band; the toolkit never auto-signs (REO 1.10).
+  approver: null
+    # name: "Alex Authorizing"
+    # role: "Authorizing Official"
+    # org: "Sponsoring Agency"
+    # date: "2026-07-07"
