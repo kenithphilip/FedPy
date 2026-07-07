@@ -3,7 +3,7 @@ slice_id: C.C3
 title: Incident Response Plan (IRP) + Test AAR
 loop: C
 status: done
-commit: <TBD-step6>
+commit: f521fe3
 completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, INR-RIR collector, INV-1..S6 inventory chain, SSP-1]
 blocks: [LOOP-E.E7 IRP/ISCP test cadence runner, LOOP-G.G2 AFR-ICP, LOOP-F.F7 SAR draft references]
@@ -18,7 +18,7 @@ Ships `irp.docx` (IR-8 Incident Response Plan, structured per NIST SP 800-61 Rev
 
 ## Status
 - Status: done
-- Commit: `<TBD-step6>`
+- Commit: `f521fe3`
 - Date: 2026-07-07
 - Verification: typecheck=clean, tests=1457/1457 passing (+24: 14 IRP + 10 AAR), check:reo=green (G1 lint:no-stubs 0 violations, G3 provenance OK, G2 coverage-regression skips with no local `out/`); both `.docx` pass `unzip -t` (valid OOXML, 6 parts)
 
@@ -179,7 +179,7 @@ npm run check:provenance
   .signed.json + envelope shape providers[].findings[] not evidence[].detection_source
   — mirrors C-C2-7/C-C2-9), C-C3-8 (docx-primitives still not extracted — now 8
   emitters). §10 Q1-Q6 resolved (see the C.C3 scope note in STATUS.md). Deferred:
-  C-C3-9 tracker irp_tests capture → LOOP-E.E7. Commit <TBD-step6>.
+  C-C3-9 tracker irp_tests capture → LOOP-E.E7. Commit f521fe3.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
