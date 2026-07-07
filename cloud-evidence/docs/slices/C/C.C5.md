@@ -3,7 +3,7 @@ slice_id: C.C5
 title: FIPS 199 categorization worksheet
 loop: C
 status: done
-commit: <TBD>
+commit: bbfdaad
 completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, SSP-1 oscal-ssp.ts]
 blocks: [C.C8 cover letter cross-link, LOOP-F.F7 SAR reference]
@@ -18,7 +18,7 @@ Ships `fips199.docx` — the canonical CIA-impact-level categorization worksheet
 
 ## Status
 - Status: done
-- Commit: `<TBD>`
+- Commit: `bbfdaad`
 - Date: 2026-07-07
 - Verification: typecheck=clean, tests=1495 passing (+21), check:reo=green (G1 0 violations / G3 OK / G2 skip-no-local-report / ssdf-no-silent-pass OK)
 
@@ -154,7 +154,7 @@ npm run check:provenance
     OBJECT + a security-sensitivity-level string, not the spec's single-string enum —
     crossReferenceSsp reads both), C-C5-8 (docx-primitives still not extracted — now 11
     emitters). C-C5-1..6 pre-listed risks mitigated/reconciled (see LOOP-C-RISKS).
-  Commit: <TBD>.
+  Commit: bbfdaad.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
