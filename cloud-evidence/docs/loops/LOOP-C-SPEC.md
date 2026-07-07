@@ -1077,7 +1077,7 @@ LOOP-C is **complete** when ALL of the following are true:
 | Slice ID | Title | Status | Commit hash | Completed date |
 |---|---|---|---|---|
 | Pre | Shared `core/docx-primitives.ts` | deferred | — | — (see LOOP-C-RISKS C-C1-6 / C-X-1 — C.C1 shipped with local OOXML constants per the four shipped docx-emitter precedent) |
-| C.C1 | Configuration Management Plan (CMP) | done | `<TBD-step6>` | 2026-07-07 |
+| C.C1 | Configuration Management Plan (CMP) | done | `99c283a` | 2026-07-07 |
 | C.C2 | ISCP + Test AAR | pending | — | — |
 | C.C3 | IRP + Test AAR | pending | — | — |
 | C.C4 | PTA + PIA (conditional) | pending | — | — |

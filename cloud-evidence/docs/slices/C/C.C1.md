@@ -3,7 +3,7 @@ slice_id: C.C1
 title: Configuration Management Plan (CMP)
 loop: C
 status: done
-commit: <TBD-step6>
+commit: 99c283a
 completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, LOOP-A.A4 submission-bundler, INV-1..S6 inventory chain, SSP-1]
 blocks: [C.C6 ConMon Strategy cross-link, C.C9 Baseline Configuration cross-link, LOOP-E.E2 monthly POA&M workflow, LOOP-G.G5 AFR-SCG]
@@ -18,7 +18,7 @@ Ships `cmp.docx` — an 11-section, auto-filled CM-9 Configuration Management Pl
 
 ## Status
 - Status: done
-- Commit: `<TBD-step6>`
+- Commit: `99c283a`
 - Date: 2026-07-07
 - Verification: typecheck=clean, tests=1409 passing (+18 for this slice; cmp-emit.test.ts), check:reo=green (G1 0 violations, G2 skip [no out/ in this env], G3 OK)
 
