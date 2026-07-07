@@ -258,6 +258,11 @@ are set.
 | `--submission-bundle` | `out/submission-bundle.tar.gz` | Bundle all FedRAMP submission artifacts into a single signed tarball. |
 | `--strict-bundle` | (flag) | Refuse to bundle if any expected artifact is missing. |
 | `--roe` | `out/roe.docx` + `out/roe.json` | Rules of Engagement template. |
+| `--cmp` | `out/cmp.docx` | LOOP-C.C1. Configuration Management Plan (CM-9) — an 11-section Word doc. §4 Configuration Items auto-derived from `out/inventory.json` (CM-8, grouped by provider+asset-type); §7 Configuration Monitoring auto-derived from `core/ksi-map.ts`. Process narratives (§3 CCB roster, §6 change control, §8 change windows, §9 rollback, §10 tooling) fall back to `REQUIRES-OPERATOR-INPUT` (inferred cloud-native tooling → `REQUIRES-OPERATOR-INPUT-VERIFY`). Deterministic output; integrity anchored by the signed submission-bundle INDEX.json. Runs before signing. |
+| `--cmp-approval-narrative` | string | §6 change-control workflow narrative (CM-3/CM-4). Or `config.yaml: cmp.approval_narrative`. |
+| `--cmp-rollback-authority` | string | §9 role authorized to order a rollback + trigger criteria. Or `config.yaml: cmp.rollback_authority`. |
+| `--cmp-change-windows` | string | §8 approved maintenance / change windows. Or `config.yaml: cmp.change_windows`. |
+| `--cmp-baseline-config-href` | path / URL | §5 link to the CM-2 Baseline Configuration doc (C.C9). Defaults to `./baseline-config.docx` when C.C9 emits in the same run. Or `config.yaml: cmp.baseline_config_href`. |
 | `--ap-roe-href` | path / URL | URL or path embedded in the AP's RoE link (LOOP-A.A2). |
 | `--ap-sampling-href` | path / URL | URL or path embedded in the AP's sampling-methodology link. |
 | `--3pao-name` | string | The 3PAO organization name embedded in the AP. |
@@ -373,6 +378,11 @@ several other modules read additional env vars at their own initialization
 | `CLOUD_EVIDENCE_SUBMISSION_BUNDLE` | `0` | Bundle the submission package. |
 | `CLOUD_EVIDENCE_STRICT_BUNDLE` | `0` | Refuse to bundle on missing artifacts. |
 | `CLOUD_EVIDENCE_ROE` | `0` | Emit Rules of Engagement template. |
+| `CLOUD_EVIDENCE_CMP` | `0` | LOOP-C.C1. Emit the Configuration Management Plan (CM-9) as `out/cmp.docx`. |
+| `CLOUD_EVIDENCE_CMP_APPROVAL_NARRATIVE` | (none) | §6 change-control workflow narrative (overrides `config.yaml: cmp.approval_narrative`). |
+| `CLOUD_EVIDENCE_CMP_ROLLBACK_AUTHORITY` | (none) | §9 rollback authority + criteria (overrides `config.yaml: cmp.rollback_authority`). |
+| `CLOUD_EVIDENCE_CMP_CHANGE_WINDOWS` | (none) | §8 approved change/maintenance windows (overrides `config.yaml: cmp.change_windows`). |
+| `CLOUD_EVIDENCE_CMP_BASELINE_CONFIG_HREF` | (none) | §5 CM-2 Baseline Configuration doc link (overrides `config.yaml: cmp.baseline_config_href`). |
 | `CLOUD_EVIDENCE_AP_ROE_HREF` | (none) | URL embedded in AP RoE link. |
 | `CLOUD_EVIDENCE_AP_SAMPLING_HREF` | (none) | URL embedded in AP sampling-methodology link. |
 | `CLOUD_EVIDENCE_3PAO_NAME` | (none) | 3PAO org name embedded in AP. |
@@ -622,6 +632,7 @@ Files emitted depend on the flags you pass.
 | `risk-register.xlsx` | No | `--risk-register` (LOOP-B.B5) | XLSX (single "Risk Register" sheet) | yes (run manifest) |
 | `ap.json` | No | `--oscal-ap` | OSCAL 1.1.2 | Yes |
 | `roe.docx` + `roe.json` | No | `--roe` | OOXML + JSON | Yes |
+| `cmp.docx` | No | `--cmp` (LOOP-C.C1) | OOXML docx (Configuration Management Plan, CM-9; §4 from inventory, §7 from ksi-map) | printable companion — integrity anchored by the signed submission-bundle INDEX.json (SHA-256 + Ed25519), same as roe.docx/ssp.docx |
 | `submission-bundle.tar.gz` | No | `--submission-bundle` | POSIX ustar + gzip | bundle is signed |
 | `inventory.json` + `inventory-workbook.csv` + `…xlsx` + `inventory-oscal.json` + `inventory-cmdb.json` + `inventory-diff.json` + `inventory-cost.json` | No | `--inventory-workbook` | JSON / CSV / XLSX | yes |
 | `crosswalk-report.json` | No | `--crosswalk` | JSON | yes |

@@ -71,6 +71,7 @@ import { runPoamMonthly, type PoamMonthlyResult } from './poam-monthly.ts';
 import { emitOscalAp } from './oscal-ap.ts';
 import { emitSubmissionBundle } from './submission-bundle.ts';
 import { emitRoeDocx } from './roe-emit.ts';
+import { emitCmpDocx, type CmpCcbRosterEntry, type CmpTooling } from './cmp-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -172,6 +173,23 @@ interface Args {
    * from real inventory, scan windows, and escalation contacts.
    */
   roe: boolean;
+  /**
+   * When true (LOOP-C.C1), render a Configuration Management Plan Word
+   * document (out/cmp.docx) — an 11-section CM-9 plan whose Configuration
+   * Items table is auto-derived from real inventory.json (CM-8) and whose
+   * Configuration Monitoring list is derived from core/ksi-map.ts. Process
+   * narratives fall back to REQUIRES-OPERATOR-INPUT. Runs BEFORE signing so
+   * cmp.docx is covered by the submission-bundle INDEX.json + run manifest.
+   */
+  cmp: boolean;
+  /** §6 operator-supplied configuration change-control workflow narrative. */
+  cmpApprovalNarrative: string | null;
+  /** §9 operator-supplied rollback authority + criteria. */
+  cmpRollbackAuthority: string | null;
+  /** §8 operator-supplied change/maintenance windows. */
+  cmpChangeWindows: string | null;
+  /** §5 link to the CM-2 Baseline Configuration document (C.C9). */
+  cmpBaselineConfigHref: string | null;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -379,6 +397,11 @@ function parseArgs(argv: string[]): Args {
     submissionBundle: process.env.CLOUD_EVIDENCE_SUBMISSION_BUNDLE === '1',
     strictBundle: process.env.CLOUD_EVIDENCE_STRICT_BUNDLE === '1',
     roe: process.env.CLOUD_EVIDENCE_ROE === '1',
+    cmp: process.env.CLOUD_EVIDENCE_CMP === '1',
+    cmpApprovalNarrative: process.env.CLOUD_EVIDENCE_CMP_APPROVAL_NARRATIVE ?? null,
+    cmpRollbackAuthority: process.env.CLOUD_EVIDENCE_CMP_ROLLBACK_AUTHORITY ?? null,
+    cmpChangeWindows: process.env.CLOUD_EVIDENCE_CMP_CHANGE_WINDOWS ?? null,
+    cmpBaselineConfigHref: process.env.CLOUD_EVIDENCE_CMP_BASELINE_CONFIG_HREF ?? null,
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -536,6 +559,22 @@ function parseArgs(argv: string[]): Args {
       case '--roe':
         // LOOP-A.A5: emit Rules of Engagement Word template seed.
         args.roe = true;
+        break;
+      case '--cmp':
+        // LOOP-C.C1: emit the Configuration Management Plan (CM-9) Word doc.
+        args.cmp = true;
+        break;
+      case '--cmp-approval-narrative':
+        args.cmpApprovalNarrative = argv[++i] ?? null;
+        break;
+      case '--cmp-rollback-authority':
+        args.cmpRollbackAuthority = argv[++i] ?? null;
+        break;
+      case '--cmp-change-windows':
+        args.cmpChangeWindows = argv[++i] ?? null;
+        break;
+      case '--cmp-baseline-config-href':
+        args.cmpBaselineConfigHref = argv[++i] ?? null;
         break;
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
@@ -837,6 +876,20 @@ Post-run artifacts:
                          The RoE is referenced from the AP back-matter (LOOP-A.A2) and
                          included in the submission bundle (LOOP-A.A4).
                          (env: CLOUD_EVIDENCE_ROE)
+  --cmp                  Emit the Configuration Management Plan (CM-9) Word document
+                         (out/cmp.docx) — an 11-section plan whose Configuration Items
+                         table is auto-derived from real inventory.json (CM-8) and whose
+                         Configuration Monitoring list is derived from core/ksi-map.ts.
+                         Process narratives fall back to REQUIRES-OPERATOR-INPUT (LOOP-C.C1).
+                         (env: CLOUD_EVIDENCE_CMP)
+  --cmp-approval-narrative <text>   §6 change-control workflow narrative
+                         (env: CLOUD_EVIDENCE_CMP_APPROVAL_NARRATIVE; or config.yaml: cmp.approval_narrative)
+  --cmp-rollback-authority <text>   §9 rollback authority + criteria
+                         (env: CLOUD_EVIDENCE_CMP_ROLLBACK_AUTHORITY; or config.yaml: cmp.rollback_authority)
+  --cmp-change-windows <text>       §8 approved change/maintenance windows
+                         (env: CLOUD_EVIDENCE_CMP_CHANGE_WINDOWS; or config.yaml: cmp.change_windows)
+  --cmp-baseline-config-href <ref>  §5 link to the CM-2 Baseline Configuration doc
+                         (env: CLOUD_EVIDENCE_CMP_BASELINE_CONFIG_HREF; or config.yaml: cmp.baseline_config_href)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1094,6 +1147,18 @@ interface Config {
     spreadsheet_id?: string;
     sheet_range?: string;
     columns?: { name: number } & Record<string, number>;
+  };
+  /**
+   * Configuration Management Plan operator config (LOOP-C.C1). Consumed only
+   * when --cmp is set. CLI flags / env vars take precedence over these values.
+   */
+  cmp?: {
+    approval_narrative?: string;
+    rollback_authority?: string;
+    change_windows?: string;
+    baseline_config_href?: string;
+    ccb_roster?: CmpCcbRosterEntry[];
+    tooling?: CmpTooling[];
   };
 }
 
@@ -2276,6 +2341,49 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`RoE emission failed: ${e.message}`);
       log.error({ event: 'roe.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Configuration Management Plan (LOOP-C.C1) — an 11-section CM-9 Word
+  // document (out/cmp.docx). The §4 Configuration Items table is auto-derived
+  // from the real inventory.json (CM-8); the §7 Configuration Monitoring list
+  // is derived from core/ksi-map.ts; process narratives (§3/§6/§8/§9/§10) fall
+  // back to REQUIRES-OPERATOR-INPUT. CLI/env values override config.yaml:cmp.*.
+  // Runs BEFORE signing so cmp.docx is covered by the submission bundle. ----
+  if (args.cmp) {
+    try {
+      const r = emitCmpDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        approvalWorkflowNarrative: args.cmpApprovalNarrative ?? config.cmp?.approval_narrative ?? undefined,
+        rollbackAuthority: args.cmpRollbackAuthority ?? config.cmp?.rollback_authority ?? undefined,
+        changeWindowsDescription: args.cmpChangeWindows ?? config.cmp?.change_windows ?? undefined,
+        baselineConfigHref: args.cmpBaselineConfigHref ?? config.cmp?.baseline_config_href ?? undefined,
+        ccbRoster: config.cmp?.ccb_roster ?? undefined,
+        cmTooling: config.cmp?.tooling ?? undefined,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `CMP (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.component_count} component(s), ${r.ksi_count} KSI domain(s); ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('cmp.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        component_count: r.component_count,
+        ksi_count: r.ksi_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`CMP emission failed: ${e.message}`);
+      log.error({ event: 'cmp.fail', err_message: e?.message });
     }
   }
 

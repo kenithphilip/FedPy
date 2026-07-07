@@ -1,0 +1,31 @@
+# Sample operator config for the LOOP-C.C1 Configuration Management Plan emitter.
+# Maps to the `cmp:` section of config.yaml. Used by cmp-emit.test.ts to verify
+# the config -> CmpEmitOptions mapping the orchestrator performs. Every value is
+# verbatim operator input; nothing here is fabricated by the emitter.
+cmp:
+  approval_narrative: "The Configuration Control Board (CCB) convenes weekly. All changes are proposed in the tracker, reviewed for security impact per CM-4, tested in staging, and approved by the CCB Chair before production deployment."
+  rollback_authority: "The on-call Engineering Manager is authorized to order an immediate rollback when a change causes a Sev-1/Sev-2 incident or a control regression."
+  change_windows: "Standard changes deploy continuously via CI/CD. Scheduled maintenance windows are Sundays 02:00-06:00 UTC. Emergency changes follow the expedited CCB path."
+  baseline_config_href: "./baseline-config.docx"
+  ccb_roster:
+    - role: "CCB Chair"
+      name: "Jordan Lee"
+      organization: "Acme Corp - Security Engineering"
+      email: "jordan.lee@example.com"
+    - role: "Change Initiator"
+      name: "Priya Rao"
+      organization: "Acme Corp - Platform"
+      email: "priya.rao@example.com"
+    - role: "Change Implementer"
+      name: "Sam Cohen"
+      organization: "Acme Corp - SRE"
+      email: "sam.cohen@example.com"
+    - role: "Change Approver"
+      name: "Dana Kim"
+      organization: "Acme Corp - CISO Office"
+      email: "dana.kim@example.com"
+  tooling:
+    - name: "AWS Systems Manager"
+      purpose: "Automated configuration + patch compliance for AWS resources"
+    - name: "Terraform Cloud"
+      purpose: "Declarative infrastructure-as-code with policy-as-code gating"

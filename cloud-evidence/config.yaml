@@ -127,3 +127,34 @@ ssdf:
           cpe: "cpe:2.3:a:your_company:cloud_service_offering:2026.6.1:*:*:*:*:*:*:*"
     ai_profile: false                         # set true to emit the SP 800-218A informational appendix
     poam_reference_overrides: {}              # optional: { "4": ["<poam-item-uuid>", ...] } per CISA practice
+
+# ─── Configuration Management Plan (LOOP-C.C1) ─────────────────────────────────
+# Only consumed when --cmp is set. The CMP (cmp.docx) auto-fills §4 Configuration
+# Items from real inventory.json (CM-8) and §7 Configuration Monitoring from
+# core/ksi-map.ts; the process-narrative fields below are operator-supplied.
+# When omitted, each renders a verbatim REQUIRES-OPERATOR-INPUT marker in the
+# document (REO Rule 4 — the system never fabricates workflow language).
+# CLI flags / env vars (--cmp-approval-narrative etc.) override these values.
+cmp:
+  # §6 change-control workflow narrative (CM-3 + CM-4).
+  approval_narrative: null
+  # §9 role authorized to order a rollback + the criteria that trigger one.
+  rollback_authority: null
+  # §8 approved maintenance / change windows.
+  change_windows: null
+  # §5 link to the CM-2 Baseline Configuration document (LOOP-C.C9). Defaults to
+  # ./baseline-config.docx when C.C9 is emitted in the same run.
+  baseline_config_href: null
+  # §3 Configuration Control Board roster (NIST SP 800-128 §2.1 roles). Each entry
+  # is verbatim operator input; omit the whole list to get REQUIRES-OPERATOR-INPUT rows.
+  ccb_roster: []
+    # - role: "CCB Chair"
+    #   name: "Jane Doe"
+    #   organization: "Your Company — Security Engineering"
+    #   email: "ccb-chair@your-company.example"
+  # §10 configuration-management tooling actually in use. Omit to let the emitter
+  # infer cloud-native tooling from the inventory provider set (marked
+  # REQUIRES-OPERATOR-INPUT-VERIFY until you confirm it here).
+  tooling: []
+    # - name: "AWS Systems Manager"
+    #   purpose: "Automated configuration + patch/state compliance for AWS resources"

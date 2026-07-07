@@ -1,0 +1,10 @@
+{
+  "assets": [
+    { "provider": "aws", "uniqueId": "i-0a1b2c3d", "assetType": "EC2 Instance", "location": "us-east-1", "ips": ["10.0.1.10"] },
+    { "provider": "aws", "uniqueId": "i-0e4f5a6b", "assetType": "EC2 Instance", "location": "us-east-1", "ips": ["10.0.1.11"] },
+    { "provider": "aws", "uniqueId": "rds-prod-01", "assetType": "RDS Database", "location": "us-east-1", "ips": ["10.0.2.20"] },
+    { "provider": "aws", "uniqueId": "rds-prod-02", "assetType": "RDS Database", "location": "us-west-2", "ips": ["10.0.2.21"] },
+    { "provider": "gcp", "uniqueId": "gcs-evidence-a", "assetType": "Cloud Storage Bucket", "location": "us-central1", "ips": [] },
+    { "provider": "gcp", "uniqueId": "gcs-evidence-b", "assetType": "Cloud Storage Bucket", "location": "us-central1", "ips": [] }
+  ]
+}
