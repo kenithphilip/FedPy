@@ -3,7 +3,7 @@ slice_id: C.C2
 title: Information System Contingency Plan (ISCP) + Test AAR
 loop: C
 status: done
-commit: HASHTBD
+commit: e660109
 completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, INV-1..S6 inventory chain, RPL-ABO/TRC/RRO/ARP collectors, SSP-1]
 blocks: [LOOP-E.E7 IRP/ISCP test cadence runner, LOOP-F.F7 SAR draft generator references]
@@ -164,7 +164,7 @@ npm run check:provenance
 ```
 | Date       | Session   | Action                                                                                          | Commit   | Notes |
 |------------|-----------|-------------------------------------------------------------------------------------------------|----------|-------|
-| 2026-07-07 | impl-c-c2 | Shipped both emitters end to end. core/iscp-emit.ts (ISCP, CP-2/CP-9/CP-10, 6 sections + 6      | HASHTBD  | typecheck/test/check:reo all green. cloud-evidence tests 1409→1433 (+24: 14 ISCP + 10 AAR ≥ 23 spec). Both .docx pass `unzip -t`. |
+| 2026-07-07 | impl-c-c2 | Shipped both emitters end to end. core/iscp-emit.ts (ISCP, CP-2/CP-9/CP-10, 6 sections + 6      | e660109  | typecheck/test/check:reo all green. cloud-evidence tests 1409→1433 (+24: 14 ISCP + 10 AAR ≥ 23 spec). Both .docx pass `unzip -t`. |
 |            |           | appendices) + core/iscp-test-aar.ts (AAR, CP-4, 6 sections). §4.2 auto-fills from real          |          |       |
 |            |           | KSI-RPL-*.json; §2.1 + Appendix B compose readInventoryComponents/groupComponents (from         |          |       |
 |            |           | cmp-emit.ts) + readSubprocessorContacts. Orchestrator --iscp/--iscp-test-aar + 4 value flags +   |          |       |
