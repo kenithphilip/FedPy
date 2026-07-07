@@ -1,0 +1,54 @@
+# Sample operator-supplied privacy responses for LOOP-C.C4 (PTA + PIA).
+# In production these flow through config.yaml under the `privacy:` key and are
+# consumed only when the orchestrator runs with `--pta-pia`. This fixture
+# documents the full happy-path shape (every field supplied → the PTA + PIA are
+# ready_for_signature). The nested `pta:` / `pia:` objects carry the exact field
+# names of the PtaResponses / PiaResponses TypeScript interfaces (passed straight
+# through, the same convention the `irp:` section uses for its typed arrays). The
+# pta-pia-emit.test.ts suite constructs the equivalent typed options inline.
+privacy:
+  # PIA emission policy: auto (emit iff PTA positive) | always-emit | never-emit.
+  pia_force_mode: auto
+  # PTA determination booleans. collectsPII auto-derives from inventory
+  # data_classification tags when the whole `pta:` block is omitted; supplying it
+  # here overrides the auto-derivation.
+  pta:
+    collectsPII: true
+    identifiableData: true
+    sharingWithExternalEntities: true
+    persistentUserIdentifiers: false
+    reusedForSecondaryPurposes: false
+  pia:
+    authorityToCollect: >-
+      44 U.S.C. §3554 (FISMA) and the customer agency's enabling statute, as
+      incorporated into the FedRAMP authorization boundary.
+    purposesOfCollection:
+      - Authenticate federal end-users of the authorized service.
+      - Deliver the contracted SaaS functionality to the customer agency.
+    categoriesOfPII:
+      - Full name
+      - Government email address
+      - Federal employee/contractor identifier
+    sourcesOfPII:
+      - Provided directly by the data subject at account provisioning.
+      - Synchronized from the customer agency identity provider (SAML/OIDC).
+    sharing:
+      - recipient: Customer agency identity provider
+        purpose: Federated authentication
+        mechanism: SAML 2.0 assertion over TLS 1.3
+    consentMechanism: >-
+      Notice presented at account creation; processing is under the agency's
+      authority per the ISA/MOU.
+    sornReference: "Not a Privacy Act system of records (SaaS processor for the agency)."
+    accessAndCorrection: >-
+      Data subjects request access/correction through the customer agency
+      privacy office, which routes the request to the CSP support queue.
+    retentionPeriod: >-
+      Account records retained for the contract term plus 90 days, then purged.
+    disposalMethod: >-
+      Cryptographic erasure of the encryption keys followed by NIST SP 800-88
+      media sanitization of the underlying storage.
+    safeguards:
+      - AES-256-GCM encryption at rest; TLS 1.3 in transit.
+      - Role-based access control with least privilege + MFA.
+      - Centralized audit logging of all PII access.

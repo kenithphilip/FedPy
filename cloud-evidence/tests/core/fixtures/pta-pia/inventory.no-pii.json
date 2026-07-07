@@ -1,0 +1,7 @@
+{
+  "assets": [
+    { "identifier": "arn:aws:ec2:us-east-1:111122223333:instance/i-0web01", "assetType": "ec2-instance", "provider": "aws", "location": "us-east-1", "data_classification": "public" },
+    { "identifier": "arn:aws:s3:::acme-public-assets", "assetType": "s3-bucket", "provider": "aws", "location": "us-east-1", "data_classification": "non-pii" }
+  ],
+  "provenance": { "emitter": "test", "emittedAt": "2026-06-09T00:00:00.000Z", "sourceCalls": ["fixture"], "signingKeyId": "fixture" }
+}

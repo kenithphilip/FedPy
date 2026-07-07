@@ -2,13 +2,13 @@
 slice_id: C.C4
 title: Privacy Threshold Analysis (PTA) + Privacy Impact Assessment (PIA)
 loop: C
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: <TBD-step6>
+completed_date: 2026-07-07
 depends_on: [Pre-slice docx-primitives, INV-1..S6 inventory chain with data_classification tagging, SSP-1]
 blocks: [LOOP-E annual review workflows, LOOP-I narrative library]
 estimated_effort: 1.5 working days
-last_updated: 2026-06-07
+last_updated: 2026-07-07
 ---
 
 # C.C4 — Privacy Threshold Analysis (PTA) + Privacy Impact Assessment (PIA)
@@ -17,10 +17,10 @@ last_updated: 2026-06-07
 Ships `pta.docx` (always emitted) and `pia.docx` (conditional — emitted when PTA determination is positive OR `piaForceMode='always-emit'`). Auto-detects PII presence by walking `out/inventory.json` for assets tagged `data_classification ∈ {pii, phi}`. Uses the FedRAMP SSP A04 Rev4 PIA template structure wrapped over NIST SP 800-53 Rev5 PT-2/PT-3/PT-6 control identifiers (Rev5 PTA/PIA template does not exist — verified via FedRAMP help-desk article 28907995813275).
 
 ## Status
-- Status: pending
-- Commit: —
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `<TBD-step6>`
+- Date: 2026-07-07
+- Verification: typecheck=clean, tests=1474/1474 (+17: 16 PTA/PIA [14 per §8 + error-guard + redaction] + 1 log-event), check:reo=0 (G1+G2+G3 green)
 
 ## Why this slice exists
 NIST SP 800-53 Rev. 5 reorganized privacy controls into the **PT (PII Processing and Transparency)** family. **PT-2 (Authority to Process Personally Identifiable Information)**, **PT-3 (Personally Identifiable Information Processing Purposes)**, and **PT-6 (System of Records Notice and Privacy Act Statements)** require documented authority + purpose + transparency. **AR-2 (Privacy Impact and Risk Assessment)** mandates a PIA when PII is processed. FedRAMP, per help-desk article 28907995813275 (verified June 2026): *"There are no current plans to provide a Rev. 5 PTA/PIA template for CSPs to complete."* The Rev4 SSP-A04 PIA template is therefore the closest published reference; LOOP-C.C4 ships its structure with Rev5 control IDs and a PT-family crosswalk.
@@ -122,29 +122,47 @@ npm run check:provenance
 - **Risk 5 — Rev4 vs Rev5 control-ID mismatch confuses 3PAOs.** §1 header should clearly state "Rev5 PT-2/3/6 controls satisfied; Rev4 A04 template structure used as FedRAMP has not published a Rev5 equivalent."
 - **Risk 6 — SORN drafting (PT-6) requires Federal Register process.** The PIA cannot satisfy PT-6 by itself; it can only point to a SORN. Mitigation: §4 of PIA includes a "SORN reference" field; defaults to REQUIRES-OPERATOR-INPUT when no Federal Register citation supplied.
 
-## Open questions (for implementation session to resolve)
-- **Q1**: Should §3 of the PTA include count-of-records-stored as well as count-of-assets? Records matter more from a privacy standpoint but the system doesn't enumerate records.
-- **Q2**: How should multi-cloud PII be handled — emit one PTA per cloud or aggregate? Currently aggregated. PT-2 implies single authority statement, so aggregate is correct.
-- **Q3**: Should `data_classification='phi'` automatically trigger HIPAA references in §8 (Privacy Risk Assessment)? HIPAA is out of FedRAMP scope but common for CSPs serving HHS agencies.
-- **Q4**: Should the PIA cite a specific Federal Register URL for the SORN, or just a Federal Register reference number? Both are operator-supplied; URL is more verifiable.
-- **Q5**: When `piaForceMode='auto'` and 0 PII detected, should the PTA-only emission go through the signing pipeline (Ed25519 + RFC 3161) or skip signing? Per REO, every emitted artifact must be signed.
+## Open questions (RESOLVED 2026-07-07 during implementation)
+- **Q1** — RESOLVED: §3 counts **assets, not records**. The inventory does not enumerate individual PII records, so fabricating a record count would violate REO. §3 renders "This table counts assets, not records — the system does not enumerate individual PII records" so a 3PAO understands the boundary.
+- **Q2** — RESOLVED: multi-cloud PII is **aggregated into one PTA/PIA**. PT-2 implies a single authority statement; §3 lists every PII-tagged asset across all providers in one table.
+- **Q3** — RESOLVED: a `data_classification='phi'` tag adds an **advisory `REQUIRES-OPERATOR-INPUT-VERIFY` note in PIA §8** stating HIPAA Security Rule / Breach Notification obligations may apply IN ADDITION to the FedRAMP privacy controls. HIPAA is explicitly flagged as outside FedRAMP authorization scope — advisory only, confirm with the privacy officer. (No HIPAA control text is emitted — that would be scope creep.)
+- **Q4** — RESOLVED: the SORN field accepts **any operator string** (`sornReference`), URL preferred and Federal Register reference number accepted; it defaults to `REQUIRES-OPERATOR-INPUT (only if this is a Privacy Act system of records)`. The PIA §4 note states a PIA cannot by itself satisfy PT-6 — publishing a SORN is a Federal Register process the agency initiates (Risk 6).
+- **Q5** — RESOLVED: the PTA-only emission (and the PIA when present) are **covered by the signed submission-bundle `INDEX.json`** (SHA-256 + Ed25519), the same bundle-anchored integrity `cmp.docx`/`iscp.docx`/`irp.docx`/`roe.docx`/`ssp.docx` receive. `.docx` is not in `core/sign.ts` `SIGNED_EXTENSIONS` (per C-C1-8), so there is no per-file `.sig`; every emitted artifact is nonetheless signed via the bundle (satisfies "every emitted artifact must be signed").
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-07 | impl-c-c4 | Shipped the full slice end to end. Created core/pta-pia-emit.ts
+  (~640 lines: pure buildPtaBodyXml/buildPiaBodyXml + renderPtaPiaDocx + disk
+  emitPtaPiaDocx; readPiiInventory reads out/inventory.json for data_classification
+  ∈ {pii,phi} with name redaction; determine() applies piaForceMode). Created
+  tests/core/pta-pia-emit.test.ts (17 tests = 14 per §8 + error-guard + PII-redaction
+  + log-event) + 3 fixtures under tests/core/fixtures/pta-pia/ (inventory.with-pii.json,
+  inventory.no-pii.json, config.full.yaml). Wired orchestrator --pta-pia (env
+  CLOUD_EVIDENCE_PTA_PIA) + config.yaml#privacy.* section, dispatched AFTER the IRP
+  emit + BEFORE signing. Registered submission-bundle roles pta-docx + conditional
+  pia-docx (added a conditional? field to WellKnownArtifact). Verification: typecheck
+  clean; npm test 1457→1474 (+17); check:reo 0; both .docx pass unzip -t (6 parts);
+  smoke run confirmed raw resource names never appear in the doc (redaction holds).
+  Reconciliations: (C-C4-7) data_classification is a FREE-FORM asset tag read
+  defensively, NOT the hard enum §7 assumed — core/inventory-emit.ts NOT modified;
+  (C-C4-8) docx-primitives still not extracted — now 10 emitters to migrate under
+  C-X-1. Open Qs Q1-Q5 all resolved (see §10). Tracker privacy_responses capture
+  deferred to LOOP-E (C-C4-9). Commit <TBD-step6>.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by 14)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (C.C4 row + Overall section)
-- [ ] LOOP-C-SPEC.md Section 7 row updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with `LOOP-C.C4:` in the message
-- [ ] Commit amended with commit hash recorded
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by 17: 1457→1474 — 14 per §8 + error-guard + redaction + log-event)
+- [x] check:reo green (G1+G2+G3)
+- [x] STATUS.md updated (C.C4 row + Overall section + scope note)
+- [x] LOOP-C-SPEC.md Section 7 row updated
+- [x] This file's frontmatter updated (status=done, commit=<hash>, completed_date=2026-07-07)
+- [x] LOOP-C-RISKS.md updated (C-C4-1..6 mitigated/reconciled + C-C4-7..9 added)
+- [x] OPERATOR-GUIDE.md updated (§3 flag + §4 env + §7 outputs)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with `LOOP-C.C4:` in the message
+- [x] Commit amended with commit hash recorded
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 1. Auto-loaded: `cloud-evidence/CLAUDE.md`.

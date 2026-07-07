@@ -84,6 +84,8 @@ type Role =
   | 'iscp-test-aar-docx'
   | 'irp-docx'
   | 'irp-test-aar-docx'
+  | 'pta-docx'
+  | 'pia-docx'
   | 'inventory-workbook-xlsx'
   | 'inventory-workbook-csv'
   | 'inventory-coverage-report'
@@ -145,6 +147,10 @@ interface WellKnownArtifact {
   role: Role;
   filename: string | RegExp;
   required?: boolean;
+  /** Present only in some bundles (emitted based on a runtime determination —
+   * e.g. pia.docx ships only when the PTA determination is positive). Never
+   * flagged as a missing required artifact when absent. */
+  conditional?: boolean;
   description: string;
 }
 
@@ -164,6 +170,8 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'iscp-test-aar-docx', filename: 'iscp-test-aar.docx', description: 'Contingency Plan Test After-Action Report (CP-4) — operator-supplied test scenarios + lessons learned; anchors to the ISCP under test (LOOP-C.C2)' },
   { role: 'irp-docx', filename: 'irp.docx', description: 'Incident Response Plan (IR-8 / IR-3 / IR-4 / IR-6) structured per NIST SP 800-61 Rev. 3 (CSF 2.0 phases) — §4 Detect auto-filled from the KSI-INR-RIR evidence; §9 Reporting SLAs from the FedRAMP Incident Communications Procedures; operator completes the IR-team roster + communications plan (LOOP-C.C3)' },
   { role: 'irp-test-aar-docx', filename: 'irp-test-aar.docx', description: 'Incident Response Test After-Action Report (IR-3) — operator-supplied test scenarios + the 5-phase timing matrix (detection→recovery) + lessons learned; anchors to the IRP under test (LOOP-C.C3)' },
+  { role: 'pta-docx', filename: 'pta.docx', description: 'Privacy Threshold Analysis (PT-2 / PT-3 / PT-6, AR-2 screening) — §3 PII-inventory evidence auto-derived from the real inventory.json data_classification tags (names redacted); operator completes the determination (LOOP-C.C4)' },
+  { role: 'pia-docx', filename: 'pia.docx', conditional: true, description: 'Privacy Impact Assessment (PT-2 / PT-3 / PT-6 / AR-2) — CONDITIONAL: present only when the PTA determination is positive (or forced). FedRAMP SSP A04 (Rev4) structure with Rev5 PT-family control IDs; every category/source/safeguard is operator-supplied (LOOP-C.C4)' },
   { role: 'inventory-workbook-xlsx', filename: 'inventory-workbook.xlsx', required: true, description: 'FedRAMP Integrated Inventory Workbook (Appendix M)' },
   { role: 'inventory-workbook-csv', filename: 'inventory-workbook.csv', description: 'Inventory Workbook — CSV representation' },
   { role: 'inventory-coverage-report', filename: 'inventory-coverage.json', description: 'Per-run cell-level coverage report against the FedRAMP Appendix M contract' },

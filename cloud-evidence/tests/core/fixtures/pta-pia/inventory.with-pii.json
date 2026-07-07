@@ -1,0 +1,8 @@
+{
+  "assets": [
+    { "identifier": "arn:aws:s3:::acme-prod-customer-pii-store", "assetType": "s3-bucket", "provider": "aws", "location": "us-east-1", "data_classification": "pii" },
+    { "identifier": "arn:aws:rds:us-east-1:111122223333:db:acme-patient-records", "assetType": "rds-instance", "provider": "aws", "location": "us-east-1", "data_classification": "phi" },
+    { "identifier": "arn:aws:ec2:us-east-1:111122223333:instance/i-0abc123public", "assetType": "ec2-instance", "provider": "aws", "location": "us-east-1", "data_classification": "public" }
+  ],
+  "provenance": { "emitter": "test", "emittedAt": "2026-06-09T00:00:00.000Z", "sourceCalls": ["fixture"], "signingKeyId": "fixture" }
+}

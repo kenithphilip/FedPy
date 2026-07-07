@@ -86,6 +86,10 @@ import {
   emitIrpTestAarDocx,
   type IrpTestParticipant, type IrpTestScenario, type IrpTestLessonLearned,
 } from './irp-test-aar.ts';
+import {
+  emitPtaPiaDocx,
+  type PiaForceMode, type PtaResponses, type PiaResponses,
+} from './pta-pia-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -247,6 +251,16 @@ interface Args {
   irpTestAar: boolean;
   /** IR spec version (800-61r2|800-61r3, default r3) — overrides config.yaml:irp.spec_version. */
   irpSpecVersion: string | null;
+  /**
+   * When true (LOOP-C.C4), render the Privacy Threshold Analysis (out/pta.docx,
+   * always) + the conditional Privacy Impact Assessment (out/pia.docx, only when
+   * the PTA determination is positive) — PT-2 / PT-3 / PT-6 / AR-2. §3 PII-
+   * inventory evidence auto-derives from the real inventory.json data_classification
+   * tags (names redacted); PIA narratives fall back to REQUIRES-OPERATOR-INPUT.
+   * Structured input comes from config.yaml:privacy.*. Runs after the IRP emit +
+   * before signing so the docs are covered by the submission bundle.
+   */
+  ptaPia: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -468,6 +482,7 @@ function parseArgs(argv: string[]): Args {
     irp: process.env.CLOUD_EVIDENCE_IRP === '1',
     irpTestAar: process.env.CLOUD_EVIDENCE_IRP_TEST_AAR === '1',
     irpSpecVersion: process.env.CLOUD_EVIDENCE_IRP_SPEC_VERSION ?? null,
+    ptaPia: process.env.CLOUD_EVIDENCE_PTA_PIA === '1',
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -670,6 +685,9 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--irp-spec-version':
         args.irpSpecVersion = argv[++i] ?? null;
+        break;
+      case '--pta-pia':
+        args.ptaPia = true;
         break;
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
@@ -1015,6 +1033,14 @@ Post-run artifacts:
                          (env: CLOUD_EVIDENCE_IRP_TEST_AAR)
   --irp-spec-version <v> IR spec version: 800-61r2 | 800-61r3 (default 800-61r3, the current
                          NIST standard; overrides config.yaml: irp.spec_version)
+  --pta-pia              Emit the Privacy Threshold Analysis (out/pta.docx, always) + the
+                         conditional Privacy Impact Assessment (out/pia.docx, only when the
+                         PTA determination is positive) — PT-2 / PT-3 / PT-6 / AR-2. §3 PII
+                         evidence auto-derives from the real inventory.json data_classification
+                         tags (resource names redacted); PIA narratives fall back to
+                         REQUIRES-OPERATOR-INPUT. Structured input comes from config.yaml:
+                         privacy.* (pia_force_mode / pta / pia) (LOOP-C.C4).
+                         (env: CLOUD_EVIDENCE_PTA_PIA)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1331,6 +1357,17 @@ interface Config {
       lessons_learned?: IrpTestLessonLearned[];
       test_coordinator?: string;
     };
+  };
+  /**
+   * Privacy Threshold Analysis + Privacy Impact Assessment operator config
+   * (LOOP-C.C4). Consumed only when --pta-pia is set. The nested `pta` / `pia`
+   * objects carry the PtaResponses / PiaResponses field names verbatim (passed
+   * straight to the emitter, the same convention the `irp` section uses).
+   */
+  privacy?: {
+    pia_force_mode?: PiaForceMode;
+    pta?: PtaResponses;
+    pia?: PiaResponses;
   };
 }
 
@@ -2748,6 +2785,55 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`IRP Test AAR emission failed: ${e.message}`);
       log.error({ event: 'irp-test-aar.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Privacy Threshold Analysis + Privacy Impact Assessment (LOOP-C.C4) —
+  // out/pta.docx (always) satisfies PT-2 / PT-3 / PT-6 (AR-2 screening); the
+  // conditional out/pia.docx (only when the PTA determination is positive)
+  // satisfies AR-2. §3 PII-inventory evidence auto-derives from the real
+  // inventory.json data_classification tags (resource names redacted — Risk 3);
+  // PIA categories/sources/safeguards fall back to REQUIRES-OPERATOR-INPUT — the
+  // toolkit never invents PII categories. Structured input comes from
+  // config.yaml:privacy.*. Runs after the IRP emit + before signing so both docs
+  // are covered by the submission bundle. ----
+  if (args.ptaPia) {
+    try {
+      const pv = config.privacy;
+      const r = emitPtaPiaDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        piaForceMode: pv?.pia_force_mode ?? undefined,
+        ptaResponses: pv?.pta,
+        piaResponses: pv?.pia,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      const piaNote = r.requiresPIA
+        ? `PIA required → ${r.piaPath}`
+        : (r.pia_suppressed ? 'PIA SUPPRESSED (never-emit) despite positive PTA' : 'no PIA required');
+      console.log(
+        `PTA (draft): ${r.ptaPath} (${(r.ptaBytes / 1024).toFixed(0)} KB, ${r.pii_asset_count} PII-tagged asset(s); ${piaNote}; ${sig})`
+      );
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('pta-pia.emit', {
+        status: 'info',
+        requires_pia: r.requiresPIA,
+        collects_pii: r.collectsPII,
+        pii_asset_count: r.pii_asset_count,
+        pia_suppressed: r.pia_suppressed,
+        ready_for_signature: r.ready_for_signature,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`PTA/PIA emission failed: ${e.message}`);
+      log.error({ event: 'pta-pia.fail', err_message: e?.message });
     }
   }
 
