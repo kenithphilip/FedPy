@@ -1,0 +1,22 @@
+# Sample operator config for the LOOP-C.C7 Risk Management Strategy (rms.docx).
+# Consumed only when --rms is set. Mirrors the config.yaml `rms:` section.
+rms:
+  # §8 Risk Tolerance — per CIA objective; each low / moderate / high.
+  tolerance:
+    confidentiality: moderate
+    integrity: moderate
+    availability: low
+  # §9 Executive Oversight + Governance roster (role / name / org). Supplied via
+  # config (never logged by the toolkit — only counts appear in logs).
+  executive_oversight:
+    - role: "Authorizing Official"
+      name: "Alex Authorizing"
+      org: "Sponsoring Agency"
+    - role: "Chief Information Security Officer"
+      name: "Casey Security"
+      org: "Acme Corp"
+    - role: "Risk Executive (function)"
+      name: "Riley Risk"
+      org: "Acme Corp"
+  # §2 organizational context — number of agency customers leveraging this ATO.
+  agency_customer_count: 2

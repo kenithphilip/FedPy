@@ -88,6 +88,7 @@ type Role =
   | 'pia-docx'
   | 'fips199-docx'
   | 'conmon-strategy-docx'
+  | 'rms-docx'
   | 'inventory-workbook-xlsx'
   | 'inventory-workbook-csv'
   | 'inventory-coverage-report'
@@ -176,6 +177,7 @@ const WELL_KNOWN: WellKnownArtifact[] = [
   { role: 'pia-docx', filename: 'pia.docx', conditional: true, description: 'Privacy Impact Assessment (PT-2 / PT-3 / PT-6 / AR-2) — CONDITIONAL: present only when the PTA determination is positive (or forced). FedRAMP SSP A04 (Rev4) structure with Rev5 PT-family control IDs; every category/source/safeguard is operator-supplied (LOOP-C.C4)' },
   { role: 'fips199-docx', filename: 'fips199.docx', description: 'FIPS 199 security-categorization worksheet (RA-2) — the system-level Security Category computed as the high-water-mark across operator-supplied SP 800-60 Vol. 2 information types; cross-checks against the SSP security-impact-level (CONSISTENT / MISMATCH) (LOOP-C.C5)' },
   { role: 'conmon-strategy-docx', filename: 'conmon-strategy.docx', description: 'Continuous Monitoring Strategy + Plan (CA-7 / CA-7(1) / PM-31) — §4 Controls Under Continuous Monitoring auto-derived from the live core/ksi-map.ts; §5 Vulnerability Scanning auto-derived from the run\'s real KSI-*VDR* evidence; §9 reporting endpoint by impact level; team roster + escalation SLAs + deviation process operator-supplied (LOOP-C.C6)' },
+  { role: 'rms-docx', filename: 'rms.docx', description: 'Risk Management Strategy (PM-9) — the organization-level risk-management strategy (framing / assessing / responding / monitoring per NIST SP 800-39) that sits above the SSP + POA&M; §5 Risk Register Reference auto-links to risk-register.json (B.B5, RA-3), §6 Risk Acceptance Policy summarizes the B.B3/B.B4 snapshots, §10 POA&M Summary auto-counts severities/overdue/oldest-open from poam.json (A.A1); risk tolerance + executive oversight operator-supplied (LOOP-C.C7)' },
   { role: 'inventory-workbook-xlsx', filename: 'inventory-workbook.xlsx', required: true, description: 'FedRAMP Integrated Inventory Workbook (Appendix M)' },
   { role: 'inventory-workbook-csv', filename: 'inventory-workbook.csv', description: 'Inventory Workbook — CSV representation' },
   { role: 'inventory-coverage-report', filename: 'inventory-coverage.json', description: 'Per-run cell-level coverage report against the FedRAMP Appendix M contract' },

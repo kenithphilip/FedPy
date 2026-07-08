@@ -2,14 +2,14 @@
 slice_id: C.C7
 title: Risk Management Strategy (RMS)
 loop: C
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: <TBD-step6>
+completed_date: 2026-07-08
 depends_on: [Pre-slice docx-primitives, LOOP-A.A1 OSCAL POA&M for §10 summary]
 soft_depends_on: [LOOP-B.B5 risk-register.json, LOOP-B.B3 risk-acceptances.json, LOOP-B.B4 compensating-controls.json]
 blocks: [LOOP-I.I1 executive dashboard cross-reference, LOOP-F.F7 SAR reference]
 estimated_effort: 1 working day
-last_updated: 2026-06-07
+last_updated: 2026-07-08
 ---
 
 # C.C7 — Risk Management Strategy (RMS)
@@ -18,10 +18,10 @@ last_updated: 2026-06-07
 Ships `rms.docx` — the PM-9 organizational Risk Management Strategy. §5 Risk Register auto-links to `out/risk-register.json` from B.B5 (REQUIRES-OPERATOR-INPUT when LOOP-B not yet shipped). §6 Risk Acceptance Policy auto-derives from `out/risk-acceptances.json` (B.B3) + `out/compensating-controls.json` (B.B4) when present. §10 POA&M Summary auto-counts severities from `out/poam.json` (LOOP-A.A1).
 
 ## Status
-- Status: pending
-- Commit: —
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `<TBD-step6>`
+- Date: 2026-07-08
+- Verification: typecheck=0 errors, tests=1533 passing (+19), check:reo=green (G1 0 violations / G3 OK / G2 SKIP-no-local-report / ssdf OK)
 
 ## Why this slice exists
 NIST SP 800-53 Rev. 5 control **PM-9 (Risk Management Strategy)** mandates an organization-wide risk-management strategy that addresses framing risk, assessing risk, responding to risk, and monitoring risk. **NIST SP 800-39** defines the three-tier risk hierarchy (Organization → Mission/Business Process → Information System). **NIST SP 800-37 Rev. 2** defines the RMF steps the RMS supervises. The RMS sits above the per-finding POA&M (LOOP-A.A1) and the per-system SSP (SSP-1) in the risk hierarchy.
@@ -133,20 +133,44 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-08 | impl-c-c7 | Shipped C.C7 end to end per spec. Created core/rms-emit.ts
+  (pure buildRmsBodyXml/renderRmsDocx + disk emitRmsDocx; exported readers
+  readRiskRegister/readAcceptancePolicy/summarizePoam + PoamSeverityError) — an
+  11-section PM-9 Risk Management Strategy (out/rms.docx). §5 auto-links
+  out/risk-register.json (B.B5) + embeds its summary (Q1); §6 summarizes the
+  .risk-acceptances.json (B.B3) + .compensating-controls.json (B.B4) snapshots;
+  §10 summarizes out/poam.json (A.A1) — severity histogram + overdue + oldest-open
+  age. §4 renders the NIST SP 800-39 Accept/Avoid/Mitigate/Transfer 4-row matrix.
+  Extended core/submission-bundle.ts (Role 'rms-docx' + WELL_KNOWN entry),
+  core/orchestrator.ts (--rms flag + CLOUD_EVIDENCE_RMS env + Config.rms type +
+  dispatch after --conmon-strategy / before signing + usage text), config.yaml
+  (rms: section), docs/OPERATOR-GUIDE.md (§3 flag / §4 env / §7 output). Created
+  tests/core/rms-emit.test.ts (19 tests: 12 §8 + 6 extras + 1 typed-error) + 3
+  fixtures (poam.sample.json, risk-register.sample.json, config.sample.yaml).
+  Verification: typecheck clean; suite 1514→1533 (+19); check:reo green; smoke run
+  emitted a valid rms.docx (6 OOXML parts, unzip -t clean, byte-identical re-emit).
+  Open questions Q1–Q5 all resolved (see the C.C7 scope note in docs/STATUS.md).
+  Spec reconciliation: real poam severity enum is critical/high/medium/low/info
+  (envelope.ts — `medium`, not the §schema's `moderate`) and B.B3/B.B4 snapshots
+  are the dotfiles .risk-acceptances.json / .compensating-controls.json —
+  summarizePoam buckets by the honest enum, readAcceptancePolicy reads the dotfile
+  first (C-C7-7); shared core/docx-primitives.ts still not extracted, now 13
+  emitters to migrate (C-C7-8 / C-X-1). Commit <TBD-step6>.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by 12)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (C.C7 row + Overall section)
-- [ ] LOOP-C-SPEC.md Section 7 row updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with `LOOP-C.C7:` in the message
-- [ ] Commit amended with commit hash recorded
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by 19; §8 floor was 12)
+- [x] check:reo green (G1 0 violations / G3 OK / G2 SKIP-no-local-report / ssdf OK)
+- [x] STATUS.md updated (C.C7 row + Overall section + scope note)
+- [x] LOOP-C-SPEC.md Section 7 row updated
+- [x] This file's frontmatter updated (status=done, commit=<hash>, completed_date=2026-07-08)
+- [x] LOOP-C-RISKS.md updated (C-C7-1..8 reconciliation entries)
+- [x] OPERATOR-GUIDE.md updated (§3 flag / §4 env / §7 output)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with `LOOP-C.C7:` in the message
+- [x] Commit amended with commit hash recorded
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 1. Auto-loaded: `cloud-evidence/CLAUDE.md`.

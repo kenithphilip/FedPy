@@ -295,3 +295,29 @@ conmon:
   agency_customers: []
     # - agency: "Department of Example"
     #   ato_letter_date: "2026-01-15"
+
+# ─── Risk Management Strategy (LOOP-C.C7) ──────────────────────────────────────
+# Only consumed when --rms is set. rms.docx (PM-9) frames how the organization
+# manages risk (framing / assessing / responding / monitoring per NIST SP 800-39).
+# §5 Risk Register Reference auto-links to out/risk-register.json (LOOP-B.B5); §6
+# Risk Acceptance Policy summarizes the out/.risk-acceptances.json (B.B3) +
+# out/.compensating-controls.json (B.B4) snapshots; §10 POA&M Summary auto-counts
+# severities / overdue / oldest-open from out/poam.json (LOOP-A.A1). Everything
+# below is operator-supplied; omit a field to get a REQUIRES-OPERATOR-INPUT marker.
+# The doc is ready for signature only when tolerance + executive_oversight are
+# supplied AND the risk register + acceptance policy links resolve.
+rms:
+  # §8 Risk Tolerance — per CIA objective; each low / moderate / high.
+  tolerance: null
+    # confidentiality: moderate
+    # integrity: moderate
+    # availability: low
+  # §9 Executive Oversight + Governance roster (role / name / org). Supplied via
+  # config (never logged by the toolkit — only counts appear in logs).
+  executive_oversight: []
+    # - role: "Authorizing Official"
+    #   name: "Alex Authorizing"
+    #   org: "Sponsoring Agency"
+  # §2 organizational context — number of agency customers leveraging this ATO
+  # (falls back to the conmon.agency_customers[] length when omitted).
+  agency_customer_count: null

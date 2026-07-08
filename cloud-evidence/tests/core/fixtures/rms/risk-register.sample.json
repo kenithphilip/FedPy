@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "r-rms-fixture",
+  "provenance": {
+    "emitter": "core/risk-register.ts",
+    "emittedAt": "2026-07-07T00:00:00.000Z",
+    "sourceCalls": [
+      "fs.readFileSync(poam.json)",
+      "loadCachedAcceptances(.risk-acceptances.json)",
+      "loadCachedCompensatingControls(.compensating-controls.json)",
+      "loadCachedOrganisationalRisks(.organisational-risks.json)"
+    ],
+    "signingKeyId": "fixturekeyid0000"
+  },
+  "summary": {
+    "entries_total": 6,
+    "by_source": { "finding": 4, "acceptance": 1, "organisational": 1 },
+    "open_count": 4,
+    "high_inherent_count": 2
+  },
+  "entries": [
+    {
+      "id": "rr-1",
+      "source": "finding",
+      "title": "Public S3 bucket",
+      "status": "open",
+      "likelihood": "high",
+      "impact": "high",
+      "inherent_risk": "very-high",
+      "residual_risk": "high"
+    },
+    {
+      "id": "rr-2",
+      "source": "finding",
+      "title": "MFA not enforced",
+      "status": "open",
+      "likelihood": "moderate",
+      "impact": "high",
+      "inherent_risk": "high",
+      "residual_risk": "moderate"
+    },
+    {
+      "id": "rr-3",
+      "source": "finding",
+      "title": "Stale access key",
+      "status": "open",
+      "likelihood": "moderate",
+      "impact": "moderate",
+      "inherent_risk": "moderate",
+      "residual_risk": "moderate"
+    },
+    {
+      "id": "rr-4",
+      "source": "finding",
+      "title": "Logging gap",
+      "status": "open",
+      "likelihood": "low",
+      "impact": "low",
+      "inherent_risk": "low",
+      "residual_risk": "low"
+    },
+    {
+      "id": "rr-5",
+      "source": "acceptance",
+      "title": "Accepted legacy TLS on an internal endpoint",
+      "status": "deviation-approved",
+      "likelihood": "low",
+      "impact": "moderate",
+      "inherent_risk": "moderate",
+      "residual_risk": "low"
+    },
+    {
+      "id": "rr-6",
+      "source": "organisational",
+      "title": "Key-personnel single point of failure",
+      "status": "open",
+      "likelihood": "low",
+      "impact": "high",
+      "inherent_risk": "moderate",
+      "residual_risk": "moderate"
+    }
+  ],
+  "signature": {
+    "algorithm": "ed25519",
+    "keyId": "fixturekeyid0000",
+    "signature": "Zml4dHVyZS1zaWduYXR1cmU="
+  }
+}

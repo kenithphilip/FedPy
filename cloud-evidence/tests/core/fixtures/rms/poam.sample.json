@@ -1,0 +1,98 @@
+{
+  "plan-of-action-and-milestones": {
+    "uuid": "11111111-1111-4111-8111-111111111111",
+    "metadata": {
+      "title": "Plan of Action and Milestones — Acme Platform",
+      "last-modified": "2026-07-07T00:00:00.000Z",
+      "version": "r-rms-fixture",
+      "oscal-version": "1.1.2"
+    },
+    "system-id": { "id": "acme-prod-1", "identifier-type": "https://ietf.org/rfc/rfc4122" },
+    "observations": [
+      {
+        "uuid": "obs-critical",
+        "description": "Public S3 bucket detected.",
+        "methods": ["TEST"],
+        "collected": "2026-05-01T00:00:00.000Z"
+      },
+      {
+        "uuid": "obs-high",
+        "description": "MFA not enforced for a privileged role.",
+        "methods": ["TEST"],
+        "collected": "2026-06-20T00:00:00.000Z"
+      },
+      {
+        "uuid": "obs-closed",
+        "description": "Previously remediated finding.",
+        "methods": ["TEST"],
+        "collected": "2026-01-10T00:00:00.000Z"
+      }
+    ],
+    "risks": [
+      {
+        "uuid": "risk-critical",
+        "title": "Public S3 bucket",
+        "description": "A storage bucket is publicly readable.",
+        "statement": "Unauthorized disclosure of federal data.",
+        "status": "open",
+        "deadline": "2026-06-01",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "critical" }],
+        "related-observations": [{ "observation-uuid": "obs-critical" }]
+      },
+      {
+        "uuid": "risk-high",
+        "title": "MFA not enforced",
+        "description": "A privileged role lacks MFA enforcement.",
+        "statement": "Credential compromise risk.",
+        "status": "open",
+        "deadline": "2026-09-01",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "high" }],
+        "related-observations": [{ "observation-uuid": "obs-high" }]
+      },
+      {
+        "uuid": "risk-closed",
+        "title": "Remediated finding",
+        "description": "Already remediated.",
+        "statement": "No residual risk.",
+        "status": "closed",
+        "deadline": "2026-01-01",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "medium" }],
+        "related-observations": [{ "observation-uuid": "obs-closed" }]
+      }
+    ],
+    "poam-items": [
+      {
+        "uuid": "poam-critical",
+        "title": "Remediate public S3 bucket",
+        "description": "Block public access on the bucket.",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "critical" }],
+        "related-risks": [{ "risk-uuid": "risk-critical" }]
+      },
+      {
+        "uuid": "poam-high",
+        "title": "Enforce MFA on privileged role",
+        "description": "Require MFA for the privileged role.",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "high" }],
+        "related-risks": [{ "risk-uuid": "risk-high" }]
+      },
+      {
+        "uuid": "poam-medium",
+        "title": "Rotate a stale access key",
+        "description": "Rotate the access key older than policy allows.",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "medium" }]
+      },
+      {
+        "uuid": "poam-low",
+        "title": "Enable a low-severity logging control",
+        "description": "Enable the recommended logging setting.",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "low" }]
+      },
+      {
+        "uuid": "poam-info",
+        "title": "Informational advisory",
+        "description": "Informational finding — no remediation required.",
+        "props": [{ "name": "severity", "ns": "https://fedramp.gov/ns/cloud-evidence", "value": "info" }]
+      }
+    ]
+  }
+}

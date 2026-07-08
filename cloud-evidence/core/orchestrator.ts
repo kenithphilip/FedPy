@@ -98,6 +98,10 @@ import {
   emitConmonStrategyDocx,
   type ConmonTeamMember, type EscalationThreshold, type AgencyCustomer, type ReportingEndpoint,
 } from './conmon-strategy-emit.ts';
+import {
+  emitRmsDocx,
+  type RiskTolerance, type ExecutiveOversight,
+} from './rms-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -294,6 +298,16 @@ interface Args {
    * before signing so conmon-strategy.docx is covered by the submission bundle.
    */
   conmonStrategy: boolean;
+  /**
+   * When true (LOOP-C.C7), render the Risk Management Strategy (out/rms.docx,
+   * PM-9). §5 Risk Register Reference auto-links to out/risk-register.json
+   * (B.B5); §6 Risk Acceptance Policy summarizes the B.B3/B.B4 snapshots; §10
+   * POA&M Summary auto-counts severities / overdue / oldest-open from
+   * out/poam.json (A.A1). Risk tolerance + executive oversight come from
+   * config.yaml:rms.*. Runs after --conmon-strategy + before signing so rms.docx
+   * is covered by the submission bundle.
+   */
+  rms: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -519,6 +533,7 @@ function parseArgs(argv: string[]): Args {
     fips199: process.env.CLOUD_EVIDENCE_FIPS199 === '1',
     fips199InfoTypes: [],
     conmonStrategy: process.env.CLOUD_EVIDENCE_CONMON_STRATEGY === '1',
+    rms: process.env.CLOUD_EVIDENCE_RMS === '1',
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -752,6 +767,10 @@ function parseArgs(argv: string[]): Args {
       case '--conmon-strategy':
         // LOOP-C.C6: emit the Continuous Monitoring Strategy + Plan (CA-7).
         args.conmonStrategy = true;
+        break;
+      case '--rms':
+        // LOOP-C.C7: emit the Risk Management Strategy (PM-9).
+        args.rms = true;
         break;
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
@@ -1123,6 +1142,12 @@ Post-run artifacts:
                          off the impact level (Low/Moderate → USDA Connect.gov, High → agency-
                          direct). Team roster + escalation SLAs + deviation process come from
                          config.yaml: conmon.* (LOOP-C.C6). (env: CLOUD_EVIDENCE_CONMON_STRATEGY)
+  --rms                  Emit the Risk Management Strategy (out/rms.docx, PM-9). §5 Risk Register
+                         Reference auto-links to out/risk-register.json (B.B5); §6 Risk Acceptance
+                         Policy summarizes the B.B3/B.B4 snapshots; §10 POA&M Summary auto-counts
+                         severities / overdue / oldest-open from out/poam.json (A.A1). Risk
+                         tolerance + executive oversight come from config.yaml: rms.* (LOOP-C.C7).
+                         (env: CLOUD_EVIDENCE_RMS)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1478,6 +1503,17 @@ interface Config {
     reporting_endpoint?: ReportingEndpoint;
     collaborative_conmon?: boolean;
     agency_customers?: AgencyCustomer[];
+  };
+  /**
+   * Risk Management Strategy operator config (LOOP-C.C7). Consumed only when
+   * --rms is set. `tolerance` is the §8 per-CIA risk tolerance; `executive_oversight[]`
+   * is the §9 governance roster; `agency_customer_count` feeds the §2 framing.
+   * The §5/§6/§10 sections auto-derive from the run's real risk corpus.
+   */
+  rms?: {
+    tolerance?: RiskTolerance;
+    executive_oversight?: ExecutiveOversight[];
+    agency_customer_count?: number;
   };
 }
 
@@ -3044,6 +3080,56 @@ export async function main(): Promise<void> {
     } catch (e: any) {
       console.error(`ConMon Strategy emission failed: ${e.message}`);
       log.error({ event: 'conmon-strategy.fail', err_message: e?.message });
+    }
+  }
+
+  // ---- Risk Management Strategy (LOOP-C.C7) — a PM-9 Word document
+  // (out/rms.docx). §5 Risk Register Reference auto-links to out/risk-register.json
+  // (LOOP-B.B5, RA-3); §6 Risk Acceptance Policy summarizes the B.B3/B.B4 snapshots;
+  // §10 POA&M Summary auto-counts severities / overdue / oldest-open from
+  // out/poam.json (LOOP-A.A1). When LOOP-B is not present the §5/§6 sections degrade
+  // to REQUIRES-OPERATOR-INPUT (a clear console warning fires). Risk tolerance + the
+  // executive-oversight roster come from config.yaml:rms.*. Runs after the ConMon
+  // Strategy emit + before signing so rms.docx is covered by the submission bundle. ----
+  if (args.rms) {
+    try {
+      const rc = config.rms;
+      const registerPresent = existsSync(resolve(args.outDir, 'risk-register.json'));
+      const r = emitRmsDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        agencyCustomerCount: rc?.agency_customer_count ?? config.conmon?.agency_customers?.length,
+        riskTolerance: rc?.tolerance,
+        executiveOversight: rc?.executive_oversight,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `Risk Management Strategy (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, register ${r.risk_register_present ? 'linked' : 'absent'}, ${r.poam_item_count} POA&M item(s); ${sig})`
+      );
+      if (!registerPresent) {
+        console.log('  LOOP-B risk register not present — §5/§6/§10 sections require operator completion (run with --risk-register / --oscal-poam to auto-fill).');
+      }
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('rms.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        risk_register_present: r.risk_register_present,
+        risk_acceptance_policy_present: r.risk_acceptance_policy_present,
+        poam_present: r.poam_present,
+        poam_item_count: r.poam_item_count,
+        executive_oversight_count: r.executive_oversight_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`Risk Management Strategy emission failed: ${e.message}`);
+      log.error({ event: 'rms.fail', err_message: e?.message });
     }
   }
 
