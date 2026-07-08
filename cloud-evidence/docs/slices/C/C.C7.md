@@ -3,7 +3,7 @@ slice_id: C.C7
 title: Risk Management Strategy (RMS)
 loop: C
 status: done
-commit: <TBD-step6>
+commit: ea68fea
 completed_date: 2026-07-08
 depends_on: [Pre-slice docx-primitives, LOOP-A.A1 OSCAL POA&M for §10 summary]
 soft_depends_on: [LOOP-B.B5 risk-register.json, LOOP-B.B3 risk-acceptances.json, LOOP-B.B4 compensating-controls.json]
@@ -19,7 +19,7 @@ Ships `rms.docx` — the PM-9 organizational Risk Management Strategy. §5 Risk 
 
 ## Status
 - Status: done
-- Commit: `<TBD-step6>`
+- Commit: `ea68fea`
 - Date: 2026-07-08
 - Verification: typecheck=0 errors, tests=1533 passing (+19), check:reo=green (G1 0 violations / G3 OK / G2 SKIP-no-local-report / ssdf OK)
 
@@ -155,7 +155,7 @@ npm run check:provenance
   are the dotfiles .risk-acceptances.json / .compensating-controls.json —
   summarizePoam buckets by the honest enum, readAcceptancePolicy reads the dotfile
   first (C-C7-7); shared core/docx-primitives.ts still not extracted, now 13
-  emitters to migrate (C-C7-8 / C-X-1). Commit <TBD-step6>.
+  emitters to migrate (C-C7-8 / C-X-1). Commit ea68fea.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
