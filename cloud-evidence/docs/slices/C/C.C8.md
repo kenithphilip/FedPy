@@ -3,7 +3,7 @@ slice_id: C.C8
 title: Authorization request cover letter
 loop: C
 status: done
-commit: <TBD-step6>
+commit: f669531
 completed_date: 2026-07-10
 depends_on: [Pre-slice docx-primitives, LOOP-A.A4 submission-bundle.ts INDEX.json, LOOP-A.A2 ap.json for 3PAO metadata]
 blocks: [LOOP-F.F6 ATO workflow tracker]
@@ -18,7 +18,7 @@ Ships `auth-request-cover-letter.docx` — the CSP-side formal cover letter that
 
 ## Status
 - Status: done
-- Commit: `<TBD-step6>`
+- Commit: `f669531`
 - Date: 2026-07-10
 - Verification: typecheck=0 errors, tests=1586 passing (+18 for C.C8), check:reo=green (G1 lint:no-stubs 0 violations; G3 check:provenance OK; G2 coverage-regression SKIP — no collector run in this env; check:ssdf-no-silent-pass OK)
 
@@ -135,7 +135,7 @@ npm run check:provenance
   (--auth-cover-letter / --auth-request-type flags + env, Config org/auth_request
   sections, two-pass bundle dispatch). typecheck=0, tests 1568→1586 (+18), check:reo
   green. Smoke run: valid .docx (unzip -t, 6 OOXML parts), 12 package artifacts, 3PAO
-  resolved from ap.json, ready_for_signature=true. commit <TBD-step6>.
+  resolved from ap.json, ready_for_signature=true. commit f669531.
   Spec reconciliations (LOOP-C-RISKS C-C8-7..9):
    (7) INDEX.json real shape is {artifacts[{filename,role,description,sha256,bytes,
        in_manifest,required}], built_at, run_id} — spec §schema said {emitted_at, runId};
