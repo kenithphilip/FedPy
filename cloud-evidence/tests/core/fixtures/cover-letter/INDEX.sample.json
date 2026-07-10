@@ -1,0 +1,29 @@
+{
+  "package_format_version": "20x.phase-two.preview.2026",
+  "built_at": "2026-07-09T12:00:00.000Z",
+  "run_id": "2026-07-09-acme-prod-run-001",
+  "frmr_version": "0.9.43-beta",
+  "builder": { "name": "fedramp-20x-cloud-evidence", "module": "core/submission-bundle.ts" },
+  "artifacts": [
+    { "filename": "ssp.json", "role": "oscal-ssp", "description": "OSCAL System Security Plan (v1.1.2)", "sha256": "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888", "bytes": 184320, "in_manifest": true, "required": true },
+    { "filename": "ssp.docx", "role": "oscal-ssp-docx", "description": "FedRAMP-style Word render of the SSP", "sha256": "bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888cccc9999", "bytes": 96040, "in_manifest": true, "required": null },
+    { "filename": "ap.json", "role": "oscal-ap", "description": "OSCAL Assessment Plan / SAP draft (v1.1.2)", "sha256": "cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888cccc9999dddd0000", "bytes": 71234, "in_manifest": true, "required": true },
+    { "filename": "assessment-results.json", "role": "oscal-ar", "description": "OSCAL Assessment Results / SAR (v1.1.2)", "sha256": "dddd4444eeee5555ffff6666aaaa7777bbbb8888cccc9999dddd0000eeee1111", "bytes": 133700, "in_manifest": true, "required": true },
+    { "filename": "poam.json", "role": "oscal-poam", "description": "OSCAL Plan of Action and Milestones (v1.1.2)", "sha256": "eeee5555ffff6666aaaa7777bbbb8888cccc9999dddd0000eeee1111ffff2222", "bytes": 54210, "in_manifest": true, "required": null },
+    { "filename": "inventory-workbook.xlsx", "role": "inventory-workbook-xlsx", "description": "FedRAMP Integrated Inventory Workbook (Appendix M)", "sha256": "ffff6666aaaa7777bbbb8888cccc9999dddd0000eeee1111ffff2222aaaa3333", "bytes": 220112, "in_manifest": true, "required": true },
+    { "filename": "roe.docx", "role": "rules-of-engagement-docx", "description": "Rules of Engagement Word template", "sha256": "aaaa7777bbbb8888cccc9999dddd0000eeee1111ffff2222aaaa3333bbbb4444", "bytes": 40960, "in_manifest": true, "required": null },
+    { "filename": "cmp.docx", "role": "cmp-docx", "description": "Configuration Management Plan (CM-9)", "sha256": "bbbb8888cccc9999dddd0000eeee1111ffff2222aaaa3333bbbb4444cccc5555", "bytes": 48128, "in_manifest": true, "required": null },
+    { "filename": "iscp.docx", "role": "iscp-docx", "description": "Information System Contingency Plan (CP-2 / CP-9 / CP-10)", "sha256": "cccc9999dddd0000eeee1111ffff2222aaaa3333bbbb4444cccc5555dddd6666", "bytes": 51200, "in_manifest": true, "required": null },
+    { "filename": "fips199.docx", "role": "fips199-docx", "description": "FIPS 199 security-categorization worksheet (RA-2)", "sha256": "dddd0000eeee1111ffff2222aaaa3333bbbb4444cccc5555dddd6666eeee7777", "bytes": 33792, "in_manifest": true, "required": null },
+    { "filename": "manifest.json", "role": "signed-manifest", "description": "Ed25519-signed manifest of every JSON/XML/PEM file", "sha256": "eeee1111ffff2222aaaa3333bbbb4444cccc5555dddd6666eeee7777ffff8888", "bytes": 20480, "in_manifest": false, "required": true },
+    { "filename": "manifest.sig", "role": "signed-manifest-sig", "description": "Detached Ed25519 signature over the canonical manifest", "sha256": "ffff2222aaaa3333bbbb4444cccc5555dddd6666eeee7777ffff8888aaaa9999", "bytes": 128, "in_manifest": false, "required": true }
+  ],
+  "gaps": [],
+  "chain_check": { "complete": true, "problems": [] },
+  "provenance": {
+    "emitter": "core/submission-bundle.ts",
+    "emittedAt": "2026-07-09T12:00:00.000Z",
+    "sourceCalls": ["fs.readdirSync(outDir)", "fs.readFileSync(manifest.json)"],
+    "signingKeyId": "0123456789abcdef"
+  }
+}

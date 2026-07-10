@@ -105,6 +105,10 @@ import {
   emitRmsDocx,
   type RiskTolerance, type ExecutiveOversight,
 } from './rms-emit.ts';
+import {
+  emitAuthCoverLetterDocx,
+  type AtoRequestType, type CspExecutiveSignatory, type ThirdPartyAssessorLead, type AoAddressee,
+} from './auth-cover-letter-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -311,6 +315,19 @@ interface Args {
    * is covered by the submission bundle.
    */
   rms: boolean;
+  /**
+   * When true (LOOP-C.C8), render the authorization-request cover letter
+   * (out/auth-request-cover-letter.docx, PM-10) — the CSP-side package
+   * transmittal. §4 Package Contents auto-enumerates the run's signed INDEX.json
+   * (LOOP-A.A4); §3 3PAO statement reads out/ap.json metadata (LOOP-A.A2). When
+   * co-run with --submission-bundle the orchestrator sequences INDEX-build →
+   * cover-letter → bundle-pack so the letter ships inside the tarball and its §4
+   * reflects the current run. Exec signatory + AO addressee come from
+   * config.yaml:auth_request.* and are never auto-signed.
+   */
+  authCoverLetter: boolean;
+  /** Requested authorization action for --auth-cover-letter (default initial-ato). */
+  authRequestType: AtoRequestType | null;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -537,6 +554,8 @@ function parseArgs(argv: string[]): Args {
     fips199InfoTypes: [],
     conmonStrategy: process.env.CLOUD_EVIDENCE_CONMON_STRATEGY === '1',
     rms: process.env.CLOUD_EVIDENCE_RMS === '1',
+    authCoverLetter: process.env.CLOUD_EVIDENCE_AUTH_COVER_LETTER === '1',
+    authRequestType: (process.env.CLOUD_EVIDENCE_AUTH_REQUEST_TYPE as AtoRequestType) ?? null,
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
     thirdPartyAssessor: process.env.CLOUD_EVIDENCE_3PAO_NAME ?? null,
@@ -775,6 +794,19 @@ function parseArgs(argv: string[]): Args {
         // LOOP-C.C7: emit the Risk Management Strategy (PM-9).
         args.rms = true;
         break;
+      case '--auth-cover-letter':
+        // LOOP-C.C8: emit the authorization-request cover letter (PM-10).
+        args.authCoverLetter = true;
+        break;
+      case '--auth-request-type': {
+        const v = (argv[++i] ?? '').toLowerCase();
+        if (!['initial-ato', 'continued-ato', 'reauthorization'].includes(v)) {
+          console.error(`--auth-request-type must be one of: initial-ato, continued-ato, reauthorization (got: ${v})`);
+          process.exit(2);
+        }
+        args.authRequestType = v as AtoRequestType;
+        break;
+      }
       case '--prohibited-vendors-catalog':
         // LOOP-W.W1: emit the signed prohibited-vendor catalog.
         args.prohibitedVendorsCatalog = true;
@@ -1151,6 +1183,17 @@ Post-run artifacts:
                          severities / overdue / oldest-open from out/poam.json (A.A1). Risk
                          tolerance + executive oversight come from config.yaml: rms.* (LOOP-C.C7).
                          (env: CLOUD_EVIDENCE_RMS)
+  --auth-cover-letter    Emit the authorization-request cover letter (out/auth-request-cover-
+                         letter.docx, PM-10) — the CSP-side package transmittal. §4 Package
+                         Contents auto-enumerates the run's signed INDEX.json (A.A4); §3 3PAO
+                         statement reads out/ap.json metadata (A.A2). With --submission-bundle the
+                         orchestrator sequences INDEX-build → cover-letter → bundle-pack so the
+                         letter ships inside the tarball. Exec signatory + AO addressee come from
+                         config.yaml: auth_request.* (never auto-signed) (LOOP-C.C8).
+                         (env: CLOUD_EVIDENCE_AUTH_COVER_LETTER)
+  --auth-request-type <t> Requested authorization action for --auth-cover-letter: initial-ato
+                         (default) | continued-ato | reauthorization
+                         (env: CLOUD_EVIDENCE_AUTH_REQUEST_TYPE)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1517,6 +1560,27 @@ interface Config {
     tolerance?: RiskTolerance;
     executive_oversight?: ExecutiveOversight[];
     agency_customer_count?: number;
+  };
+  /**
+   * CSP organizational identity. `address` feeds the C.C8 cover-letter
+   * letterhead (LOOP-C.C8) when --auth-cover-letter is set.
+   */
+  org?: {
+    address?: string;
+  };
+  /**
+   * Authorization-request cover letter operator config (LOOP-C.C8). Consumed
+   * only when --auth-cover-letter is set. The §4 Package Contents + §3 3PAO
+   * statement auto-derive from the run's real INDEX.json + ap.json; only the
+   * operator identity fields below are human-supplied (REO Rule 4).
+   */
+  auth_request?: {
+    ato_type?: AtoRequestType;
+    submission_date?: string;
+    executive_signatory?: CspExecutiveSignatory;
+    technical_contact?: { name: string; title?: string; email?: string; phone?: string };
+    tpa?: { organization?: string; lead?: ThirdPartyAssessorLead };
+    ao_addressee?: AoAddressee;
   };
 }
 
@@ -3882,11 +3946,83 @@ export async function main(): Promise<void> {
     }
   }
 
+  // ---- Authorization request cover letter (LOOP-C.C8) — a PM-10 Word document
+  // (out/auth-request-cover-letter.docx), the CSP-side package transmittal. §4
+  // Package Contents auto-enumerates the run's signed INDEX.json (LOOP-A.A4); §3
+  // 3PAO statement reads out/ap.json metadata (LOOP-A.A2). emitSubmissionBundle is
+  // atomic (INDEX.json + tarball in one call), so when --submission-bundle is
+  // co-run we run a pre-pass bundle to materialize INDEX.json, emit the letter
+  // reading it, then let the bundle dispatch below re-pack with the letter inside
+  // — realizing the spec's INDEX-build → cover-letter → bundle-pack order (Risk 1).
+  // Standalone (no --submission-bundle) it reads whatever INDEX.json is on disk (a
+  // prior run) and degrades §4 to REQUIRES-OPERATOR-INPUT when absent. Exec
+  // signatory + AO addressee come from config.yaml:auth_request.* and are never
+  // auto-signed (Risk 6). Placed after signing (like the bundle) because it must
+  // read the post-signing INDEX.json; the letter's integrity is anchored by the
+  // signed submission-bundle INDEX.json that records its SHA-256. ----
+  if (args.authCoverLetter) {
+    try {
+      // Pre-pass (only when bundling): build INDEX.json for the current run so §4
+      // enumerates the real package contents before the letter is emitted. The
+      // interim tarball it writes is overwritten by the final bundle pass below.
+      if (args.submissionBundle) {
+        try {
+          emitSubmissionBundle({ outDir: args.outDir, runId, frmrVersion: config.frmr_version, strict: false });
+        } catch (e: any) {
+          log.warn({ event: 'auth-cover-letter.index_prepass_fail', err_message: e?.message });
+        }
+      }
+      const ar = config.auth_request;
+      const r = emitAuthCoverLetterDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        cspAddress: config.org?.address,
+        cspExecutiveSignatory: ar?.executive_signatory,
+        technicalContact: ar?.technical_contact,
+        thirdPartyAssessor: ar?.tpa?.organization ?? args.thirdPartyAssessor ?? undefined,
+        thirdPartyAssessorLead: ar?.tpa?.lead,
+        aoAddressee: ar?.ao_addressee,
+        requestedAtoType: args.authRequestType ?? ar?.ato_type ?? undefined,
+        submissionDate: ar?.submission_date,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `Authorization cover letter (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.artifact_count} package artifact(s), ${r.requested_ato_type}; ${sig})`
+      );
+      if (!r.index_present) {
+        console.log('  Submission INDEX.json not present — §4 Package Contents requires --submission-bundle (INDEX-build → cover-letter → bundle-pack).');
+      }
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('auth-cover-letter.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        index_present: r.index_present,
+        artifact_count: r.artifact_count,
+        ap_present: r.ap_present,
+        third_party_assessor_present: r.third_party_assessor_present,
+        requested_ato_type: r.requested_ato_type,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`Authorization cover letter emission failed: ${e.message}`);
+      log.error({ event: 'auth-cover-letter.fail', err_message: e?.message });
+    }
+  }
+
   // ---- Submission package bundler (LOOP-A.A4) ----
   // Runs AFTER signing so the bundle includes the manifest + signature + the
   // RFC 3161 timestamp. Strict mode (--strict-bundle) refuses to write when
   // any required artifact is missing OR the OSCAL chain is broken — the
   // right setting for production submissions to the FedRAMP secure repository.
+  // When --auth-cover-letter co-ran above, this pass re-packs the tarball +
+  // rebuilds INDEX.json so the cover letter is enclosed and enumerated.
   if (args.submissionBundle) {
     try {
       const bundle = emitSubmissionBundle({

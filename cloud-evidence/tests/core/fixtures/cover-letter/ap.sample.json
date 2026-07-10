@@ -1,0 +1,25 @@
+{
+  "assessment-plan": {
+    "uuid": "11111111-2222-3333-4444-555555555555",
+    "metadata": {
+      "title": "Acme Platform — Assessment Plan (FedRAMP moderate)",
+      "last-modified": "2026-07-02T00:00:00.000Z",
+      "version": "2026-07-02-acme-ap-run",
+      "oscal-version": "1.1.2",
+      "roles": [
+        { "id": "system-owner", "title": "System Owner" },
+        { "id": "assessor", "title": "Assessor (3PAO)" },
+        { "id": "authorizing-official", "title": "Authorizing Official" }
+      ],
+      "parties": [
+        { "uuid": "aaaaaaaa-1111-1111-1111-111111111111", "type": "organization", "name": "Acme Corp" },
+        { "uuid": "bbbbbbbb-2222-2222-2222-222222222222", "type": "organization", "name": "Rigorous Assessments LLC" }
+      ],
+      "props": [
+        { "name": "tool", "value": "fedramp-20x-cloud-evidence" },
+        { "name": "impact-level", "value": "moderate" }
+      ]
+    },
+    "import-ssp": { "href": "ssp.json" }
+  }
+}

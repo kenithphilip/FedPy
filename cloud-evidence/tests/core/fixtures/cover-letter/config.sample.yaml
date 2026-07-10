@@ -1,0 +1,58 @@
+# LOOP-C.C8 — Authorization request cover letter operator config (sample).
+#
+# These blocks feed core/auth-cover-letter-emit.ts when --auth-cover-letter is
+# set. The §4 Package Contents table + the §3 3PAO statement auto-derive from the
+# run's real out/INDEX.json (LOOP-A.A4) + out/ap.json (LOOP-A.A2); only the
+# operator identity fields below are human-supplied (REO Rule 4). The CSP
+# executive signs §7 by hand — the toolkit never auto-signs (Risk 6).
+
+# CSP mailing address for the letterhead (§Letterhead).
+org:
+  address: |
+    Acme Corp
+    100 Cloud Way, Suite 400
+    Reston, VA 20190
+
+auth_request:
+  # Requested authorization action (also settable via --auth-request-type).
+  # One of: initial-ato | continued-ato | reauthorization.
+  ato_type: initial-ato
+
+  # Deterministic transmittal date (ISO YYYY-MM-DD). Omit to fall back to a date
+  # embedded in the run id, else a REQUIRES-OPERATOR-INPUT "dated at signing" marker.
+  submission_date: "2026-07-10"
+
+  # §7 CSP executive signatory (the human who signs the cover letter).
+  executive_signatory:
+    name: Jordan Executive
+    title: Chief Information Security Officer
+    email: jordan.executive@example.com
+    phone: "+1-703-555-0100"
+
+  # §6 CSP technical point-of-contact.
+  technical_contact:
+    name: Riley Engineer
+    title: Head of Platform Security
+    email: riley.engineer@example.com
+    phone: "+1-703-555-0111"
+
+  # §3 / §6 assessing 3PAO. `organization` overrides the ap.json metadata party;
+  # `lead` names the human lead assessor (the AP metadata carries only orgs).
+  tpa:
+    organization: Rigorous Assessments LLC
+    lead:
+      name: Morgan Assessor
+      title: Lead Assessor
+      email: morgan.assessor@example.com
+
+  # §Addressee — the Authorizing Official (or agency AO) the package goes to.
+  ao_addressee:
+    name: Pat Authorizer
+    title: Authorizing Official
+    agency: Department of Example
+    address: |
+      Department of Example
+      1200 Federal Plaza
+      Washington, DC 20500
+    # Optional delegated authorizing-official designate (Risk 5).
+    designee: Sam Designee, Deputy Authorizing Official

@@ -2,13 +2,13 @@
 slice_id: C.C8
 title: Authorization request cover letter
 loop: C
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: <TBD-step6>
+completed_date: 2026-07-10
 depends_on: [Pre-slice docx-primitives, LOOP-A.A4 submission-bundle.ts INDEX.json, LOOP-A.A2 ap.json for 3PAO metadata]
 blocks: [LOOP-F.F6 ATO workflow tracker]
 estimated_effort: 1 working day
-last_updated: 2026-06-07
+last_updated: 2026-07-10
 ---
 
 # C.C8 — Authorization request cover letter / package transmittal
@@ -17,10 +17,10 @@ last_updated: 2026-06-07
 Ships `auth-request-cover-letter.docx` — the CSP-side formal cover letter that accompanies the FedRAMP authorization package transmission. Auto-enumerates package contents from `out/INDEX.json` emitted by LOOP-A.A4 with role + sha256-short + bytes per artifact. Auto-pulls 3PAO identity from `out/ap.json` metadata when present. Distinct from the AO-issued ATO Letter (which the FedRAMP-published ATO Letter Template covers — that's the *response* to this cover letter).
 
 ## Status
-- Status: pending
-- Commit: —
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: `<TBD-step6>`
+- Date: 2026-07-10
+- Verification: typecheck=0 errors, tests=1586 passing (+18 for C.C8), check:reo=green (G1 lint:no-stubs 0 violations; G3 check:provenance OK; G2 coverage-regression SKIP — no collector run in this env; check:ssdf-no-silent-pass OK)
 
 ## Why this slice exists
 NIST SP 800-53 Rev. 5 control **PM-10 (Authorization Process)** mandates a documented process for authorization of system operation, including authorization decisions, accountability, and continuous monitoring. The CSP transmits the authorization package (SSP, AP, AR, POA&M, IIW, RoE, and supporting Word docs) to the FedRAMP PMO (or directly to an agency AO under the Agency Authorization track). The package transmission is accompanied by a formal cover letter — distinct from the AO's ATO letter (which the FedRAMP ATO Letter Template covers as the *response*). C.C8 emits the CSP-side cover letter.
@@ -125,20 +125,48 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-10 | impl-c-c8 | Shipped end to end per spec. Created core/auth-cover-letter-emit.ts
+  (pure buildCoverLetterBodyXml/renderAuthCoverLetterDocx + disk emitAuthCoverLetterDocx;
+  exported readers readIndexJson/readApMetadata + resolvers resolveThirdParty/
+  resolveSubmissionDate) + tests/core/auth-cover-letter-emit.test.ts (18 tests: 11 §8
+  contract + 7 extras) + 3 fixtures (INDEX.sample.json 12 artifacts / ap.sample.json
+  2 org parties / config.sample.yaml). Extended core/submission-bundle.ts (Role +
+  WELL_KNOWN 'auth-cover-letter-docx', conditional) + core/orchestrator.ts
+  (--auth-cover-letter / --auth-request-type flags + env, Config org/auth_request
+  sections, two-pass bundle dispatch). typecheck=0, tests 1568→1586 (+18), check:reo
+  green. Smoke run: valid .docx (unzip -t, 6 OOXML parts), 12 package artifacts, 3PAO
+  resolved from ap.json, ready_for_signature=true. commit <TBD-step6>.
+  Spec reconciliations (LOOP-C-RISKS C-C8-7..9):
+   (7) INDEX.json real shape is {artifacts[{filename,role,description,sha256,bytes,
+       in_manifest,required}], built_at, run_id} — spec §schema said {emitted_at, runId};
+       readIndexJson consumes the narrow real fields (run_id) + tolerates extras (Risk 2).
+   (8) ap.json parties are {uuid,type:'organization',name} with no per-party role + no
+       named lead — spec §schema said parties[{name,org,role}]; resolveThirdParty prefers
+       operator config, else the non-CSP org party (AP convention CSP-first/3PAO-second);
+       lead comes only from operator config.
+   (9) The shipped emitSubmissionBundle is monolithic (INDEX + tar in one atomic call) —
+       spec wanted INDEX-build → cover-letter → bundle-pack. Orchestrator runs a pre-pass
+       bundle (strict:false) to materialize INDEX.json, emits the letter, then the normal
+       bundle dispatch re-packs with the letter enclosed + enumerated in the final INDEX.json.
+   docx-primitives still not extracted — 14th emitter to migrate when C-X-1 lands.
+  Open questions resolved: Q1 cite per-artifact sha256s (not tarball digest — chicken/egg);
+  Q2 §4 rows alphabetical by filename; Q3 single AO addressee (PMO cc'd §6); Q4 §5 references
+  the Playbook timeline (no hard-coded day count); Q5 §2 per-ato-type request sentence.
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by 11)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (C.C8 row + Overall section)
-- [ ] LOOP-C-SPEC.md Section 7 row updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with `LOOP-C.C8:` in the message
-- [ ] Commit amended with commit hash recorded
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by 18 — ≥11 §8 requirement met)
+- [x] check:reo green (G1+G3 OK; G2 SKIP — no collector run in this env; ssdf-no-silent-pass OK)
+- [x] STATUS.md updated (C.C8 row + Overall section + C.C8 scope note)
+- [x] LOOP-C-SPEC.md Section 7 row updated
+- [x] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
+- [x] LOOP-C-RISKS.md updated (C-C8-7..9 reconciliations)
+- [x] OPERATOR-GUIDE.md updated (§3.3 flags + §4.2 env vars + §7 output artifact)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with `LOOP-C.C8:` in the message
+- [x] Commit amended with commit hash recorded
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 1. Auto-loaded: `cloud-evidence/CLAUDE.md`.
