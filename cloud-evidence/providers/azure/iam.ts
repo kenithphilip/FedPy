@@ -375,7 +375,7 @@ export async function collectIamAam(_ctx: CollectorContext): Promise<ProviderBlo
       observations: { total, dormant_90d: dormant.length, severely_dormant: severelyDormant.length, never_signed_in: neverSignedIn.length, auditlog_permission_missing: allMissing },
     },
     target: { summary: `Enabled member accounts have an interactive sign-in within the last ${DORMANT_DAYS} days; dormant accounts are disabled or removed automatically.`, rationale: 'NIST AC-2(3), AC-2(13). Disable/delete inactive accounts on a defined schedule.' },
-    gap: { description: 'Dormant accounts remain enabled, expanding the credential-theft attack surface.', affected_resources: dormant.slice(0, 50).map((u) => ({ type: 'azure_aad_user', identifier: u.userPrincipalName ?? (u.id ?? 'unknown'), attributes: { lastSignIn: u.signInActivity?.lastSignInDateTime ?? null } })) },
+    gap: { description: 'Dormant accounts remain enabled, expanding the credential-theft attack surface.', affected_resources: dormant.length ? dormant.slice(0, 50).map((u) => ({ type: 'azure_aad_user', identifier: u.userPrincipalName ?? (u.id ?? 'unknown'), attributes: { lastSignIn: u.signInActivity?.lastSignInDateTime ?? null } })) : [{ type: 'azure_aad_tenant', identifier: 'directory', name: 'signInActivity unreadable — dormancy indeterminate (missing AuditLog.Read.All)', attributes: { auditlog_permission_missing: allMissing } }] },
     remediation: {
       summary: 'Automate disable + later delete of dormant accounts via an Access Review (Entra ID P2) or a scheduled HR-driven provisioning flow.',
       options: [
@@ -396,7 +396,7 @@ export async function collectIamAam(_ctx: CollectorContext): Promise<ProviderBlo
       observations: { severely_dormant: severelyDormant.length, threshold_days: DORMANT_SEVERE_DAYS },
     },
     target: { summary: 'No enabled member account has been dormant for more than one year — these are removed (or at least disabled) automatically.', rationale: 'NIST AC-2(3), AC-2(13).' },
-    gap: { description: `Enabled accounts dormant > ${DORMANT_SEVERE_DAYS} days remain in the tenant.`, affected_resources: severelyDormant.slice(0, 50).map((u) => ({ type: 'azure_aad_user', identifier: u.userPrincipalName ?? (u.id ?? 'unknown'), attributes: { lastSignIn: u.signInActivity?.lastSignInDateTime ?? null } })) },
+    gap: { description: `Enabled accounts dormant > ${DORMANT_SEVERE_DAYS} days remain in the tenant.`, affected_resources: severelyDormant.length ? severelyDormant.slice(0, 50).map((u) => ({ type: 'azure_aad_user', identifier: u.userPrincipalName ?? (u.id ?? 'unknown'), attributes: { lastSignIn: u.signInActivity?.lastSignInDateTime ?? null } })) : [{ type: 'azure_aad_tenant', identifier: 'directory', name: 'signInActivity unreadable — severe dormancy indeterminate (missing AuditLog.Read.All)', attributes: { auditlog_permission_missing: allMissing } }] },
     remediation: { summary: 'Disable + remove these accounts immediately, then bake the policy into Access Reviews so they cannot accumulate again.', options: [{ approach: 'Bulk-disable in PowerShell.', mechanism: 'cli', steps: ['Update-MgUser -UserId <upn> -AccountEnabled $false', 'After 30-day retention, Remove-MgUser -UserId <upn>'] }] },
     nist_controls: ['ac-2', 'ac-2.3'],
   }));

@@ -1,0 +1,33 @@
+# Public AWS documentation example account ids — safe to appear in tests/docs.
+#
+# scan-account-data.sh blocks ANY standalone 12-digit account id that is NOT
+# listed here (and is not hash-blocked). That default-deny stance
+# is what guarantees a real account id can't slip in unnoticed. If you add a
+# test/fixture that uses a genuine AWS example id, add it here in the same commit.
+111111111111
+111122223333
+123456789012
+111222333444
+222222222222
+222233334444
+333333333333
+333344445555
+444455556666
+555555555555
+666666666666
+777777777777
+888888888888
+999999999999
+999988887777
+000000000000
+
+# Synthetic placeholder ids used in docs/tests (not real accounts).
+000000000001
+000000000004
+009000000000
+012345678901
+
+# Public third-party VENDOR connector account ids — used by the collectors as
+# detection signatures (does your account trust this vendor?), NOT scanned
+# accounts. These are published by the vendor and are safe in a public repo.
+197171649850   # Wiz SaaS connector (core/detect/third-party-tools.ts)

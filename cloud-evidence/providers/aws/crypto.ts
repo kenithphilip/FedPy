@@ -150,7 +150,7 @@ function cmvpForKmsOrigin(origin: string | undefined): CmvpEntry | null {
 }
 
 /** True if an ELB/CloudFront TLS policy name maps to the AWS-LC FIPS module. */
-function isFipsTlsPolicy(name: string | undefined): boolean {
+export function isFipsTlsPolicy(name: string | undefined): boolean {
   return !!name && /-FIPS-/i.test(name);
 }
 
@@ -176,6 +176,7 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
     hasKeyPolicy: boolean;
   }
   const kmsKeys: KmsKeyRecord[] = [];
+  let kmsCollected = false;
   try {
     const kms = aws.kms(ctx.auth);
     let marker: string | undefined;
@@ -216,6 +217,7 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
       const next = r.NextMarker;
       marker = next && next !== marker ? next : undefined;
     } while (marker && ++iter < MAX_PAGINATION_ITERATIONS);
+    kmsCollected = true;
     evidence.push(ev('kms.crypto_module_inventory', kmsKeys));
   } catch (e) { warnIfActionable(warnings, e, 'kms.ListKeys', 'kms:ListKeys'); }
 
@@ -265,12 +267,15 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
   interface ListenerRecord { LoadBalancer: string; ListenerArn: string; Protocol?: string; SslPolicy?: string; isFips: boolean; }
   const listeners: ListenerRecord[] = [];
   let fipsCapablePolicyAvailable = false;
+  let sslPolicyProbeOk = false;
+  let listenersCollected = false;
   try {
     const elb = aws.elbv2(ctx.auth);
     // Is at least one FIPS SSL policy *available* in this region? ("when available")
     try {
       const sp = await elb.send(new DescribeSSLPoliciesCommand({}));
       fipsCapablePolicyAvailable = (sp.SslPolicies ?? []).some((p) => isFipsTlsPolicy(p.Name));
+      sslPolicyProbeOk = true;
     } catch (e) { warnIfActionable(warnings, e, 'elbv2.DescribeSSLPolicies', 'elasticloadbalancing:DescribeSSLPolicies'); }
 
     let lbMarker: string | undefined;
@@ -296,7 +301,8 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
       const next = lbs.NextMarker;
       lbMarker = next && next !== lbMarker ? next : undefined;
     } while (lbMarker && ++lbIter < MAX_PAGINATION_ITERATIONS);
-    evidence.push(ev('elbv2.tls_policy_inventory', { fips_policy_available: fipsCapablePolicyAvailable, listeners }));
+    listenersCollected = true;
+    evidence.push(ev('elbv2.tls_policy_inventory', { fips_policy_available: fipsCapablePolicyAvailable, ssl_policy_probe_ok: sslPolicyProbeOk, listeners }));
   } catch (e) { warnIfActionable(warnings, e, 'elbv2.DescribeLoadBalancers', 'elasticloadbalancing:DescribeLoadBalancers'); }
 
   const tlsListenersWithoutFips = listeners.filter((l) => !l.isFips);
@@ -430,7 +436,11 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
   // - ELB: TLS listeners default to a non-FIPS policy while a FIPS policy IS available.
   // - ACM: any cert uses a non-approved key algorithm.
   const catNonFipsListenersWhenAvailable = fipsCapablePolicyAvailable ? tlsListenersWithoutFips : [];
-  const catPasses = kmsExternalKeys.length === 0 && catNonFipsListenersWhenAvailable.length === 0 && certsWithWeakAlgorithm.length === 0;
+  // Gate on the same fetch-success set as UVM — an empty "no non-validated defaults"
+  // result is vacuous if KMS/listeners/SSL-policy reads failed.
+  const catCollectionComplete = kmsCollected && listenersCollected && sslPolicyProbeOk;
+  const catPasses = catCollectionComplete
+    && kmsExternalKeys.length === 0 && catNonFipsListenersWhenAvailable.length === 0 && certsWithWeakAlgorithm.length === 0;
   const catFinding = finding({
     rule: 'aws.ucm.cat.agency_tenant_defaults_validated',
     passed: catPasses,
@@ -452,12 +462,17 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
       rationale: 'UCM-CSX-CAT SHOULD. NIST SC-13/CM-6: secure-by-default crypto for federal tenants. "When available" exempts regions/services without a FIPS option.',
     },
     gap: catPasses ? undefined : {
-      description: 'Default-tenant crypto can land federal data on a non-validated module even though a validated option is available.',
-      affected_resources: [
-        ...kmsExternalKeys.map<AffectedResource>((k) => ({ type: 'aws_kms_key', identifier: k.KeyId, name: k.KeyId, attributes: { Origin: k.Origin } })),
-        ...catNonFipsListenersWhenAvailable.map<AffectedResource>((l) => ({ type: 'aws_lb_listener', identifier: l.ListenerArn, name: l.LoadBalancer, attributes: { ssl_policy: l.SslPolicy } })),
-        ...certsWithWeakAlgorithm.map<AffectedResource>((c2) => ({ type: 'aws_acm_certificate', identifier: c2.Arn, name: c2.DomainName, attributes: { key_algorithm: c2.KeyAlgorithm } })),
-      ],
+      description: !catCollectionComplete
+        ? 'Default-tenant crypto posture could not be fully assessed — KMS (ListKeys), ELB listeners, or the FIPS SSL-policy probe failed to read. Grant the permissions and re-run.'
+        : 'Default-tenant crypto can land federal data on a non-validated module even though a validated option is available.',
+      affected_resources: (() => {
+        const rs = [
+          ...kmsExternalKeys.map<AffectedResource>((k) => ({ type: 'aws_kms_key', identifier: k.KeyId, name: k.KeyId, attributes: { Origin: k.Origin } })),
+          ...catNonFipsListenersWhenAvailable.map<AffectedResource>((l) => ({ type: 'aws_lb_listener', identifier: l.ListenerArn, name: l.LoadBalancer, attributes: { ssl_policy: l.SslPolicy } })),
+          ...certsWithWeakAlgorithm.map<AffectedResource>((c2) => ({ type: 'aws_acm_certificate', identifier: c2.Arn, name: c2.DomainName, attributes: { key_algorithm: c2.KeyAlgorithm } })),
+        ];
+        return rs.length ? rs : [{ type: 'aws_crypto_inventory', identifier: ctx.account ?? 'account', name: 'crypto default posture incomplete', attributes: { kms_collected: kmsCollected, listeners_collected: listenersCollected, ssl_policy_probe_ok: sslPolicyProbeOk } }];
+      })(),
     },
     remediation: catPasses ? undefined : {
       summary: 'Pin validated-module crypto in the tenant-provisioning baseline (default KMS to AWS_KMS/CloudHSM origin, default TLS listeners to a *-FIPS-* policy, issue certs with approved algorithms).',
@@ -517,7 +532,15 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
     ];
   } // low: leave empty (MAY)
 
-  const uvmPasses = level === 'low' ? true : uvmViolations.length === 0;
+  // At Moderate/High a clean pass requires that the fetches the check depends on
+  // actually SUCCEEDED — otherwise an empty violation list is vacuous (a denied
+  // ListKeys / DescribeLoadBalancers / DescribeSSLPolicies would hide real gaps).
+  // The SSL-policy probe matters because the Moderate TLS check is suppressed when
+  // fipsCapablePolicyAvailable is false, which is also the value on probe failure.
+  const uvmCollectionComplete = kmsCollected && listenersCollected && sslPolicyProbeOk;
+  const uvmPasses = level === 'low'
+    ? true
+    : uvmCollectionComplete && uvmViolations.length === 0;
   // Coverage stats (always reported, the primary signal at Low).
   const validatedCryptoCount = kmsValidatedKeys.length + listeners.filter((l) => l.isFips).length + certs.filter((c2) => c2.approvedAlgorithm).length;
   const totalCryptoCount = kmsKeys.filter((k) => k.KeyState !== 'PendingDeletion').length + listeners.length + certs.filter((c2) => !!c2.KeyAlgorithm).length;
@@ -555,8 +578,12 @@ export async function collectUcm(c: CollectorContext): Promise<ProviderBlock> {
       rationale: `UCM-CSX-UVM is the only UCM requirement with an explicitly published per-level key word (Low MAY / Moderate SHOULD / High MUST). NIST SC-13/SC-12/SC-8. AWS KMS HSM (CMVP #4884) backs AWS_KMS keys; AWS-LC FIPS (CMVP #4759) backs *-FIPS-* TLS policies.`,
     },
     gap: uvmPasses ? undefined : {
-      description: `At impact level '${level}', ${uvmViolations.length} cryptographic service(s) do not use an active CMVP-validated module. A failing ${uvmKeyWord} is reported at '${uvmSeverity}' severity.`,
-      affected_resources: uvmViolations,
+      description: (level !== 'low' && !uvmCollectionComplete)
+        ? `Cryptographic-module usage could not be fully assessed at impact level '${level}' — one or more of KMS (ListKeys), ELB listeners (DescribeLoadBalancers), or the FIPS SSL-policy probe (DescribeSSLPolicies) failed, so a clean result cannot be asserted. Grant the read permissions and re-run.`
+        : `At impact level '${level}', ${uvmViolations.length} cryptographic service(s) do not use an active CMVP-validated module. A failing ${uvmKeyWord} is reported at '${uvmSeverity}' severity.`,
+      affected_resources: uvmViolations.length ? uvmViolations : [
+        { type: 'aws_crypto_inventory', identifier: ctx.account ?? 'account', name: 'crypto module inventory incomplete', attributes: { kms_collected: kmsCollected, listeners_collected: listenersCollected, ssl_policy_probe_ok: sslPolicyProbeOk } },
+      ],
     },
     remediation: uvmPasses ? undefined : {
       summary: 'Move federal-data crypto onto validated modules: AWS_KMS/CloudHSM-origin keys, *-FIPS-* TLS policies, approved cert algorithms — or attach CMVP proof for the external/app-layer module in use.',

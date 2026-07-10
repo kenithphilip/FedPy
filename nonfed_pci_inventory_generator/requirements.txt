@@ -1,0 +1,5 @@
+# Runtime dependencies for the PCI DSS v4.0.1 inventory generator (Stage 1).
+boto3>=1.34.0
+botocore>=1.34.0
+openpyxl>=3.1.2
+PyYAML>=6.0.1

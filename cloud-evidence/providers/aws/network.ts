@@ -35,9 +35,21 @@ import type { ProviderBlock, RawEvidence, AffectedResource, AlternativeSatisfier
 import { finding } from '../../core/findings.ts';
 import type { CollectorContext } from '../../core/ksi-map.ts';
 import { detect as detectThirdParty } from '../../core/detect/third-party-tools.ts';
+import { diagnoseAwsError } from '../../core/error-diagnostics.ts';
 
 const DEFAULT_REGION = 'us-east-1';
 const ADMIN_PORTS = [22, 3389, 3306, 5432, 6379, 27017, 9200];
+
+/**
+ * Gate a "no violations found" pass on the underlying fetch(es) having actually
+ * succeeded. If any prerequisite source failed to collect (AccessDenied /
+ * throttle / etc.), an empty violation list is INDETERMINATE, not clean — so we
+ * force `passed=false` rather than emit a false PASS. `noViolations` is the
+ * would-be pass expression (e.g. `sgOpenToWorldAdmin.length === 0`).
+ */
+function gatePass(noViolations: boolean, collected: Set<string>, ...required: string[]): boolean {
+  return required.every((r) => collected.has(r)) && noViolations;
+}
 
 function ev(source: string, data: unknown): RawEvidence {
   return { source, captured_at: new Date().toISOString(), data: data === undefined ? null : data };
@@ -78,6 +90,8 @@ interface NetworkInventory {
   wafWebAcls: any[];
   shieldAdvancedActive: boolean;
   networkFirewalls: any[];
+  /** Names of the fetches that SUCCEEDED (see gatePass). */
+  collected: Set<string>;
 }
 
 async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory; warnings: string[]; evidence: RawEvidence[] }> {
@@ -89,26 +103,33 @@ async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory;
     loadBalancers: [], s3Buckets: [], s3PublicBuckets: [], rdsInstances: [], rdsClusters: [],
     eksClusters: [], lambdaFunctions: [], lambdasWithPublicPrincipals: [], wafWebAcls: [],
     shieldAdvancedActive: false, networkFirewalls: [],
+    // Records which fetches SUCCEEDED. A `=== 0` "no violations" finding must be
+    // gated on the relevant fetch having actually run — otherwise an AccessDenied
+    // that leaves the array empty produces a false PASS. See gatePass() usage below.
+    collected: new Set<string>(),
   };
 
   const ec2 = aws.ec2(ctx.auth);
   try {
     const r = await ec2.send(new DescribeSecurityGroupsCommand({ MaxResults: 1000 }));
     inv.securityGroups = r.SecurityGroups ?? [];
+    inv.collected.add('securityGroups');
     evidence.push(ev('ec2.DescribeSecurityGroups', { count: inv.securityGroups.length }));
-  } catch (e: any) { warnings.push(`DescribeSecurityGroups: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ec2.DescribeSecurityGroups', 'ec2:DescribeSecurityGroups')); }
 
   try {
     const r = await ec2.send(new DescribeInstancesCommand({ MaxResults: 200 }));
     inv.instances = (r.Reservations ?? []).flatMap((res: any) => res.Instances ?? []);
+    inv.collected.add('instances');
     evidence.push(ev('ec2.DescribeInstances', { count: inv.instances.length }));
-  } catch (e: any) { warnings.push(`DescribeInstances: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ec2.DescribeInstances', 'ec2:DescribeInstances')); }
 
   try {
     const r = await ec2.send(new DescribeVpcsCommand({}));
     inv.vpcs = r.Vpcs ?? [];
+    inv.collected.add('vpcs');
     evidence.push(ev('ec2.DescribeVpcs', { count: inv.vpcs.length }));
-  } catch (e: any) { warnings.push(`DescribeVpcs: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ec2.DescribeVpcs', 'ec2:DescribeVpcs')); }
 
   try {
     const r = await ec2.send(new DescribeSubnetsCommand({}));
@@ -128,13 +149,15 @@ async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory;
   try {
     const r = await ec2.send(new DescribeFlowLogsCommand({}));
     inv.flowLogs = r.FlowLogs ?? [];
+    inv.collected.add('flowLogs');
     evidence.push(ev('ec2.DescribeFlowLogs', { count: inv.flowLogs.length }));
-  } catch (e: any) { warnings.push(`DescribeFlowLogs: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ec2.DescribeFlowLogs', 'ec2:DescribeFlowLogs')); }
 
   try {
     const r = await ec2.send(new DescribeVpcEndpointsCommand({}));
     inv.vpcEndpoints = r.VpcEndpoints ?? [];
-  } catch (e: any) { warnings.push(`DescribeVpcEndpoints: ${e.message}`); }
+    inv.collected.add('vpcEndpoints');
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ec2.DescribeVpcEndpoints', 'ec2:DescribeVpcEndpoints')); }
 
   try {
     const r = await ec2.send(new DescribeVpcPeeringConnectionsCommand({}));
@@ -150,22 +173,34 @@ async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory;
     const elb = aws.elbv2(ctx.auth);
     const r = await elb.send(new DescribeLBsCommand({}));
     inv.loadBalancers = r.LoadBalancers ?? [];
+    inv.collected.add('loadBalancers');
     evidence.push(ev('elbv2.DescribeLoadBalancers', { count: inv.loadBalancers.length }));
-  } catch (e: any) { warnings.push(`DescribeLoadBalancers: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'elbv2.DescribeLoadBalancers', 'elasticloadbalancing:DescribeLoadBalancers')); }
 
   try {
     const s3 = aws.s3(ctx.auth);
     const r = await s3.send(new ListBucketsCommand({}));
     inv.s3Buckets = r.Buckets ?? [];
+    inv.collected.add('s3Buckets');
+    let publicStatusReadFailures = 0;
     for (const b of inv.s3Buckets) {
       if (!b.Name) continue;
       try {
         const st = await s3.send(new GetBucketPolicyStatusCommand({ Bucket: b.Name }));
         if (st.PolicyStatus?.IsPublic) inv.s3PublicBuckets.push(b.Name);
-      } catch { /* no policy = not public via policy */ }
+      } catch (e: any) {
+        // A denied/failed read is NOT "not public" — distinguish it. NoSuchBucketPolicy
+        // genuinely means no policy (not public via policy); anything else is a gap.
+        const code = e?.name ?? e?.code ?? '';
+        if (code !== 'NoSuchBucketPolicy' && code !== 'NoSuchBucketPolicyStatus') publicStatusReadFailures++;
+      }
     }
-    evidence.push(ev('s3.bucket_public_status', { total: inv.s3Buckets.length, public_via_policy: inv.s3PublicBuckets }));
-  } catch (e: any) { warnings.push(`S3 inventory: ${e.message}`); }
+    // If we couldn't read policy status on any bucket, the "no public buckets"
+    // conclusion is not trustworthy — record it so the pass is gated.
+    if (publicStatusReadFailures === 0) inv.collected.add('s3PublicStatus');
+    else warnings.push(`S3 public-status unread on ${publicStatusReadFailures} bucket(s) (s3:GetBucketPolicyStatus) — "no public buckets" is indeterminate.`);
+    evidence.push(ev('s3.bucket_public_status', { total: inv.s3Buckets.length, public_via_policy: inv.s3PublicBuckets, unread: publicStatusReadFailures }));
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 's3.inventory', 's3:ListAllMyBuckets')); }
 
   try {
     const rds = aws.rds(ctx.auth);
@@ -173,8 +208,9 @@ async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory;
     inv.rdsInstances = r.DBInstances ?? [];
     const c = await rds.send(new DescribeDBClustersCommand({}));
     inv.rdsClusters = c.DBClusters ?? [];
+    inv.collected.add('rdsInstances');
     evidence.push(ev('rds.inventory', { instances: inv.rdsInstances.length, clusters: inv.rdsClusters.length }));
-  } catch (e: any) { warnings.push(`RDS: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'rds.inventory', 'rds:DescribeDBInstances')); }
 
   try {
     const eks = aws.eks(ctx.auth);
@@ -183,8 +219,9 @@ async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory;
       const d = await eks.send(new EksDescribeClusterCommand({ name }));
       if (d.cluster) inv.eksClusters.push(d.cluster);
     }
+    inv.collected.add('eksClusters');
     evidence.push(ev('eks.cluster_inventory', inv.eksClusters.filter((c: any) => c?.name).map((c: any) => ({ name: c.name, endpointPublicAccess: c.resourcesVpcConfig?.endpointPublicAccess, publicAccessCidrs: c.resourcesVpcConfig?.publicAccessCidrs }))));
-  } catch (e: any) { warnings.push(`EKS: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'eks.cluster_inventory', 'eks:ListClusters')); }
 
   try {
     const lambda = aws.lambda(ctx.auth);
@@ -220,8 +257,9 @@ async function fetchNetworkInventory(ctx: Ctx): Promise<{ inv: NetworkInventory;
         }
       }
     }
+    inv.collected.add('lambdaFunctions');
     evidence.push(ev('lambda.public_principal_audit', { total: inv.lambdaFunctions.length, public: inv.lambdasWithPublicPrincipals.length }));
-  } catch (e: any) { warnings.push(`Lambda: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'lambda.public_principal_audit', 'lambda:ListFunctions')); }
 
   try {
     const waf = aws.wafv2(ctx.auth);
@@ -289,7 +327,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.sg.no_world_open_to_admin_ports',
-      passed: sgOpenToWorldAdmin.length === 0,
+      passed: gatePass(sgOpenToWorldAdmin.length === 0, inv.collected, 'securityGroups'),
       severity: 'critical',
       current: {
         summary: sgOpenToWorldAdmin.length === 0
@@ -344,7 +382,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.ec2.all_imdsv2_required',
-      passed: ec2WithoutImdsv2.length === 0,
+      passed: gatePass(ec2WithoutImdsv2.length === 0, inv.collected, 'instances'),
       severity: 'high',
       current: {
         summary: ec2WithoutImdsv2.length === 0
@@ -389,7 +427,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.s3.no_public_buckets',
-      passed: inv.s3PublicBuckets.length === 0,
+      passed: gatePass(inv.s3PublicBuckets.length === 0, inv.collected, 's3Buckets', 's3PublicStatus'),
       severity: 'critical',
       current: {
         summary: inv.s3PublicBuckets.length === 0
@@ -435,7 +473,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.lambda.no_public_invocation',
-      passed: inv.lambdasWithPublicPrincipals.length === 0,
+      passed: gatePass(inv.lambdasWithPublicPrincipals.length === 0, inv.collected, 'lambdaFunctions'),
       severity: 'high',
       current: {
         summary: inv.lambdasWithPublicPrincipals.length === 0
@@ -473,7 +511,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.rds.no_public_instances',
-      passed: rdsPublic.length === 0,
+      passed: gatePass(rdsPublic.length === 0, inv.collected, 'rdsInstances'),
       severity: 'high',
       current: {
         summary: rdsPublic.length === 0
@@ -508,7 +546,7 @@ export async function collectCnaMat(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.eks.no_public_endpoint',
-      passed: eksPublicEndpoint.length === 0,
+      passed: gatePass(eksPublicEndpoint.length === 0, inv.collected, 'eksClusters'),
       severity: 'high',
       current: {
         summary: eksPublicEndpoint.length === 0
@@ -578,7 +616,7 @@ export async function collectCnaRnt(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.sg.default_no_unrestricted_egress',
-      passed: defaultSgUnrestrictedEgress.length === 0,
+      passed: gatePass(defaultSgUnrestrictedEgress.length === 0, inv.collected, 'securityGroups'),
       severity: 'high',
       current: {
         summary: defaultSgUnrestrictedEgress.length === 0
@@ -654,7 +692,7 @@ export async function collectCnaRnt(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.vpc_flow_logs_enabled_all_vpcs',
-      passed: vpcsWithoutFlowLogs.length === 0,
+      passed: gatePass(vpcsWithoutFlowLogs.length === 0, inv.collected, 'vpcs', 'flowLogs'),
       severity: 'high',
       current: {
         summary: vpcsWithoutFlowLogs.length === 0
@@ -732,7 +770,7 @@ export async function collectCnaUln(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'At least one VPC per environment (prod vs nonprod) with documented inter-VPC connectivity.', rationale: 'NIST SC-32 (system partitioning).' },
       gap: inv.vpcs.length >= 1 ? undefined : {
         description: 'No VPCs found — unusual; verify account scope.',
-        affected_resources: [],
+        affected_resources: [{ type: 'aws_account', identifier: ctx.account ?? 'account', name: 'no VPC present — no logical separation', attributes: { region: ctx.region } }],
       },
       remediation: inv.vpcs.length >= 1 ? undefined : {
         summary: 'Verify the runner has correct account scope or create the required environment VPCs.',
@@ -841,9 +879,11 @@ export async function collectCnaRvp(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'DoS protection: Shield Advanced (for high-risk targets), OR WAF rate-based rules on all public ALBs/CloudFront.', rationale: 'NIST SC-5. FedRAMP 20x explicitly requires DoS protection review.' },
       gap: (inv.shieldAdvancedActive || wafsWithRateRules.length >= 1) ? undefined : {
         description: 'No L7 DoS protection detected. Volumetric attacks degrade or take down public endpoints.',
-        affected_resources: publicAlbs.map<AffectedResource>((l: any) => ({
-          type: 'aws_lb', identifier: l.LoadBalancerArn, name: l.LoadBalancerName, attributes: { scheme: l.Scheme },
-        })),
+        affected_resources: publicAlbs.length
+          ? publicAlbs.map<AffectedResource>((l: any) => ({
+              type: 'aws_lb', identifier: l.LoadBalancerArn, name: l.LoadBalancerName, attributes: { scheme: l.Scheme },
+            }))
+          : [{ type: 'aws_account', identifier: ctx.account ?? 'account', name: 'no Shield Advanced or rate-based WAF present', attributes: { region: ctx.region } }],
       },
       remediation: (inv.shieldAdvancedActive || wafsWithRateRules.length >= 1) ? undefined : {
         summary: 'Deploy WAFv2 rate-based rules on every public ALB/CloudFront; consider Shield Advanced for high-risk targets.',
@@ -900,8 +940,10 @@ export async function collectSvcSnt(c: CollectorContext): Promise<ProviderBlock>
   const listeners: ListenerAudit[] = [];
   const httpListeners: ListenerAudit[] = [];
   const weakTlsListeners: ListenerAudit[] = [];
+  let listenerAuditComplete = false;
   try {
     const elb = aws.elbv2(ctx.auth);
+    let listenerReadFailures = 0;
     for (const lb of inv.loadBalancers) {
       if (!lb.LoadBalancerArn) continue;
       try {
@@ -920,19 +962,24 @@ export async function collectSvcSnt(c: CollectorContext): Promise<ProviderBlock>
             weakTlsListeners.push(a);
           }
         }
-      } catch (e: any) { warnings.push(`DescribeListeners ${lb.LoadBalancerName}: ${e.message}`); }
+      } catch (e: any) { listenerReadFailures++; warnings.push(diagnoseAwsError(e, `elbv2.DescribeListeners ${lb.LoadBalancerName}`, 'elasticloadbalancing:DescribeListeners')); }
     }
-    evidence.push(ev('elbv2.listener_tls_audit', { total_listeners: listeners.length, http_listeners: httpListeners, weak_tls_listeners: weakTlsListeners }));
-  } catch (e: any) { warnings.push(`ELB listener inspection: ${e.message}`); }
+    // The listener audit is trustworthy only if we enumerated the LBs AND read
+    // every LB's listeners. A read failure means "no HTTP listeners" is unproven.
+    listenerAuditComplete = inv.collected.has('loadBalancers') && listenerReadFailures === 0;
+    evidence.push(ev('elbv2.listener_tls_audit', { total_listeners: listeners.length, http_listeners: httpListeners, weak_tls_listeners: weakTlsListeners, unread_lbs: listenerReadFailures }));
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'elbv2.listener_tls_audit', 'elasticloadbalancing:DescribeListeners')); }
 
   // CloudFront distributions
   interface CfAudit { id: string; domainName: string; viewerProtocolPolicy: string; minTlsVersion?: string; }
   const cfDistributions: CfAudit[] = [];
   const cfWithoutHttpsOnly: CfAudit[] = [];
   const cfWithWeakTls: CfAudit[] = [];
+  let cfAuditComplete = false;
   try {
     const cf = aws.cloudfront(ctx.auth);
     const r = await cf.send(new ListDistributionsCommand({}));
+    let cfReadFailures = 0;
     for (const d of r.DistributionList?.Items ?? []) {
       if (!d.Id) continue;
       try {
@@ -950,15 +997,16 @@ export async function collectSvcSnt(c: CollectorContext): Promise<ProviderBlock>
         cfDistributions.push(audit);
         if (vpp !== 'redirect-to-https' && vpp !== 'https-only') cfWithoutHttpsOnly.push(audit);
         if (minTls && /TLSv1$|TLSv1_2016|TLSv1\.1/i.test(minTls)) cfWithWeakTls.push(audit);
-      } catch (e: any) { warnings.push(`GetDistribution ${d.Id}: ${e.message}`); }
+      } catch (e: any) { cfReadFailures++; warnings.push(diagnoseAwsError(e, `cloudfront.GetDistribution ${d.Id}`, 'cloudfront:GetDistribution')); }
     }
-    evidence.push(ev('cloudfront.distribution_tls_audit', { total: cfDistributions.length, without_https_only: cfWithoutHttpsOnly, weak_tls: cfWithWeakTls }));
-  } catch (e: any) { warnings.push(`CloudFront: ${e.message}`); }
+    cfAuditComplete = cfReadFailures === 0;
+    evidence.push(ev('cloudfront.distribution_tls_audit', { total: cfDistributions.length, without_https_only: cfWithoutHttpsOnly, weak_tls: cfWithWeakTls, unread: cfReadFailures }));
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'cloudfront.distribution_tls_audit', 'cloudfront:ListDistributions')); }
 
   const findings = [
     finding({
       rule: 'aws.elb.no_http_listeners_in_prod',
-      passed: httpListeners.length === 0,
+      passed: listenerAuditComplete && httpListeners.length === 0,
       severity: 'critical',
       current: {
         summary: httpListeners.length === 0
@@ -1001,7 +1049,7 @@ export async function collectSvcSnt(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.elb.ssl_policy_tls_1_2_or_higher',
-      passed: weakTlsListeners.length === 0,
+      passed: listenerAuditComplete && weakTlsListeners.length === 0,
       severity: 'high',
       current: {
         summary: weakTlsListeners.length === 0
@@ -1039,22 +1087,29 @@ export async function collectSvcSnt(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.cloudfront.viewer_protocol_https_only',
-      passed: cfWithoutHttpsOnly.length === 0,
+      // Pass if the audit ran clean; when there are simply no distributions the
+      // audit is trivially complete (no gap). Fail-closed only when we couldn't
+      // read distribution config (indeterminate).
+      passed: cfAuditComplete && cfWithoutHttpsOnly.length === 0,
       severity: 'high',
       current: {
-        summary: cfWithoutHttpsOnly.length === 0
-          ? `${cfDistributions.length} CloudFront distribution(s); all enforce HTTPS-only or redirect.`
-          : `${cfWithoutHttpsOnly.length} CloudFront distribution(s) allow plain-HTTP viewer access.`,
-        observations: { distributions: cfDistributions, without_https_only: cfWithoutHttpsOnly },
+        summary: !cfAuditComplete
+          ? 'CloudFront viewer-policy posture INDETERMINATE — distributions could not be read (service unavailable in this partition, or access denied).'
+          : cfWithoutHttpsOnly.length === 0
+            ? `${cfDistributions.length} CloudFront distribution(s); all enforce HTTPS-only or redirect.`
+            : `${cfWithoutHttpsOnly.length} CloudFront distribution(s) allow plain-HTTP viewer access.`,
+        observations: { collected: cfAuditComplete, distributions: cfDistributions, without_https_only: cfWithoutHttpsOnly },
       },
       target: { summary: 'All CloudFront distributions have ViewerProtocolPolicy = redirect-to-https or https-only AND MinimumProtocolVersion >= TLSv1.2_2021.', rationale: 'NIST SC-8.' },
-      gap: cfWithoutHttpsOnly.length === 0 ? undefined : {
-        description: 'Plain-HTTP CloudFront viewer policy.',
-        affected_resources: cfWithoutHttpsOnly.map<AffectedResource>((c) => ({
+      gap: (cfAuditComplete && cfWithoutHttpsOnly.length === 0) ? undefined : {
+        description: !cfAuditComplete
+          ? 'CloudFront distributions could not be enumerated (cloudfront:ListDistributions unavailable/denied), so viewer-protocol posture cannot be asserted.'
+          : 'Plain-HTTP CloudFront viewer policy.',
+        affected_resources: cfWithoutHttpsOnly.length ? cfWithoutHttpsOnly.map<AffectedResource>((c) => ({
           type: 'aws_cloudfront_distribution', identifier: c.id, name: c.domainName, attributes: { viewer_protocol_policy: c.viewerProtocolPolicy },
-        })),
+        })) : [{ type: 'aws_cloudfront_distribution', identifier: ctx.account ?? 'account', name: 'CloudFront unreadable — indeterminate' }],
       },
-      remediation: cfWithoutHttpsOnly.length === 0 ? undefined : {
+      remediation: (cfAuditComplete && cfWithoutHttpsOnly.length === 0) ? undefined : {
         summary: 'Set viewer_protocol_policy = "redirect-to-https" via Terraform.',
         options: [{
           approach: 'Update distribution config.',

@@ -54,6 +54,13 @@ import { ResourceExplorer2Client } from '@aws-sdk/client-resource-explorer-2';
 import { ResourceGroupsTaggingAPIClient } from '@aws-sdk/client-resource-groups-tagging-api';
 import { CostExplorerClient } from '@aws-sdk/client-cost-explorer';
 import { Macie2Client } from '@aws-sdk/client-macie2';
+import { ElastiCacheClient } from '@aws-sdk/client-elasticache';
+import { RedshiftClient } from '@aws-sdk/client-redshift';
+import { EFSClient } from '@aws-sdk/client-efs';
+import { SNSClient } from '@aws-sdk/client-sns';
+import { SQSClient } from '@aws-sdk/client-sqs';
+import { APIGatewayClient } from '@aws-sdk/client-api-gateway';
+import { Route53Client } from '@aws-sdk/client-route-53';
 
 import { wrapAwsClient } from '../readonly-guardrail.ts';
 
@@ -68,6 +75,20 @@ export function makeAwsAuth(region: string): AwsAuth {
     region,
     credentials: fromNodeProviderChain(),
   };
+}
+
+/**
+ * The AWS ARN partition for a region. Synthesized ARNs MUST use the right
+ * partition or they won't match the account's real (Config/Resource-Explorer)
+ * ARNs — e.g. in GovCloud a hardcoded `arn:aws:` never dedups against the real
+ * `arn:aws-us-gov:` id, duplicating the asset and splitting its enriched fields.
+ *   us-gov-* => aws-us-gov;  cn-* => aws-cn;  otherwise => aws
+ */
+export function awsPartition(region: string | null | undefined): string {
+  const r = (region ?? '').toLowerCase();
+  if (r.startsWith('us-gov-')) return 'aws-us-gov';
+  if (r.startsWith('cn-')) return 'aws-cn';
+  return 'aws';
 }
 
 /**
@@ -152,3 +173,10 @@ export const resourceExplorer = (a: AwsAuth) => wrapAwsClient(new ResourceExplor
 export const taggingApi = (a: AwsAuth) => wrapAwsClient(new ResourceGroupsTaggingAPIClient({ region: a.region, credentials: a.credentials }));
 export const costExplorer = (a: AwsAuth) => wrapAwsClient(new CostExplorerClient({ region: a.region, credentials: a.credentials }));
 export const macie = (a: AwsAuth) => wrapAwsClient(new Macie2Client({ region: a.region, credentials: a.credentials }));
+export const elasticache = (a: AwsAuth) => wrapAwsClient(new ElastiCacheClient({ region: a.region, credentials: a.credentials }));
+export const redshift = (a: AwsAuth) => wrapAwsClient(new RedshiftClient({ region: a.region, credentials: a.credentials }));
+export const efs = (a: AwsAuth) => wrapAwsClient(new EFSClient({ region: a.region, credentials: a.credentials }));
+export const sns = (a: AwsAuth) => wrapAwsClient(new SNSClient({ region: a.region, credentials: a.credentials }));
+export const sqs = (a: AwsAuth) => wrapAwsClient(new SQSClient({ region: a.region, credentials: a.credentials }));
+export const apigateway = (a: AwsAuth) => wrapAwsClient(new APIGatewayClient({ region: a.region, credentials: a.credentials }));
+export const route53 = (a: AwsAuth) => wrapAwsClient(new Route53Client({ region: a.region, credentials: a.credentials }));

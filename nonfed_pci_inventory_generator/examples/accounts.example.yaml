@@ -1,0 +1,62 @@
+# Optional configuration for the PCI DSS v4.0.1 inventory generator.
+#
+# The tool runs with ZERO configuration by default (single account, ambient/SSO
+# credentials). This file is only needed for multi-account / Organizations runs
+# or to tune concurrency / region behaviour. CLI flags override these values.
+
+# ---------------------------------------------------------------------------
+# Multi-account: scan an explicit list of accounts. Each entry may use a named
+# profile (e.g. an SSO profile) OR assume a role from the current session.
+# Omit both to use ambient credentials.
+# ---------------------------------------------------------------------------
+accounts:
+  - account_id: "111122223333"
+    alias: acme-prod
+    profile: acme-prod-sso        # an `aws configure sso` profile
+  - account_id: "444455556666"
+    alias: acme-sandbox
+    role_name: PCIInventoryAuditRole   # assumed from the current session
+    external_id: "optional-shared-secret"
+
+# ---------------------------------------------------------------------------
+# AWS Organizations discovery: run from a management or delegated-admin account
+# to enumerate ACTIVE member accounts and assume a read-only role in each.
+# The structure is a LIST so multiple organizations can be added later.
+# ---------------------------------------------------------------------------
+organizations:
+  - profile: org-management-sso
+    role_name: PCIInventoryAuditRole
+    external_id: "optional-shared-secret"
+    exclude_account_ids:
+      - "999988887777"
+
+# ---------------------------------------------------------------------------
+# Region controls (CLI flags take precedence).
+# ---------------------------------------------------------------------------
+# regions: ["us-east-1", "us-west-2"]   # allowlist; empty = all enabled
+# exclude_regions: ["ap-south-1"]
+# all_regions: false                    # force full collection incl. empty
+# include_empty_regions: false          # collect empty regions too
+
+# ---------------------------------------------------------------------------
+# Parallelism + rate-limit tuning (safe defaults shown).
+# ---------------------------------------------------------------------------
+concurrency:
+  max_workers: 12
+  retries_max_attempts: 10
+  hard_throttle_cap: 2          # cap for IAM/Config/CloudTrail/Org/API GW
+  medium_throttle_cap: 6        # cap for EC2/RDS/Lambda/ELB/KMS/S3/etc.
+  tokens_per_second: 40.0       # global request-rate ceiling
+  bucket_capacity: 80.0
+  # hard_throttle_services: [iam, organizations, config, apigateway, apigatewayv2, cloudtrail]
+
+# ---------------------------------------------------------------------------
+# Tag-derivation keys (case-insensitive) and the required governance tag set.
+# ---------------------------------------------------------------------------
+# env_tag_keys: [environment, env, stage]
+# owner_tag_keys: [owner, team, cost-center]
+# data_class_tag_keys: [data-classification, classification]
+# scope_tag_keys: ["pci:scope", "pci:cde"]
+# required_tags: [Name, environment, owner, data-classification]
+
+output_dir: output

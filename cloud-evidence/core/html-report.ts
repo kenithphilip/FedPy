@@ -2,9 +2,9 @@
  * Self-contained HTML report — single file, no external deps.
  * Suitable as an auditor-facing artifact at the end of every run.
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import type { EvidenceFile } from './envelope.ts';
+import { listEvidenceFiles } from './evidence-files.ts';
 
 function esc(s: unknown): string {
   if (s == null) return '';
@@ -17,13 +17,9 @@ function esc(s: unknown): string {
 }
 
 export function generateHtmlReport(outDir: string, htmlPath: string): { path: string; ksis: number } {
-  const files: EvidenceFile[] = [];
-  for (const f of readdirSync(outDir)) {
-    if (!f.startsWith('KSI-') || !f.endsWith('.json')) continue;
-    if (f === 'KSI-CSX-SUM-input.json') continue;
-    try { files.push(JSON.parse(readFileSync(join(outDir, f), 'utf8'))); } catch { /* */ }
-  }
-  files.sort((a, b) => a.ksi_id.localeCompare(b.ksi_id));
+  // Every requirement (KSI + FRR/VDR/CCM/…), selected by shape not name prefix,
+  // so non-KSI requirement failures are not silently hidden from the report.
+  const files: EvidenceFile[] = listEvidenceFiles(outDir);
 
   const totalKsis = files.length;
   const passedKsis = files.filter((f) => f.rollup.pass).length;

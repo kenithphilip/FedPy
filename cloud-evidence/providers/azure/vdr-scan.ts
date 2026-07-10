@@ -216,7 +216,7 @@ export async function collectVdrScan(ctx: CollectorContext): Promise<ProviderBlo
       },
     },
     target: { summary: 'Defender for Cloud is producing assessments AND zero unhealthy findings reference a CISA KEV CVE. The cloud-side VDR feed is live and the KEV-priority queue is empty.', rationale: 'NIST RA-5, RA-5(2), SI-2, SI-3, SI-5, IR-4, CA-7. FedRAMP VDR requires both detection (continuous scan) and prioritized response (KEV catalog as the SLA trigger).' },
-    gap: { description: unhealthyKevCount > 0 ? 'KEV-listed CVEs are un-remediated — VDR SLA must trigger immediate response.' : 'No vulnerability-detection feed visible — Defender plans likely not on Standard or RBAC is incomplete.', affected_resources: kevSample.slice(0, 50).map((s) => ({ type: 'azure_defender_assessment', identifier: s.id, attributes: { kev_cves: s.cves, name: s.displayName } })) },
+    gap: { description: unhealthyKevCount > 0 ? 'KEV-listed CVEs are un-remediated — VDR SLA must trigger immediate response.' : 'No vulnerability-detection feed visible — Defender plans likely not on Standard or RBAC is incomplete.', affected_resources: kevSample.length ? kevSample.slice(0, 50).map((s) => ({ type: 'azure_defender_assessment', identifier: s.id, attributes: { kev_cves: s.cves, name: s.displayName } })) : [{ type: 'azure_subscription', identifier: subs[0] ?? 'subscription', name: 'Defender for Cloud assessment feed unreadable/absent — VDR detection indeterminate', attributes: { subscriptions: subs, total_assessments: total } }] },
     remediation: {
       summary: 'Enable Defender for Servers (Standard) + Defender for Containers (Standard) on every in-scope sub. Triage any KEV-listed CVE within the documented VDR SLA.',
       options: [

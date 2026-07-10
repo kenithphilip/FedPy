@@ -25,9 +25,10 @@
  *   - Returns a count + the report so the orchestrator can notify on
  *     `--notify-on-anomaly` (separate from drift notifications).
  */
-import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { EvidenceFile } from './envelope.ts';
+import { listEvidenceFiles } from './evidence-files.ts';
 import { log } from './log.ts';
 
 const HISTORY_FILE = 'anomaly-history.jsonl';
@@ -71,15 +72,9 @@ export interface AnomalyReport {
 }
 
 function readKsiEvidence(outDir: string): EvidenceFile[] {
-  const out: EvidenceFile[] = [];
-  for (const f of readdirSync(outDir)) {
-    if (!f.startsWith('KSI-') || !f.endsWith('.json')) continue;
-    if (f.includes('CSX-SUM')) continue;
-    try {
-      out.push(JSON.parse(readFileSync(resolve(outDir, f), 'utf8')));
-    } catch { /* ignore */ }
-  }
-  return out;
+  // Every requirement (KSI + FRR), selected by shape — so drift in non-KSI
+  // requirements (VDR SLAs, CCM cadence, etc.) is tracked, not just KSI domains.
+  return listEvidenceFiles(outDir);
 }
 
 function flattenFindings(evidence: EvidenceFile[]): FindingSnapshot[] {

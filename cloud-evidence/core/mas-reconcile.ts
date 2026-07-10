@@ -178,10 +178,17 @@ export function buildMasFindings(result: MasReconcileResult, tier: ImpactTier): 
               ? 'Reconciliation had no inputs: supply the documented MAS resource set and/or discovered inventory identifiers.'
               : `${result.drift_count} resource(s) do not reconcile between the documented MAS and discovered inventory. ` +
                 'Undocumented resources are candidate scope gaps; missing resources indicate a stale/decommissioned MAS entry.',
-            affected_resources: [
-              ...toAffected(result.undocumented, 'discovered-but-undocumented'),
-              ...toAffected(result.missing, 'documented-but-undiscovered'),
-            ],
+            affected_resources: noInputs
+              ? [{
+                  type: 'fedramp_assessment_scope_resource',
+                  identifier: 'minimum-assessment-scope',
+                  name: 'MAS reconciliation unreadable — no documented scope or discovered inventory supplied (indeterminate)',
+                  attributes: { reconciliation: 'no-inputs' },
+                }]
+              : [
+                  ...toAffected(result.undocumented, 'discovered-but-undocumented'),
+                  ...toAffected(result.missing, 'documented-but-undiscovered'),
+                ],
           },
       remediation: driftClean
         ? undefined
@@ -246,7 +253,14 @@ export function buildMasFindings(result: MasReconcileResult, tier: ImpactTier): 
         ? undefined
         : {
             description: 'Discovered resources are missing from the documented MAS. A human must judge whether each is in scope (likely handles federal customer data).',
-            affected_resources: toAffected(result.undocumented, 'discovered-but-undocumented'),
+            affected_resources: noInputs
+              ? [{
+                  type: 'fedramp_assessment_scope_resource',
+                  identifier: 'minimum-assessment-scope',
+                  name: 'undocumented-resource check unreadable — no documented scope or discovered inventory supplied (indeterminate)',
+                  attributes: { reconciliation: 'no-inputs' },
+                }]
+              : toAffected(result.undocumented, 'discovered-but-undocumented'),
           },
       remediation: noUndocumented
         ? undefined

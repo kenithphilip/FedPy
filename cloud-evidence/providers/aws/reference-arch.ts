@@ -205,7 +205,7 @@ export async function collectAwsReferenceArch(auth: aws.AwsAuth, account: string
       rule: 'aws.iac.state_integrity', passed: !found || (encrypted === stateBuckets.length && lockTables > 0), severity: 'low',
       current: { summary: found ? `${stateBuckets.length} TF-state bucket(s), ${encrypted} encrypted; ${lockTables} lock table(s).` : 'No Terraform-state bucket detected by name heuristic.', observations: { stateBuckets: stateBuckets.length, encrypted, lockTables } },
       target: { summary: 'Terraform state buckets are encrypted (SSE) and versioned, with a DynamoDB lock table — protecting IaC integrity.', rationale: 'NIST SC-28, CM-2(2).' },
-      gap: { description: 'A Terraform-state bucket is unencrypted or has no lock table.', affected_resources: stateBuckets.map((b) => ({ type: 'aws_s3_bucket', identifier: `arn:aws:s3:::${b.Name}`, attributes: {} })) },
+      gap: { description: 'A Terraform-state bucket is unencrypted or has no lock table.', affected_resources: stateBuckets.map((b) => ({ type: 'aws_s3_bucket', identifier: `arn:${aws.awsPartition(region)}:s3:::${b.Name}`, attributes: {} })) },
       remediation: { summary: 'Enable SSE + versioning on the state bucket and add a DynamoDB lock table.', options: [{ approach: 'Configure the backend with encryption + dynamodb_table.', mechanism: 'terraform', steps: ['Enable bucket SSE (CMK) + versioning', 'Create a lock table', 'Set backend "s3" { encrypt = true, dynamodb_table = ... }'] }] },
       nist_controls: ['sc-28', 'cm-2.2'],
       note: found ? undefined : 'Heuristic by bucket name; informational when no state bucket is detected.',

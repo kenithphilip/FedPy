@@ -2,12 +2,12 @@
  * CSV export — one row per finding across all KSI evidence files.
  * Suitable for review committees who prefer spreadsheets.
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import type { EvidenceFile } from './envelope.ts';
+import { listEvidenceFiles } from './evidence-files.ts';
 
 const COLUMNS = [
-  'ksi_id', 'ksi_name', 'scope', 'provider', 'account_or_project',
+  'ksi_id', 'ksi_name', 'category', 'family', 'awareness_only', 'scope', 'provider', 'account_or_project',
   'finding_rule', 'severity', 'passed', 'current_summary', 'target_summary',
   'rationale', 'gap_description', 'affected_resource_count',
   'remediation_summary', 'remediation_option_count', 'primary_owner_team',
@@ -27,12 +27,8 @@ export function exportFindingsCsv(outDir: string, csvPath: string): { rows: numb
   const rows: string[] = [];
   rows.push(COLUMNS.join(','));
 
-  for (const f of readdirSync(outDir)) {
-    if (!f.startsWith('KSI-') || !f.endsWith('.json')) continue;
-    if (f === 'KSI-CSX-SUM-input.json') continue;
-    let data: EvidenceFile;
-    try { data = JSON.parse(readFileSync(join(outDir, f), 'utf8')); } catch { continue; }
-
+  // Every requirement (KSI + FRR), selected by shape so non-KSI failures appear.
+  for (const data of listEvidenceFiles(outDir)) {
     for (const p of data.providers) {
       const accountOrProject = p.provider === 'aws' ? (p.account_id ?? '') : (p.project_id ?? '');
       for (const finding of p.findings) {
@@ -40,9 +36,11 @@ export function exportFindingsCsv(outDir: string, csvPath: string): { rows: numb
         const altDetected = (finding.alternative_satisfiers ?? []).some((a) => a.detected);
         const affectedCount = finding.gap?.affected_resources?.length ?? 0;
         rows.push([
-          finding.rule.startsWith('KSI') ? '' : data.ksi_id, // safety: keep KSI col stable
           data.ksi_id,
           data.ksi_name,
+          data.category ?? (data.ksi_id.startsWith('KSI-') ? 'ksi-indicator' : 'frr-requirement'),
+          data.family ?? '',
+          String(data.awareness_only === true),
           data.scope,
           p.provider,
           accountOrProject,
@@ -65,7 +63,7 @@ export function exportFindingsCsv(outDir: string, csvPath: string): { rows: numb
           (finding.nist_controls ?? []).join('; '),
           (finding.cross_ksi_dependencies ?? []).map((d) => `${d.ksi_id}:${d.relationship}`).join('; '),
           data.collected_at,
-        ].slice(1).map(csvEscape).join(',')); // .slice(1) drops the safety col
+        ].map(csvEscape).join(','));
       }
     }
   }

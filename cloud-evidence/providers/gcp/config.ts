@@ -131,9 +131,11 @@ export async function collectCnaEis(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'Policy Controller installed on every prod GKE cluster with ≥1 ConstraintTemplate + Constraint enforced.', rationale: 'NIST CM-7. Policy Controller is GCP\'s in-cluster admission control + drift prevention.' },
       gap: (policyControllerEnabled && clustersWithoutPC.length === 0) ? undefined : {
         description: 'Without Policy Controller, K8s workloads can violate org policies.',
-        affected_resources: clustersWithoutPC.map<AffectedResource>((c2: string) => ({
-          type: 'google_container_cluster', identifier: c2, name: c2, attributes: {},
-        })),
+        affected_resources: clustersWithoutPC.length
+          ? clustersWithoutPC.map<AffectedResource>((c2: string) => ({
+              type: 'google_container_cluster', identifier: c2, name: c2, attributes: {},
+            }))
+          : [{ type: 'gcp_project', identifier: ctx.project ?? 'project', name: 'Policy Controller not enabled on the fleet', attributes: { policy_controller_enabled: policyControllerEnabled } }],
       },
       remediation: (policyControllerEnabled && clustersWithoutPC.length === 0) ? undefined : {
         summary: 'Enable Policy Controller via fleet feature.',

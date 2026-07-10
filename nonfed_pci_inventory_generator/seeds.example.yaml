@@ -1,0 +1,87 @@
+# =============================================================================
+# PCI DSS v4.0.1 — Stage 2 Scope Seeds (TEMPLATE)
+# =============================================================================
+# Copy this file to `seeds.yaml`, replace the placeholders with YOUR real
+# resources, delete the lines you don't need, then run:
+#
+#     .venv/bin/pci-inventory scope --seeds seeds.yaml
+#
+# WHY THIS FILE EXISTS
+#   PCI scope is driven by WHERE cardholder data (CHD) / sensitive authentication
+#   data (SAD) is stored, processed, or transmitted. That is a property of your
+#   APPLICATION and DATA — it cannot be read from AWS configuration. So the tool
+#   does NOT guess scope. You declare the CHD-handling resources/networks here
+#   (the "seeds"); the tool expands from them, proves connectivity (route + SG +
+#   NACL), flags candidates, and validates segmentation.
+#
+#   With NO seeds the tool runs in flag-only mode: it asserts nothing as in-scope
+#   and prints a loud banner. So fill in at least one CDE seed for a real run.
+#
+# PRECEDENCE (when sources disagree about the SAME resource):
+#   explicit config (this file)  >  AWS tags  >  CLI --seed-* flags
+#
+# IDENTIFIERS: each entry may be an ARN, a native id (i-…, vpc-…), or a Name.
+#   Account in the examples below is your account: 123456789012.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# 1. CDE RESOURCES — things that STORE / PROCESS / TRANSMIT cardholder data.
+#    These become category=CDE, confidence=DETERMINED. This is the most
+#    important list: everything reachable from these is expanded into scope.
+# -----------------------------------------------------------------------------
+cde_resources:
+  # - arn:aws:rds:us-east-1:123456789012:cluster:payments-aurora   # CHD database
+  # - my-cardholder-bucket                                         # bare S3 name is OK
+  # - i-0abc123def4567890                                          # EC2 instance id
+  # - arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/pay-alb/abc123
+  # - arn:aws:dynamodb:us-east-1:123456789012:table/cardholder-tokens
+
+
+# -----------------------------------------------------------------------------
+# 2. CDE NETWORKS — VPCs / subnets / CIDRs where CHD flows. Any resource living
+#    in these networks is treated as a CDE seed endpoint for reachability.
+#    (Omit a sub-key entirely, or leave its list empty, if unused.)
+# -----------------------------------------------------------------------------
+cde_networks:
+  vpcs:
+    # - vpc-0cde1112223334445
+  subnets:
+    # - subnet-0cde1112223334445
+  cidrs:
+    # - "10.20.0.0/16"
+
+
+# -----------------------------------------------------------------------------
+# 3. CONNECTED (OPTIONAL) — resources you ALREADY KNOW are connected-to the CDE
+#    (e.g. a jump host / bastion / shared services box). Declaring them as
+#    connected-to (DETERMINED) documents the known relationship up front; the
+#    tool will still also discover connectivity on its own.
+# -----------------------------------------------------------------------------
+connected_declared:
+  # - i-0bastion99887766554
+
+
+# -----------------------------------------------------------------------------
+# 4. OUT-OF-SCOPE ASSERTIONS (OPTIONAL but recommended) — resources/networks you
+#    CLAIM are isolated from the CDE. These are NOT removed from analysis: the
+#    tool runs the SEGMENTATION INVERSE CHECK — "does a permitted path back to
+#    the CDE exist despite this claim?" If one does, it's a finding for the QSA.
+# -----------------------------------------------------------------------------
+out_of_scope_declared:
+  # - vpc-0devsandbox1234567        # "dev sandbox is segmented from prod CDE"
+  # - arn:aws:s3:::marketing-public-assets
+
+
+# -----------------------------------------------------------------------------
+# 5. TAG-KEY OVERRIDES (OPTIONAL) — only if your org uses different tag keys than
+#    the built-in defaults. Defaults already recognised on resources in AWS:
+#      pci:cde = true                       -> CDE seed
+#      pci:scope = cde | connected | out    -> CDE / connected-to / out-of-scope
+#      data-classification = chd | sad      -> CDE seed
+#      data-classification = none           -> suppress the "candidate CHD" heuristic
+#    Uncomment and edit only to ADD/replace the keys the tool looks for.
+# -----------------------------------------------------------------------------
+# cde_tag_keys:        ["pci:cde", "pci-cde"]
+# scope_tag_keys:      ["pci:scope", "pci-scope"]
+# data_class_tag_keys: ["data-classification", "dataclassification", "classification"]

@@ -10,7 +10,7 @@
  *
  * The script is strictly read-only. See core/readonly-guardrail.ts.
  */
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, renameSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -31,6 +31,9 @@ import { buildControlBenchmark, type BenchmarkFramework } from './control-benchm
 import { writeInventoryWorkbook, readInventoryContext, enrichFromTags, reconcileScans, annotateWithFindings, dedupeAssets, buildInventorySnapshot, writeInventoryJson, applyTagGovernance, deriveEol, deriveEdges, applyDataClassification, applyDiagramLabelAndComments, type CloudAsset } from './inventory-workbook.ts';
 import { emitInventoryCoverage, coverageSummary } from './inventory-coverage-report.ts';
 import { collectAwsAssets } from '../providers/aws/inventory-assets.ts';
+import { collectAwsExtraAssets } from '../providers/aws/inventory-assets-extra.ts';
+import { collectAwsServiceAssets } from '../providers/aws/inventory-assets-services.ts';
+import { probeServiceAvailability } from '../providers/aws/service-availability.ts';
 import { collectGcpAssets } from '../providers/gcp/inventory-assets.ts';
 import { collectAzureAssets } from '../providers/azure/inventory-assets.ts';
 import { discoverAzureAssets } from '../providers/azure/discover.ts';
@@ -2147,6 +2150,31 @@ export async function main(): Promise<void> {
       process.exitCode = 2;
       return;
     }
+    // QUARANTINE: move schema-invalid envelopes out of the run directory into
+    // out/_invalid/ BEFORE signing / OSCAL / push. A signed manifest vouches for
+    // its contents; shipping a file the tool itself flagged as malformed inside a
+    // signed package is an authorization-trust problem (REO). The files are moved
+    // (not deleted) so they remain available for debugging, and a manifest of what
+    // was quarantined is written alongside.
+    const invalidDir = resolve(args.outDir, '_invalid');
+    try { mkdirSync(invalidDir, { recursive: true }); } catch { /* exists */ }
+    const quarantined: Array<{ ksi_id: string; file: string; errors?: string }> = [];
+    for (const r of results.filter((x) => !x.schema_valid)) {
+      const src = resolve(args.outDir, `${r.ksi_id}.json`);
+      const dst = resolve(invalidDir, `${r.ksi_id}.json`);
+      try {
+        if (existsSync(src)) { renameSync(src, dst); quarantined.push({ ksi_id: r.ksi_id, file: dst, errors: r.schema_errors }); }
+      } catch (e: any) {
+        log.warn({ event: 'schema.quarantine_fail', ksi_id: r.ksi_id, err_message: e?.message });
+      }
+    }
+    if (quarantined.length) {
+      writeFileSafe(resolve(invalidDir, 'INVALID-MANIFEST.json'), JSON.stringify({
+        note: 'Schema-invalid evidence files quarantined out of the signed run. NOT part of the manifest, OSCAL, or any push. Re-run after fixing the collector; use --strict-schema to fail-hard instead.',
+        run_id: runId, quarantined_at: new Date().toISOString(), files: quarantined,
+      }, null, 2));
+      console.error(`Quarantined ${quarantined.length} schema-invalid file(s) → ${invalidDir} (excluded from the signed manifest + OSCAL + push).`);
+    }
   } else {
     console.log(`Schema validation: all ${results.length} evidence file(s) valid.`);
   }
@@ -2296,6 +2324,23 @@ export async function main(): Promise<void> {
           assets.push(...disc.assets); invWarnings.push(...disc.warnings);
           const r = await collectAwsAssets(auth, awsAccount, { includeGlobal: first });
           assets.push(...r.assets); invWarnings.push(...r.warnings);
+          // Identity + crypto depth (IAM users/roles global once; KMS + Secrets per-region).
+          const extra = await collectAwsExtraAssets(auth, awsAccount, { includeGlobal: first });
+          assets.push(...extra.assets); invWarnings.push(...extra.warnings);
+          // Additional service depth (ElastiCache/Redshift/EFS/SNS/SQS/APIGW; Route53 global once).
+          const svc = await collectAwsServiceAssets(auth, awsAccount, { includeGlobal: first });
+          assets.push(...svc.assets); invWarnings.push(...svc.warnings);
+          // Service-availability probe (once, first region): records which detective
+          // /data services are ENABLED/DISABLED/NOT_AVAILABLE so the report can
+          // explain WHY a lens is empty rather than showing a silent blank.
+          if (first) {
+            try {
+              const availability = await probeServiceAvailability(auth);
+              writeFileSafe(resolve(args.outDir, 'service-availability.json'),
+                JSON.stringify({ generated_at: new Date().toISOString(), account_id: awsAccount, services: availability }, null, 2));
+              for (const s of availability) if (s.status !== 'ENABLED') invWarnings.push(`service ${s.service}: ${s.status} — ${s.detail}`);
+            } catch (e: any) { invWarnings.push(`Service-availability probe: ${e.message}`); }
+          }
           const macie = await collectMacieSensitiveBuckets(auth);   // data classification
           for (const b of macie.buckets) sensitiveBuckets.add(b); invWarnings.push(...macie.warnings);
           first = false;
@@ -3884,8 +3929,35 @@ export async function main(): Promise<void> {
       awsAccount,
       gcpProjects: config.gcp.projects,
       regions: config.aws.regions,
-      expectedKsis: inScopeKsis.map((k) => k.id),
+      // Reconcile against the FULL in-scope requirement set (KSI + FRR), not just
+      // cloud-collector KSIs — so a missing non-KSI requirement evaluation is a
+      // detected coverage miss, not a silent absence. selectForLevel is cached.
+      expectedKsis: [...new Set([
+        ...inScopeKsis.map((k) => k.id),
+        ...selectForLevel(impactLevel).inScope.map((r) => r.id),
+      ])],
     });
+    // Fold a coverage headline into pva-run-summary.json so the not-assessed /
+    // coverage-miss signal is as prominent as the failure count (the summary was
+    // written earlier, before this check ran — patch it in place now).
+    try {
+      const s = JSON.parse(readFileSync(summaryPath, 'utf8'));
+      s.coverage = {
+        missing_aws: cov.missing_aws,
+        missing_gcp_projects: cov.missing_gcp_projects,
+        missing_regions: cov.missing_regions,
+        missing_ksis: cov.missing_ksis,
+        ksis_with_zero_findings: cov.ksis_with_zero_findings,
+        ksis_passing_despite_access_errors: cov.ksis_passing_despite_access_errors,
+        total_collector_warnings: cov.total_collector_warnings,
+        requirements_in_scope: cov.expected_ksis.length,
+        requirements_evaluated: cov.actual_ksis.length,
+        warning_count: cov.warnings.length,
+      };
+      writeFileSafe(summaryPath, JSON.stringify(s, null, 2));
+    } catch (e: any) {
+      log.warn({ event: 'coverage.summary_merge_fail', err_message: e?.message });
+    }
     if (cov.warnings.length > 0) {
       console.log();
       console.log(`Coverage warnings (${cov.warnings.length}):`);
@@ -3897,10 +3969,11 @@ export async function main(): Promise<void> {
         missing_gcp_projects: cov.missing_gcp_projects,
         missing_ksis: cov.missing_ksis,
         ksis_with_zero_findings: cov.ksis_with_zero_findings,
+        ksis_passing_despite_access_errors: cov.ksis_passing_despite_access_errors.map((k) => k.ksi),
         missing_regions: cov.missing_regions,
       });
     } else {
-      console.log(`Coverage: ${cov.actual_aws_accounts.length} AWS account(s), ${cov.actual_gcp_projects.length} GCP project(s), ${cov.actual_ksis.length} KSIs covered.`);
+      console.log(`Coverage: ${cov.actual_aws_accounts.length} AWS account(s), ${cov.actual_gcp_projects.length} GCP project(s), ${cov.actual_ksis.length} requirement(s) evaluated.`);
     }
   } catch (e: any) {
     console.error(`Coverage check failed: ${e.message}`);

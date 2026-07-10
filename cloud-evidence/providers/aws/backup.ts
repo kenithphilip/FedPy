@@ -14,6 +14,7 @@ import type { ProviderBlock, RawEvidence, AffectedResource, AlternativeSatisfier
 import { finding } from '../../core/findings.ts';
 import type { CollectorContext } from '../../core/ksi-map.ts';
 import { detect as detectThirdParty } from '../../core/detect/third-party-tools.ts';
+import { diagnoseAwsError } from '../../core/error-diagnostics.ts';
 
 function ev(source: string, data: unknown): RawEvidence { return { source, captured_at: new Date().toISOString(), data: data === undefined ? null : data }; }
 
@@ -37,6 +38,7 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
   // ASGs
   const singleAzAsgs: Array<{ name: string; azs: string[] }> = [];
   let asgCount = 0;
+  let asgCollected = false;
   try {
     const asg = aws.autoScaling(ctx.auth);
     const r = await asg.send(new DescribeAutoScalingGroupsCommand({}));
@@ -45,12 +47,14 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
       const azs = g.AvailabilityZones ?? [];
       if (azs.length < 2) singleAzAsgs.push({ name: g.AutoScalingGroupName ?? '?', azs });
     }
+    asgCollected = true;
     evidence.push(ev('autoscaling.DescribeAutoScalingGroups', { total: asgCount, single_az: singleAzAsgs }));
-  } catch (e: any) { warnings.push(`ASG: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'autoscaling.DescribeAutoScalingGroups', 'autoscaling:DescribeAutoScalingGroups')); }
 
   // ELBs
   const singleAzLbs: Array<{ name: string; azs: string[] }> = [];
   let lbCount = 0;
+  let lbCollected = false;
   try {
     const elb = aws.elbv2(ctx.auth);
     const r = await elb.send(new DescribeLBsCommand({}));
@@ -59,13 +63,15 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
       const azs = (l.AvailabilityZones ?? []).map((z: any) => z.ZoneName ?? '');
       if (azs.length < 2) singleAzLbs.push({ name: l.LoadBalancerName ?? '?', azs });
     }
+    lbCollected = true;
     evidence.push(ev('elbv2.DescribeLoadBalancers', { total: lbCount, single_az: singleAzLbs }));
-  } catch (e: any) { warnings.push(`ELB: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'elbv2.DescribeLoadBalancers', 'elasticloadbalancing:DescribeLoadBalancers')); }
 
   // RDS — Multi-AZ
   const rdsSingleAz: string[] = [];
   let rdsInstanceCount = 0;
   let rdsClusterCount = 0;
+  let rdsCollected = false;
   try {
     const rds = aws.rds(ctx.auth);
     const inst = await rds.send(new DescribeDBInstancesCommand({}));
@@ -75,8 +81,9 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
     }
     const clu = await rds.send(new DescribeDBClustersCommand({}));
     rdsClusterCount = (clu.DBClusters ?? []).length;
+    rdsCollected = true;
     evidence.push(ev('rds.multi_az_status', { instances: rdsInstanceCount, single_az: rdsSingleAz, clusters: rdsClusterCount }));
-  } catch (e: any) { warnings.push(`RDS: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'rds.DescribeDBInstances', 'rds:DescribeDBInstances')); }
 
   // DynamoDB — PITR + backups
   const tablesWithoutPitr: string[] = [];
@@ -106,7 +113,7 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.asg.prod_multi_az',
-      passed: singleAzAsgs.length === 0,
+      passed: asgCollected && singleAzAsgs.length === 0,
       severity: 'high',
       current: {
         summary: singleAzAsgs.length === 0
@@ -147,7 +154,7 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.elb.prod_multi_az',
-      passed: singleAzLbs.length === 0,
+      passed: lbCollected && singleAzLbs.length === 0,
       severity: 'high',
       current: {
         summary: singleAzLbs.length === 0
@@ -181,7 +188,7 @@ export async function collectCnaOfa(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.rds.prod_multi_az',
-      passed: rdsSingleAz.length === 0,
+      passed: rdsCollected && rdsSingleAz.length === 0,
       severity: 'high',
       current: {
         summary: rdsSingleAz.length === 0
@@ -252,6 +259,7 @@ export async function collectRplAbo(c: CollectorContext): Promise<ProviderBlock>
   let plans: any[] = [];
   let recentBackupJobs = 0;
   let failedBackupJobs = 0;
+  let backupJobsCollected = false;
   try {
     const bk = aws.backup(ctx.auth);
     const lp = await bk.send(new ListBackupPlansCommand({}));
@@ -262,14 +270,16 @@ export async function collectRplAbo(c: CollectorContext): Promise<ProviderBlock>
       const jobs = await bk.send(new ListBackupJobsCommand({ ByCreatedAfter: ninetyDaysAgo, MaxResults: 100 }));
       recentBackupJobs = jobs.BackupJobs?.length ?? 0;
       failedBackupJobs = (jobs.BackupJobs ?? []).filter((j: any) => j.State === 'FAILED' || j.State === 'ABORTED').length;
+      backupJobsCollected = true;
       evidence.push(ev('backup.recent_jobs_90d', { total: recentBackupJobs, failed: failedBackupJobs }));
-    } catch (e: any) { warnings.push(`Backup jobs: ${e.message}`); }
-  } catch (e: any) { warnings.push(`Backup plans: ${e.message}`); }
+    } catch (e: any) { warnings.push(diagnoseAwsError(e, 'backup.ListBackupJobs', 'backup:ListBackupJobs')); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'backup.ListBackupPlans', 'backup:ListBackupPlans')); }
 
   // RDS automated backups + retention
   interface RdsBackup { id: string; retentionDays: number; multiAZ: boolean; }
   const rdsInst: RdsBackup[] = [];
   let rdsWithoutAdequateRetention = 0;
+  let rdsCollected = false;
   try {
     const r = aws.rds(ctx.auth);
     const d = await r.send(new DescribeDBInstancesCommand({}));
@@ -277,12 +287,15 @@ export async function collectRplAbo(c: CollectorContext): Promise<ProviderBlock>
       rdsInst.push({ id: i.DBInstanceIdentifier ?? '', retentionDays: i.BackupRetentionPeriod ?? 0, multiAZ: !!i.MultiAZ });
       if ((i.BackupRetentionPeriod ?? 0) < 7) rdsWithoutAdequateRetention++;
     }
+    rdsCollected = true;
     evidence.push(ev('rds.backup_retention', rdsInst));
-  } catch (e: any) { warnings.push(`RDS: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'rds.DescribeDBInstances', 'rds:DescribeDBInstances')); }
 
   // DynamoDB PITR
   let dynamoTablesTotal = 0;
   let dynamoTablesWithoutPitr = 0;
+  let dynamoCollected = false;
+  let allPitrRead = true;
   try {
     const ddb = aws.dynamodb(ctx.auth);
     const lst = await ddb.send(new ListTablesCommand({}));
@@ -293,15 +306,21 @@ export async function collectRplAbo(c: CollectorContext): Promise<ProviderBlock>
         if (pitr.ContinuousBackupsDescription?.PointInTimeRecoveryDescription?.PointInTimeRecoveryStatus !== 'ENABLED') {
           dynamoTablesWithoutPitr++;
         }
-      } catch { /* */ }
+      } catch (e: any) {
+        // A failed PITR read must NOT be treated as "PITR enabled" — that would
+        // hide a table with no PITR. Record the miss so the finding gates.
+        allPitrRead = false;
+        warnings.push(diagnoseAwsError(e, `dynamodb.DescribeContinuousBackups ${name}`, 'dynamodb:DescribeContinuousBackups'));
+      }
     }
+    dynamoCollected = true;
     evidence.push(ev('dynamodb.pitr_audit', { total: dynamoTablesTotal, without_pitr: dynamoTablesWithoutPitr }));
-  } catch (e: any) { warnings.push(`DynamoDB: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'dynamodb.ListTables', 'dynamodb:ListTables')); }
 
   const findings = [
     finding({
       rule: 'aws.backup.plans_present_and_running',
-      passed: plans.length >= 1 && failedBackupJobs === 0,
+      passed: plans.length >= 1 && backupJobsCollected && failedBackupJobs === 0,
       severity: 'high',
       current: {
         summary: plans.length === 0
@@ -343,7 +362,7 @@ export async function collectRplAbo(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.rds.backup_retention_adequate',
-      passed: rdsWithoutAdequateRetention === 0,
+      passed: rdsCollected && rdsWithoutAdequateRetention === 0,
       severity: 'high',
       current: {
         summary: rdsInst.length === 0
@@ -377,7 +396,7 @@ export async function collectRplAbo(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.dynamodb.pitr_enabled_for_prod',
-      passed: dynamoTablesWithoutPitr === 0,
+      passed: dynamoCollected && allPitrRead && dynamoTablesWithoutPitr === 0,
       severity: 'high',
       current: {
         summary: dynamoTablesTotal === 0

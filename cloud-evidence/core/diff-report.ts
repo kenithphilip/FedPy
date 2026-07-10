@@ -7,9 +7,10 @@
  * "previous-run snapshot" is a single JSON file produced by snapshotRun() below;
  * each run produces one and the next run reads it. Stored as out/previous-run-snapshot.json.
  */
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EvidenceFile } from './envelope.ts';
+import { listEvidenceFiles } from './evidence-files.ts';
 
 interface FindingState { rule: string; passed: boolean; severity: string; affected_count: number; }
 interface KsiSnapshot { ksi_id: string; pass: boolean; findings: FindingState[]; }
@@ -17,11 +18,8 @@ interface RunSnapshot { run_id: string; collected_at: string; ksis: KsiSnapshot[
 
 export function snapshotRun(outDir: string, snapshotPath: string): RunSnapshot {
   const ksis: KsiSnapshot[] = [];
-  for (const f of readdirSync(outDir)) {
-    if (!f.startsWith('KSI-') || !f.endsWith('.json')) continue;
-    if (f === 'KSI-CSX-SUM-input.json') continue;
-    let data: EvidenceFile;
-    try { data = JSON.parse(readFileSync(join(outDir, f), 'utf8')); } catch { continue; }
+  // Every requirement (KSI + FRR), selected by shape so non-KSI regressions diff.
+  for (const data of listEvidenceFiles(outDir)) {
     const findings: FindingState[] = data.providers.flatMap((p) => p.findings.map((x) => ({
       rule: `${p.provider}:${x.rule}`,
       passed: x.passed,

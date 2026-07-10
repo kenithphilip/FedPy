@@ -80,6 +80,19 @@ describe('buildVdrFindings', () => {
     expect(aws[0]!.passed).toBe(true);
     expect(aws[1]!.passed).toBe(true); // no findings → no breaches
   });
+
+  it('does NOT false-pass "no SLA breaches" when detection is disabled (findings unreadable)', () => {
+    // Regression: overdue===0 is vacuous if the scanner never enumerated findings.
+    const summary = summarizeVdr([], NOW);
+    const aws = buildVdrFindings(false, summary, 'none', 'MUST', '111122223333', 'aws');
+    expect(aws[0]!.rule).toBe('aws.vdr.detection_capability_enabled');
+    expect(aws[0]!.passed).toBe(false);           // detection off → capability fails
+    expect(aws[1]!.rule).toBe('aws.vdr.no_sla_breaches');
+    expect(aws[1]!.passed).toBe(false);           // must be gated, not a false PASS
+    // A failing finding must still carry gap + remediation (schema invariant).
+    expect(aws[1]!.gap?.affected_resources.length).toBeGreaterThan(0);
+    expect(aws[1]!.remediation?.options.length).toBeGreaterThan(0);
+  });
 });
 
 describe('KSI-AFR-VDR registration', () => {

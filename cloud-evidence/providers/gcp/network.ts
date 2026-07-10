@@ -594,7 +594,7 @@ export async function collectCnaUln(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'Prod is in a separate VPC/project from nonprod. Documented inter-project Shared VPC / VPC peering / Service Project model.', rationale: 'NIST SC-32 (system partitioning).' },
       gap: inv.networks.length >= 1 ? undefined : {
         description: 'No VPC networks found in this project — verify project scope or provision a network.',
-        affected_resources: [],
+        affected_resources: [{ type: 'gcp_project', identifier: ctx.project ?? 'project', name: 'no VPC network present — no logical separation', attributes: {} }],
       },
       remediation: inv.networks.length >= 1 ? undefined : {
         summary: 'Confirm project scope or provision the baseline VPC network.',

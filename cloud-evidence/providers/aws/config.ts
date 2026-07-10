@@ -52,6 +52,7 @@ export async function collectCnaEis(c: CollectorContext): Promise<ProviderBlock>
 
   let conformancePacks: any[] = [];
   let nonCompliantPacks = 0;
+  let allPackComplianceRead = true;
   try {
     const cp = await cfg.send(new DescribeConformancePacksCommand({}));
     conformancePacks = cp.ConformancePackDetails ?? [];
@@ -60,10 +61,15 @@ export async function collectCnaEis(c: CollectorContext): Promise<ProviderBlock>
         const comp = await cfg.send(new DescribeConformancePackComplianceCommand({ ConformancePackName: p.ConformancePackName! }));
         const failing = (comp.ConformancePackRuleComplianceList ?? []).filter((r: any) => r.ComplianceType === 'NON_COMPLIANT');
         if (failing.length > 0) nonCompliantPacks++;
-      } catch { /* ignore */ }
+      } catch (e: any) {
+        // A failed compliance read must NOT be silently treated as "compliant" —
+        // that would produce a false PASS. Record the miss so the finding gates.
+        allPackComplianceRead = false;
+        warnings.push(diagnoseAwsError(e, `config.DescribeConformancePackCompliance ${p.ConformancePackName}`, 'config:DescribeConformancePackCompliance'));
+      }
     }
     evidence.push(ev('config.conformance_packs', { total: conformancePacks.length, with_non_compliant_rules: nonCompliantPacks }));
-  } catch (e: any) { warnings.push(`Conformance packs: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'config.DescribeConformancePacks', 'config:DescribeConformancePacks')); }
 
   let configRules = 0;
   let rulesWithRemediation = 0;
@@ -82,14 +88,16 @@ export async function collectCnaEis(c: CollectorContext): Promise<ProviderBlock>
   } catch (e: any) { warnings.push(diagnoseAwsError(e, 'config.DescribeConfigRules', 'config:DescribeConfigRules + config:DescribeRemediationConfigurations')); }
 
   let cfDriftedStacks: string[] = [];
+  let cfStacksCollected = false;
   try {
     const cfn = aws.cloudformation(ctx.auth);
     const r = await cfn.send(new DescribeStacksCommand({}));
     for (const s of r.Stacks ?? []) {
       if (s.DriftInformation?.StackDriftStatus === 'DRIFTED') cfDriftedStacks.push(s.StackName ?? '?');
     }
+    cfStacksCollected = true;
     evidence.push(ev('cloudformation.drift', { total_stacks: r.Stacks?.length ?? 0, drifted: cfDriftedStacks }));
-  } catch (e: any) { warnings.push(`CloudFormation: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'cloudformation.DescribeStacks', 'cloudformation:DescribeStacks')); }
 
   const findings = [
     finding({
@@ -146,7 +154,7 @@ resource "aws_config_configuration_recorder_status" "this" {
 
     finding({
       rule: 'aws.config.conformance_pack_aligned',
-      passed: conformancePacks.length >= 1 && nonCompliantPacks === 0,
+      passed: conformancePacks.length >= 1 && nonCompliantPacks === 0 && allPackComplianceRead,
       severity: 'high',
       current: {
         summary: conformancePacks.length === 0
@@ -214,7 +222,7 @@ resource "aws_config_configuration_recorder_status" "this" {
 
     finding({
       rule: 'aws.cloudformation.no_drifted_stacks',
-      passed: cfDriftedStacks.length === 0,
+      passed: cfStacksCollected && cfDriftedStacks.length === 0,
       severity: 'medium',
       current: {
         summary: cfDriftedStacks.length === 0
@@ -267,6 +275,7 @@ export async function collectCnaIbp(c: CollectorContext): Promise<ProviderBlock>
   let enabledStandards: string[] = [];
   let criticalFindings = 0;
   let highFindings = 0;
+  let criticalFindingsCollected = false;
   try {
     const sh = aws.securityhub(ctx.auth);
     const std = await sh.send(new GetEnabledStandardsCommand({}));
@@ -283,8 +292,9 @@ export async function collectCnaIbp(c: CollectorContext): Promise<ProviderBlock>
       MaxResults: 100,
     }));
     highFindings = highF.Findings?.length ?? 0;
+    criticalFindingsCollected = true;
     evidence.push(ev('securityhub.finding_counts', { critical_new: criticalFindings, high_new: highFindings }));
-  } catch (e: any) { warnings.push(`Security Hub: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'securityhub.GetFindings', 'securityhub:GetFindings + securityhub:GetEnabledStandards')); }
 
   const fsbpEnabled = enabledStandards.some((arn) => /aws-foundational-security-best-practices/.test(arn));
   const cisEnabled = enabledStandards.some((arn) => /cis-aws-foundations/.test(arn));
@@ -336,7 +346,7 @@ resource "aws_securityhub_standards_subscription" "cis" {
 
     finding({
       rule: 'aws.security_hub.no_open_critical_findings',
-      passed: criticalFindings === 0,
+      passed: criticalFindingsCollected && criticalFindings === 0,
       severity: 'critical',
       current: {
         summary: `${criticalFindings} CRITICAL Security Hub finding(s) in NEW state.`,
@@ -385,6 +395,7 @@ export async function collectSvcAcm(c: CollectorContext): Promise<ProviderBlock>
   // CFN stack count + drift status (sample)
   let stackCount = 0;
   let driftedStacks: string[] = [];
+  let cfStacksCollected = false;
   try {
     const cfn = aws.cloudformation(ctx.auth);
     const r = await cfn.send(new DescribeStacksCommand({}));
@@ -392,8 +403,9 @@ export async function collectSvcAcm(c: CollectorContext): Promise<ProviderBlock>
       stackCount++;
       if (s.DriftInformation?.StackDriftStatus === 'DRIFTED') driftedStacks.push(s.StackName ?? '?');
     }
+    cfStacksCollected = true;
     evidence.push(ev('cloudformation.stack_inventory', { total: stackCount, drifted: driftedStacks }));
-  } catch (e: any) { warnings.push(`CloudFormation: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'cloudformation.DescribeStacks', 'cloudformation:DescribeStacks')); }
 
   // SSM State Manager associations (proxy for desired-state automation)
   // Not enumerating fully; surface count via Config rules
@@ -457,7 +469,7 @@ export async function collectSvcAcm(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.cfn_stacks_no_drift',
-      passed: stackCount === 0 || driftedStacks.length === 0,
+      passed: cfStacksCollected && (stackCount === 0 || driftedStacks.length === 0),
       severity: 'medium',
       current: {
         summary: stackCount === 0
@@ -513,6 +525,7 @@ export async function collectSvcEis(c: CollectorContext): Promise<ProviderBlock>
   let resolvedCount = 0;
   let notifiedCount = 0;
   let newCount = 0;
+  let securityHubCollected = false;
   try {
     const sh = aws.securityhub(ctx.auth);
     for (const status of ['RESOLVED', 'NOTIFIED', 'NEW']) {
@@ -525,8 +538,9 @@ export async function collectSvcEis(c: CollectorContext): Promise<ProviderBlock>
       else if (status === 'NOTIFIED') notifiedCount = count;
       else newCount = count;
     }
+    securityHubCollected = true;
     evidence.push(ev('securityhub.lifecycle_for_eis', { resolved: resolvedCount, notified: notifiedCount, new: newCount }));
-  } catch (e: any) { warnings.push(`Security Hub: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'securityhub.GetFindings', 'securityhub:GetFindings')); }
 
   // Custom action target presence (proxy for ticketing wiring)
   // securityhub.DescribeActionTargets requires the command; we'd need to add it but it's optional
@@ -548,7 +562,7 @@ export async function collectSvcEis(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.security_hub.improvement_loop_active',
-      passed: totalLifecycle === 0 || resolvedRatio >= 0.3,
+      passed: securityHubCollected && (totalLifecycle === 0 || resolvedRatio >= 0.3),
       severity: 'medium',
       current: {
         summary: totalLifecycle === 0

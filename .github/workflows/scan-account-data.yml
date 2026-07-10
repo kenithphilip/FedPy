@@ -1,0 +1,16 @@
+name: scan-account-data
+
+# Backstop for the pre-commit hook: fails the build if any real cloud account
+# id, credential, or scan output reaches a tracked file. See scripts/README.md.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan every tracked file for account ids / secrets
+        run: bash scripts/scan-account-data.sh --all

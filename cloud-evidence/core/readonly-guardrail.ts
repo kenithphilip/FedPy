@@ -43,6 +43,13 @@ const READ_ONLY_EXACT_ALLOW = new Set<string>([
   'AssumeRoleWithSAML',
   'AssumeRoleWithWebIdentity',
   'DecodeAuthorizationMessage',
+  // `Select*` reads are documented read-only queries, but the verb "Select" is
+  // not one of the READ_ONLY_VERBS prefixes, so they would otherwise fall
+  // through to "blocked". These are pure server-side SELECT queries — no
+  // mutation — and are part of AWS ReadOnlyAccess:
+  'SelectResourceConfig',          // config: SQL over Config-recorded resources (the inventory backbone)
+  'SelectAggregateResourceConfig', // config: same, across an aggregator
+  'SelectObjectContent',           // s3: S3 Select — reads object content, never writes
 ]);
 
 /**

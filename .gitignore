@@ -89,3 +89,32 @@ coverage/
 # research/reports/ ARE tracked, but the raw clones/downloads are not.
 /research/clones/
 /research/downloads/
+
+# ─── Account-specific data — NEVER commit (this is a PUBLIC repo) ─────
+# Nothing that reveals which cloud accounts are scanned, or their outputs.
+# Enforced by scripts/scan-account-data.sh (pre-commit hook + CI). See
+# scripts/README.md.
+#
+# Local dev fork (its own git repo — not part of core history).
+/FedPy/
+# Local-only environment/company term blocklist read by the pre-commit hook.
+# Kept out of git so the sensitive terms are never published. See scripts/README.md.
+scripts/blocked-terms.local
+# Real per-account run configs: only sanitized *.example.yaml templates are
+# committed. (config.yaml — the tracked template — has one dot, so it is kept.)
+cloud-evidence/config.*.yaml
+!cloud-evidence/config.example.yaml
+# fedramp_inventory_export — generated workbooks/CSVs + the account-specific
+# access memo (real account id, SSO role, service-enablement posture).
+fedramp_inventory_export/out/
+fedramp_inventory_export/out-*/
+fedramp_inventory_export/ACCESS-MEMO.md
+# nonfed_pci_inventory_generator — code is tracked; real-account outputs, dumps,
+# infra context, and account-coupled report subtools are not.
+nonfed_pci_inventory_generator/output/
+nonfed_pci_inventory_generator/cluster_reports/
+nonfed_pci_inventory_generator/reference_outputs/
+nonfed_pci_inventory_generator/context/
+nonfed_pci_inventory_generator/crowe/
+# Loose FIPS/scan report artifacts (entirely account-specific scan output).
+/others_fips/

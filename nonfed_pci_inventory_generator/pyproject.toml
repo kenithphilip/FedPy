@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pci-inventory-generator"
+version = "0.1.0"
+description = "Read-only AWS asset inventory & evidence package for PCI DSS v4.0.1 QSA assessment (Stage 1: foundation + canonical inventory)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "PCI Inventory Tooling" }]
+dependencies = [
+    "boto3>=1.34.0",
+    "botocore>=1.34.0",
+    "openpyxl>=3.1.2",
+    "PyYAML>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "mypy>=1.8", "ruff>=0.3", "moto>=5.0"]
+
+[project.scripts]
+pci-inventory = "pci_inventory.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pci_inventory = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+ignore_missing_imports = true

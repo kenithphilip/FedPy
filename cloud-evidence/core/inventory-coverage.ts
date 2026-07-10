@@ -119,7 +119,7 @@ export const COVERAGE_REGISTRY: readonly CoverageEntry[] = [
   {
     column: 'NetBIOS Name', assetField: 'netbiosName', blankReason: null,
     sources: {
-      aws:   notYet('SSM Inventory `AWS:InstanceInformation.ComputerName` (Windows hosts)', 'ssm:GetInventory', 'INV-S3-aws-supplement'),
+      aws:   filled('SSM Inventory `AWS:InstanceInformation.ComputerName` (Windows hosts only)', 'ssm:GetInventory', 'INV-7'),
       gcp:   filled('OS Config inventory `osInfo.hostname` (Windows hosts)', 'osconfig.inventories.list', 'INV-S3'),
       azure: filled('Resource Graph `properties.osProfile.computerName` (Windows VMs; Linux hostname best-effort)', 'Azure Resource Graph KQL', 'INV-S4'),
     },

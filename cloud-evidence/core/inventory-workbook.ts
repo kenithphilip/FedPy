@@ -149,6 +149,37 @@ export interface CloudAsset {
   /** Ports/ranges open to the internet (network-exposure analysis). */
   openPorts?: string[];
   dataClassification?: string | null;
+  // Identity / crypto posture (populated by the IAM/KMS depth enrichers)
+  /** Age in days of the oldest active access key on an IAM user (null = none/NA). */
+  accessKeyAgeDays?: number | null;
+  /** Whether MFA is active for the principal (IAM user/root). */
+  mfaEnabled?: boolean | null;
+  /** Whether automatic key rotation is enabled (customer-managed KMS keys). */
+  kmsRotationEnabled?: boolean | null;
+  // ---- FIPS / encryption-in-transit posture (GovCloud / SC-8, SC-13) ----
+  /** Encryption in transit enforced (TLS listener / transit-encryption flag). */
+  encryptionInTransit?: boolean | null;
+  /** TLS/SSL security policy name (e.g. ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04). */
+  tlsPolicy?: string | null;
+  /** True when the applied TLS policy is a FIPS policy (name contains -FIPS-). */
+  fipsTlsPolicy?: boolean | null;
+  /** True when a KMS key is a multi-region key (mrk-…) — DR-relevant. */
+  kmsMultiRegion?: boolean | null;
+  /** CMVP-validation note for the protecting module (from the UCM reference table). */
+  cmvpValidation?: string | null;
+  // ---- Node / Kubernetes analysis (EKS worker nodes — Prisma Defender planning) ----
+  /** Owning EKS/K8s cluster name (from cluster tags). */
+  k8sCluster?: string | null;
+  /** EKS managed node group name, or Karpenter node pool. */
+  nodeGroup?: string | null;
+  /** Karpenter node pool (karpenter.sh/nodepool tag), if Karpenter-managed. */
+  karpenterNodePool?: string | null;
+  /** Container-host OS family inferred from the AMI/platform (Bottlerocket / AL2 / …). */
+  nodeOsFamily?: string | null;
+  /** Operator FIPS tag on the node (FIPSCompliant), if present. */
+  fipsTagged?: boolean | null;
+  /** Configured KMS rotation period in days, when rotation is enabled. */
+  kmsRotationPeriodDays?: number | null;
   // Ownership / org (tag-derived)
   environment?: string | null;
   criticality?: string | null;
@@ -555,6 +586,10 @@ export function deriveEdges(assets: CloudAsset[]): InventoryEdge[] {
   for (const a of assets) {
     if (a.vlanNetworkId) for (const net of a.vlanNetworkId.split('/').filter(Boolean)) add(a.uniqueId, net, 'in-network');
     if (a.kmsKeyId) add(a.uniqueId, a.kmsKeyId, 'uses-kms-key');
+    // Attachment edges (e.g. EBS volume → EC2 instance) surfaced by a depth
+    // enricher via `raw.attachedInstanceArns` (see providers/aws/inventory-assets.ts).
+    const attached = (a.raw as { attachedInstanceArns?: unknown })?.attachedInstanceArns;
+    if (Array.isArray(attached)) for (const inst of attached) if (typeof inst === 'string') add(a.uniqueId, inst, 'attached-to');
   }
   return edges;
 }

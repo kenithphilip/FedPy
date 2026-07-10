@@ -105,7 +105,7 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'Artifact Registry repos enforce tag immutability via org policy + IAM (no `artifactregistry.tags.update` for service accounts that publish to prod).', rationale: 'NIST CM-2, SA-10. Same intent as ECR immutability — mutable tags break immutability.' },
       gap: arRepoCount >= 1 ? undefined : {
         description: 'No repos to inspect — verify image storage location.',
-        affected_resources: [],
+        affected_resources: [{ type: 'gcp_project', identifier: ctx.project ?? 'project', name: 'no Artifact Registry repository present', attributes: {} }],
       },
       remediation: arRepoCount >= 1 ? undefined : {
         summary: 'Set up Artifact Registry; configure IAM to prevent tag updates.',

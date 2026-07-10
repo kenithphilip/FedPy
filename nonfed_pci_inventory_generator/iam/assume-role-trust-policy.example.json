@@ -1,0 +1,19 @@
+{
+  "_comment": "OPTIONAL — only for the multi-account assume-role seam. Trust policy for a per-account read-only audit role assumed from a central auditing principal. Replace AUDIT_ACCOUNT_ID and (optionally) the ExternalId. The default single-account path uses ambient SSO credentials and needs NONE of this.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCentralAuditorToAssume",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::AUDIT_ACCOUNT_ID:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "REPLACE_WITH_EXTERNAL_ID_OR_REMOVE_CONDITION"
+        }
+      }
+    }
+  ]
+}

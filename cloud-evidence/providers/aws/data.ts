@@ -59,6 +59,7 @@ export async function collectSvcRud(c: CollectorContext): Promise<ProviderBlock>
   interface BucketLifecycle { bucket: string; hasExpirationRule: boolean; hasIncompleteMultipartCleanup: boolean; versioning: string | null; objectLock: boolean; }
   const bucketLifecycles: BucketLifecycle[] = [];
   let totalBuckets = 0;
+  let bucketsCollected = false;
   try {
     const s3 = aws.s3(ctx.auth);
     const r = await s3.send(new ListBucketsCommand({}));
@@ -86,8 +87,9 @@ export async function collectSvcRud(c: CollectorContext): Promise<ProviderBlock>
       } catch (e) { warnIfActionable(warnings, e, `s3.GetObjectLockConfiguration ${b.Name}`, 's3:GetBucketObjectLockConfiguration'); }
       bucketLifecycles.push({ bucket: b.Name, hasExpirationRule, hasIncompleteMultipartCleanup, versioning, objectLock });
     }
+    bucketsCollected = true;
     evidence.push(ev('s3.bucket_lifecycle_audit', { total: totalBuckets, audits: bucketLifecycles }));
-  } catch (e: any) { warnings.push(`S3 lifecycle: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 's3.ListBuckets', 's3:ListAllMyBuckets')); }
 
   const bucketsWithoutLifecycle = bucketLifecycles.filter((b) => !b.hasExpirationRule).map((b) => b.bucket);
 
@@ -121,7 +123,7 @@ export async function collectSvcRud(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.s3.buckets_have_lifecycle_or_retention',
-      passed: bucketsWithoutLifecycle.length === 0,
+      passed: bucketsCollected && bucketsWithoutLifecycle.length === 0,
       severity: 'medium',
       current: {
         summary: bucketsWithoutLifecycle.length === 0
@@ -199,6 +201,7 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
   interface VirtualNodeMtls { mesh: string; node: string; listenerMtls: string | null; }
   const vnodes: VirtualNodeMtls[] = [];
   let meshCount = 0;
+  let appMeshCollected = false;
   try {
     const am = aws.appmesh(ctx.auth);
     const meshes = await am.send(new ListMeshesCommand({}));
@@ -214,14 +217,16 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
         vnodes.push({ mesh: m.meshName, node: v.virtualNodeName, listenerMtls: mtlsMode });
       }
     }
+    appMeshCollected = true;
     evidence.push(ev('appmesh.mtls_audit', { mesh_count: meshCount, virtual_nodes: vnodes }));
-  } catch (e: any) { warnings.push(`App Mesh: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'appmesh.mtls_audit', 'appmesh:ListMeshes')); }
 
   const nodesWithoutStrictMtls = vnodes.filter((n) => n.listenerMtls !== 'STRICT');
 
   // Lambda function URLs — require IAM auth
   let lambdaUrlsTotal = 0;
   let lambdaUrlsWithoutIam: string[] = [];
+  let lambdaUrlsCollected = false;
   try {
     const lambda = aws.lambda(ctx.auth);
     let tok: string | undefined;
@@ -243,6 +248,7 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
       const next = r.NextMarker;
       tok = next && next !== tok ? next : undefined; // stop on repeated/empty marker
     } while (tok && ++iter < MAX_PAGINATION_ITERATIONS);
+    lambdaUrlsCollected = true;
     evidence.push(ev('lambda.function_url_audit', { total_urls: lambdaUrlsTotal, without_iam: lambdaUrlsWithoutIam }));
   } catch (e) { warnIfActionable(warnings, e, 'lambda.ListFunctions', 'lambda:ListFunctions'); }
 
@@ -299,7 +305,7 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.appmesh.mtls_strict',
-      passed: vnodes.length === 0 || nodesWithoutStrictMtls.length === 0,
+      passed: appMeshCollected && (vnodes.length === 0 || nodesWithoutStrictMtls.length === 0),
       severity: 'high',
       current: {
         summary: vnodes.length === 0
@@ -310,14 +316,16 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
         observations: { mesh_count: meshCount, vnodes_audit: vnodes },
       },
       target: { summary: 'App Mesh listeners run TLS mode=STRICT (require mTLS client certificate).', rationale: 'NIST SC-23. Authenticated + encrypted service-to-service.' },
-      gap: (vnodes.length === 0 || nodesWithoutStrictMtls.length === 0) ? undefined : {
-        description: 'Service-to-service traffic may be plaintext or anonymous TLS.',
-        affected_resources: nodesWithoutStrictMtls.map<AffectedResource>((v) => ({
+      gap: (appMeshCollected && (vnodes.length === 0 || nodesWithoutStrictMtls.length === 0)) ? undefined : {
+        description: !appMeshCollected
+          ? 'App Mesh could not be enumerated (appmesh:ListMeshes failed), so service-to-service mTLS posture could not be assessed.'
+          : 'Service-to-service traffic may be plaintext or anonymous TLS.',
+        affected_resources: nodesWithoutStrictMtls.length ? nodesWithoutStrictMtls.map<AffectedResource>((v) => ({
           type: 'aws_appmesh_virtual_node', identifier: `${v.mesh}/${v.node}`, name: v.node,
           attributes: { mesh: v.mesh, current_mode: v.listenerMtls },
-        })),
+        })) : [{ type: 'aws_appmesh_mesh', identifier: ctx.account ?? 'account', name: 'App Mesh unreadable — indeterminate' }],
       },
-      remediation: (vnodes.length === 0 || nodesWithoutStrictMtls.length === 0) ? undefined : {
+      remediation: (appMeshCollected && (vnodes.length === 0 || nodesWithoutStrictMtls.length === 0)) ? undefined : {
         summary: 'Set listener.tls.mode=STRICT with ACM-issued cert on each prod virtual node.',
         options: [{
           approach: 'Update virtual-node spec via Terraform.',
@@ -347,7 +355,7 @@ export async function collectSvcVcm(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.lambda.function_urls_require_iam',
-      passed: lambdaUrlsTotal === 0 || lambdaUrlsWithoutIam.length === 0,
+      passed: lambdaUrlsCollected && (lambdaUrlsTotal === 0 || lambdaUrlsWithoutIam.length === 0),
       severity: 'critical',
       current: {
         summary: lambdaUrlsTotal === 0
@@ -411,6 +419,7 @@ export async function collectSvcVri(c: CollectorContext): Promise<ProviderBlock>
   // Lambda code signing
   let lambdaTotal = 0;
   let lambdaWithCodeSigning = 0;
+  let lambdaCollected = false;
   try {
     const lambda = aws.lambda(ctx.auth);
     let tok: string | undefined;
@@ -431,6 +440,7 @@ export async function collectSvcVri(c: CollectorContext): Promise<ProviderBlock>
       const next = r.NextMarker;
       tok = next && next !== tok ? next : undefined; // stop on repeated/empty marker
     } while (tok && ++iter < MAX_PAGINATION_ITERATIONS);
+    lambdaCollected = true;
     evidence.push(ev('lambda.code_signing', { total: lambdaTotal, with_signing: lambdaWithCodeSigning }));
   } catch (e) { warnIfActionable(warnings, e, 'lambda.ListFunctions', 'lambda:ListFunctions'); }
 
@@ -446,6 +456,7 @@ export async function collectSvcVri(c: CollectorContext): Promise<ProviderBlock>
   // EC2 IMDSv2 + Shielded options (already in CNA-MAT; re-surface here for VRI angle)
   let instancesTotal = 0;
   let instancesWithoutImdsv2 = 0;
+  let instancesCollected = false;
   try {
     const ec2 = aws.ec2(ctx.auth);
     const r = await ec2.send(new DescribeInstancesCommand({ MaxResults: 200 }));
@@ -455,8 +466,9 @@ export async function collectSvcVri(c: CollectorContext): Promise<ProviderBlock>
         if (inst.MetadataOptions?.HttpTokens !== 'required') instancesWithoutImdsv2++;
       }
     }
+    instancesCollected = true;
     evidence.push(ev('ec2.imdsv2_for_vri', { total: instancesTotal, without_imdsv2: instancesWithoutImdsv2 }));
-  } catch (e: any) { warnings.push(`EC2: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ec2.DescribeInstances', 'ec2:DescribeInstances')); }
 
   const altSatisfiers: AlternativeSatisfier[] = [
     {
@@ -510,7 +522,7 @@ export async function collectSvcVri(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.lambda.code_signing_required',
-      passed: lambdaTotal === 0 || lambdaWithCodeSigning / lambdaTotal >= 0.8,
+      passed: lambdaCollected && (lambdaTotal === 0 || lambdaWithCodeSigning / lambdaTotal >= 0.8),
       severity: 'high',
       current: {
         summary: lambdaTotal === 0
@@ -579,7 +591,7 @@ export async function collectSvcVri(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.ec2.imdsv2_for_integrity',
-      passed: instancesTotal === 0 || instancesWithoutImdsv2 === 0,
+      passed: instancesCollected && (instancesTotal === 0 || instancesWithoutImdsv2 === 0),
       severity: 'high',
       current: {
         summary: instancesTotal === 0

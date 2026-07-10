@@ -97,7 +97,7 @@ export async function collectCnaOfa(ctx: CollectorContext): Promise<ProviderBloc
       observations: { total, with_zone: zoned.length, distinct_zones: distinctZones.size, zones: [...distinctZones] },
     },
     target: { summary: 'Every VM is pinned to an availability zone, and the fleet spans ≥ 2 zones — single-zone outage doesn\'t take the workload down.', rationale: 'NIST CP-7, CP-7(1), CP-9. Multi-zone deployment is the FedRAMP-recommended availability primitive on Azure.' },
-    gap: { description: 'VMs are not spread across availability zones — a single-zone outage will take the workload offline.', affected_resources: vms.rows.filter((v) => !v.zone).slice(0, 50).map((v: any) => ({ type: 'azure_vm', identifier: v.id, attributes: {} })) },
+    gap: { description: 'VMs are not spread across availability zones — a single-zone outage will take the workload offline.', affected_resources: (() => { const offenders = vms.rows.filter((v) => !v.zone).slice(0, 50).map((v: any) => ({ type: 'azure_vm', identifier: v.id, attributes: {} })); return offenders.length ? offenders : [{ type: 'azure_subscription', identifier: subs[0] ?? 'subscription', name: `VM fleet confined to ${distinctZones.size} availability zone(s) — no cross-zone spread`, attributes: { total_vms: total, distinct_zones: distinctZones.size, zones: [...distinctZones] } }]; })() },
     remediation: {
       summary: 'Redeploy in-scope VMs into availability zones, ideally with a Virtual Machine Scale Set spread across all 3 zones in the region.',
       options: [
@@ -274,7 +274,7 @@ export async function collectRplAbo(ctx: CollectorContext): Promise<ProviderBloc
       observations: { recent_jobs: recentBackupJobs.length, completed, failed },
     },
     target: { summary: '≥ 1 successful backup job per protected workload per 24 hours, and zero failed jobs in the 30-day window.', rationale: 'NIST CP-9(1). A configured-but-never-running backup is identical to no backup at all.' },
-    gap: { description: failed > 0 ? 'Backup jobs are failing — restore-capability assumption is invalidated until failures clear.' : 'No recent successful backup jobs — backup pipeline may be paused.', affected_resources: recentBackupJobs.filter((j: any) => String(j.status ?? '').toLowerCase() !== 'completed').slice(0, 50).map((j: any) => ({ type: 'azure_backup_job', identifier: j.id ?? j.name ?? 'unknown', attributes: { status: j.status } })) },
+    gap: { description: failed > 0 ? 'Backup jobs are failing — restore-capability assumption is invalidated until failures clear.' : 'No recent successful backup jobs — backup pipeline may be paused.', affected_resources: (() => { const offenders = recentBackupJobs.filter((j: any) => String(j.status ?? '').toLowerCase() !== 'completed').slice(0, 50).map((j: any) => ({ type: 'azure_backup_job', identifier: j.id ?? j.name ?? 'unknown', attributes: { status: j.status } })); return offenders.length ? offenders : [{ type: 'azure_subscription', identifier: subs[0] ?? 'subscription', name: 'no successful backup job in the last 30 days — backup pipeline appears paused', attributes: { recent_jobs: recentBackupJobs.length, completed, failed } }]; })() },
     remediation: {
       summary: 'Investigate failed backup jobs via Azure Monitor / Backup Center; resolve root cause before relying on the vault for recovery.',
       options: [
@@ -429,7 +429,7 @@ export async function collectRplArp(ctx: CollectorContext): Promise<ProviderBloc
       observations: { total, geo_redundant: geoVaults.length },
     },
     target: { summary: 'At least one Recovery Services Vault has `redundancySettings.standardTierStorageRedundancy` containing "Geo" (GeoRedundant / GeoZoneRedundant) — OR a documented data-tier failover path (alt satisfier).', rationale: 'NIST CP-2, CP-6, CP-7, CP-10, CP-10(2). Reviewing recovery-plan alignment requires that alternate processing actually exists somewhere — restore vaults that are stuck in one region don\'t qualify.' },
-    gap: { description: 'No alternate-processing posture visible at the vault layer — recovery plan assumes a site that may not exist.', affected_resources: vaults.rows.filter((v: any) => !String(v.storageRedundancy ?? '').toLowerCase().includes('geo')).slice(0, 50).map((v: any) => ({ type: 'azure_recovery_services_vault', identifier: v.id, attributes: { name: v.name, storage_redundancy: v.storageRedundancy } })) },
+    gap: { description: 'No alternate-processing posture visible at the vault layer — recovery plan assumes a site that may not exist.', affected_resources: (() => { const offenders = vaults.rows.filter((v: any) => !String(v.storageRedundancy ?? '').toLowerCase().includes('geo')).slice(0, 50).map((v: any) => ({ type: 'azure_recovery_services_vault', identifier: v.id, attributes: { name: v.name, storage_redundancy: v.storageRedundancy } })); return offenders.length ? offenders : [{ type: 'azure_subscription', identifier: subs[0] ?? 'subscription', name: 'no Recovery Services Vault present — no vault-layer alternate-processing posture', attributes: { total_vaults: total } }]; })() },
     remediation: {
       summary: 'Set the vault storage redundancy to GeoRedundant (or GeoZoneRedundant for cross-zone+cross-region), OR document the data-tier failover path as the alternative satisfier.',
       options: [

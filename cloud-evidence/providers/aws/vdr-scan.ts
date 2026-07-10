@@ -183,27 +183,40 @@ export function buildVdrFindings(
     nist_controls: ['ra-5', 'ra-5.2', 'si-2', 'si-3', 'si-5'],
   });
 
+  // "No SLA breaches" is only a MEANINGFUL pass when detection is actually
+  // enabled AND findings were enumerated. If the scanner is off/unreachable (or
+  // ListFindings failed and we fell back to an empty summary), overdue===0 is
+  // vacuous — gate it to fail-closed rather than emit a false "no breaches" PASS.
+  const breachPass = detectionEnabled && summary.overdue === 0;
   const noBreaches = finding({
     rule: `${provider}.vdr.no_sla_breaches`,
-    passed: summary.overdue === 0,
-    severity: summary.overdue === 0 ? severityForKeyWord(kw) : 'high',
+    passed: breachPass,
+    severity: breachPass ? severityForKeyWord(kw) : 'high',
     applicable_key_word: kw,
     current: {
-      summary: summary.overdue === 0
-        ? `No vulnerability SLA breaches (${summary.total} finding(s); ${summary.kev_count} KEV; oldest open ${summary.oldest_open_days}d).`
-        : `${summary.overdue} vulnerability(ies) are past their remediation SLA (${summary.kev_count} KEV in scope).`,
-      observations: summary,
+      summary: !detectionEnabled
+        ? `Vulnerability SLA status INDETERMINATE — ${scannerName} is not enabled/reachable, so findings could not be enumerated.`
+        : summary.overdue === 0
+          ? `No vulnerability SLA breaches (${summary.total} finding(s); ${summary.kev_count} KEV; oldest open ${summary.oldest_open_days}d).`
+          : `${summary.overdue} vulnerability(ies) are past their remediation SLA (${summary.kev_count} KEV in scope).`,
+      observations: { ...summary, detection_enabled: detectionEnabled },
     },
     target: { summary: 'All vulnerabilities are remediated within the FedRAMP VDR timeframes (KEV / PVR / MAV).', rationale: 'KSI/VDR / NIST RA-5, SI-2. Detected vulnerabilities must be remediated promptly within defined timeframes.' },
-    gap: summary.overdue === 0 ? undefined : {
-      description: 'Vulnerabilities past their SLA represent unmitigated, possibly exploited, risk.',
-      affected_resources: summary.sla_breaches.slice(0, 50).map<AffectedResource>((b) => ({
-        type: 'vulnerability', identifier: b.cve ?? b.resource ?? 'unknown', name: b.cve ?? 'finding',
-        attributes: { severity: b.severity, kev: b.kev, due: b.sla?.due, basis: b.sla?.basis },
-      })),
+    gap: breachPass ? undefined : {
+      description: !detectionEnabled
+        ? 'SLA compliance cannot be asserted because no vulnerability scanner is enabled/reachable to enumerate findings.'
+        : 'Vulnerabilities past their SLA represent unmitigated, possibly exploited, risk.',
+      affected_resources: !detectionEnabled
+        ? [{ type: scannerResourceType, identifier: scopeId ?? 'account', name: `${scannerName} (not enabled — SLA indeterminate)` }]
+        : summary.sla_breaches.slice(0, 50).map<AffectedResource>((b) => ({
+            type: 'vulnerability', identifier: b.cve ?? b.resource ?? 'unknown', name: b.cve ?? 'finding',
+            attributes: { severity: b.severity, kev: b.kev, due: b.sla?.due, basis: b.sla?.basis },
+          })),
     },
-    remediation: summary.overdue === 0 ? undefined : {
-      summary: 'Remediate or formally accept each overdue vulnerability; prioritize KEV + internet-reachable.',
+    remediation: breachPass ? undefined : {
+      summary: !detectionEnabled
+        ? `Enable ${scannerName} (or a 3rd-party scanner) so vulnerability SLA compliance can be measured.`
+        : 'Remediate or formally accept each overdue vulnerability; prioritize KEV + internet-reachable.',
       options: [{
         approach: 'Patch/redeploy affected resources; for KEV entries treat the CISA due date as hard.', mechanism: 'process', owner_team: 'Security',
         cost_impact: { level: 'low', notes: 'Engineering effort.' }, availability_impact: { level: 'medium', notes: 'Patching may need maintenance windows.' },

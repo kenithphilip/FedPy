@@ -1,0 +1,45 @@
+# cloud-evidence — example run configuration (sanitized template).
+#
+# Copy to a private, git-ignored file (e.g. config.<env>.yaml — the .gitignore
+# blocks config.*.yaml) and fill in your own scope. The collector is strictly
+# read-only. Accounts are NEVER named here: the AWS account is whatever the
+# ambient credentials resolve to (AWS_PROFILE / AWS_* session env / assumed role),
+# so this file carries no account ids and is safe to share.
+
+frmr_version: "0.9.43-beta"
+
+# low | moderate | high
+impact_level: moderate
+
+aws:
+  enabled: true
+  # List the regions to collect from. For AWS GovCloud use the aws-us-gov
+  # partition regions instead (us-gov-west-1, us-gov-east-1); the collector
+  # derives the partition from the caller identity automatically.
+  regions:
+    - us-east-1
+    - us-west-2
+  # Tag that marks production assets (used to scope prod-only checks).
+  prod_tag:
+    key: env
+    values: [prod, production]
+
+gcp:
+  enabled: false
+  organization_id: null
+  projects: []
+  prod_label:
+    key: env
+    values: [prod, production]
+
+azure:
+  enabled: false
+  subscriptions: []
+  tenant_id: null
+  prod_tag:
+    key: env
+    values: [prod, production]
+
+# Run output directory. This is git-ignored — evidence, inventory, and reports
+# are never committed (they identify the scanned environment).
+output_dir: ./out

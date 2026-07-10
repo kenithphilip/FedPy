@@ -104,9 +104,11 @@ async function setupCtx(c: CollectorContext): Promise<Ctx> {
 // If you legitimately have more, raise this and audit the call site.
 const MAX_PAGINATION_ITERATIONS = 1000;
 
-async function listAllIamUsers(ctx: Ctx): Promise<Array<{ UserName?: string; CreateDate?: Date; PasswordLastUsed?: Date }>> {
+type IamUser = { UserName?: string; CreateDate?: Date; PasswordLastUsed?: Date };
+
+async function listAllIamUsers(ctx: Ctx): Promise<IamUser[]> {
   const client = aws.iam(ctx.auth);
-  const users: Array<{ UserName?: string; CreateDate?: Date; PasswordLastUsed?: Date }> = [];
+  const users: IamUser[] = [];
   let marker: string | undefined;
   let prevMarker: string | undefined;
   let iter = 0;
@@ -122,9 +124,60 @@ async function listAllIamUsers(ctx: Ctx): Promise<Array<{ UserName?: string; Cre
   return users;
 }
 
+/**
+ * List IAM users, capturing whether the enumeration actually SUCCEEDED. A
+ * "no offending users" finding must be gated on `reachable` — otherwise an
+ * AccessDenied on ListUsers empties the list and produces a false PASS.
+ */
+async function listAllIamUsersSafe(ctx: Ctx, warnings: string[]): Promise<{ users: IamUser[]; reachable: boolean }> {
+  try {
+    return { users: await listAllIamUsers(ctx), reachable: true };
+  } catch (e: any) {
+    warnings.push(diagnoseAwsError(e, 'iam.ListUsers', 'iam:ListUsers'));
+    return { users: [], reachable: false };
+  }
+}
+
 async function ageInDays(d: Date | undefined): Promise<number | null> {
   if (!d) return null;
   return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Inspect a role's trust policy (AssumeRolePolicyDocument) for cross-account AWS
+ * principals that can assume it WITHOUT an ExternalId or any Condition — the
+ * classic confused-deputy exposure. Returns the offending external principal ARNs
+ * (empty when the role is safe or trusts only itself / AWS services).
+ *
+ * The document arrives URL-encoded on ListRoles; parse defensively so a malformed
+ * policy never throws. `ownAccount` is the collected account id, so a principal
+ * naming our own account is not "cross-account".
+ */
+export function crossAccountTrustWithoutGuard(doc: string, ownAccount: string): string[] {
+  let parsed: any;
+  try { parsed = JSON.parse(decodeURIComponent(doc)); } catch { return []; }
+  const stmts: any[] = Array.isArray(parsed?.Statement) ? parsed.Statement : [parsed?.Statement].filter(Boolean);
+  const offenders = new Set<string>();
+  for (const s of stmts) {
+    if (s?.Effect !== 'Allow') continue;
+    const actions = Array.isArray(s.Action) ? s.Action : [s.Action].filter(Boolean);
+    if (!actions.some((a: unknown) => typeof a === 'string' && /^sts:AssumeRole$/i.test(a))) continue;
+    // A Condition (any) is treated as a guard — ExternalId, source-account, MFA, etc.
+    const hasCondition = s.Condition && Object.keys(s.Condition).length > 0;
+    if (hasCondition) continue;
+    const awsPrincipals: string[] = [];
+    const p = s.Principal;
+    const raw = p && typeof p === 'object' ? p.AWS : undefined;
+    for (const arn of Array.isArray(raw) ? raw : [raw].filter(Boolean)) {
+      if (typeof arn !== 'string') continue;
+      // "*" or an ARN naming a DIFFERENT account is cross-account without a guard.
+      if (arn === '*') { awsPrincipals.push(arn); continue; }
+      const m = arn.match(/arn:aws[a-z-]*:iam::(\d{12}):/);
+      if (m && m[1] !== ownAccount) awsPrincipals.push(arn);
+    }
+    for (const a of awsPrincipals) offenders.add(a);
+  }
+  return [...offenders];
 }
 
 // =====================================================================
@@ -140,19 +193,21 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
   // GenerateCredentialReport kicks off a server-side report; GetCredentialReport
   // returns the CSV. Both are read operations under ReadOnlyAccess.
   let credentialReport: any[] = [];
+  let credentialReportOk = false;
   try {
     await iamClient.send(new GenerateCredentialReportCommand({}));
     const r = await iamClient.send(new GetCredentialReportCommand({}));
     const csv = Buffer.from(r.Content ?? new Uint8Array()).toString('utf8');
     credentialReport = parseCsv(csv);
+    credentialReportOk = true;
     evidence.push(ev('iam.GetCredentialReport', { row_count: credentialReport.length }));
   } catch (e: any) {
-    warnings.push(`GetCredentialReport: ${e.message}`);
+    warnings.push(diagnoseAwsError(e, 'iam.GetCredentialReport', 'iam:GenerateCredentialReport'));
   }
 
   // ---- IAM users (federation-bypass surface) ----
-  const users = await listAllIamUsers(ctx);
-  evidence.push(ev('iam.ListUsers', { count: users.length, sample: users.slice(0, 5).map((u) => u.UserName) }));
+  const { users, reachable: usersReachable } = await listAllIamUsersSafe(ctx, warnings);
+  evidence.push(ev('iam.ListUsers', { count: users.length, reachable: usersReachable, sample: users.slice(0, 5).map((u) => u.UserName) }));
 
   // ---- Access key inventory ----
   const usersWithOldKeys: Array<{ user: string; keyId: string; ageDays: number }> = [];
@@ -347,26 +402,32 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.iam.standalone_users_minimized',
-      passed: users.length === 0,
+      // Gate on ListUsers having succeeded — an empty list from AccessDenied is
+      // not "zero users", it's unknown.
+      passed: usersReachable && users.length === 0,
       severity: 'high',
       current: {
-        summary: `${users.length} standalone IAM user(s) exist. Federation should push this toward 0 (humans) + small N (legacy automation pending migration to roles).`,
-        observations: { count: users.length, users: users.map((u) => ({ UserName: u.UserName, CreateDate: u.CreateDate, PasswordLastUsed: u.PasswordLastUsed })) },
+        summary: !usersReachable
+          ? 'IAM user count INDETERMINATE — iam:ListUsers could not be read.'
+          : `${users.length} standalone IAM user(s) exist. Federation should push this toward 0 (humans) + small N (legacy automation pending migration to roles).`,
+        observations: { reachable: usersReachable, count: users.length, users: users.map((u) => ({ UserName: u.UserName, CreateDate: u.CreateDate, PasswordLastUsed: u.PasswordLastUsed })) },
       },
       target: {
         summary: 'Zero standalone IAM users for humans. Any remaining users are documented exceptions tagged with purpose.',
         rationale: 'Standalone IAM users are not lifecycle-managed by the IdP. NIST AC-2 calls for centralized account management.',
       },
-      gap: users.length === 0 ? undefined : {
-        description: 'Each standalone IAM user is a parallel lifecycle channel that the IdP cannot deactivate.',
-        affected_resources: users.map<AffectedResource>((u) => ({
+      gap: (usersReachable && users.length === 0) ? undefined : {
+        description: !usersReachable
+          ? 'iam:ListUsers could not be read (permission/throttle), so standalone-user exposure cannot be asserted.'
+          : 'Each standalone IAM user is a parallel lifecycle channel that the IdP cannot deactivate.',
+        affected_resources: users.length ? users.map<AffectedResource>((u) => ({
           type: 'aws_iam_user',
-          identifier: `arn:aws:iam::${ctx.account}:user/${u.UserName}`,
+          identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:user/${u.UserName}`,
           name: u.UserName,
           attributes: { CreateDate: u.CreateDate, PasswordLastUsed: u.PasswordLastUsed },
-        })),
+        })) : [{ type: 'aws_iam_user', identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:user/*`, name: 'iam:ListUsers unreadable' }],
       },
-      remediation: users.length === 0 ? undefined : {
+      remediation: (usersReachable && users.length === 0) ? undefined : {
         summary: 'For each user, decide: human (migrate to Identity Center) or workload (replace with IAM role).',
         options: [{
           approach: 'Triage IAM users and migrate or replace each one.',
@@ -395,7 +456,7 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.iam.no_access_keys_older_than_90d',
-      passed: usersWithOldKeys.length === 0,
+      passed: usersReachable && usersWithOldKeys.length === 0,
       severity: 'high',
       current: {
         summary: usersWithOldKeys.length === 0
@@ -407,7 +468,7 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
         summary: 'No IAM access key is older than 90 days. Ideally no long-lived access keys exist at all (use IAM roles + STS).',
         rationale: 'NIST IA-5(1) requires authenticator rotation. Long-lived access keys are the #1 source of cloud credential compromise.',
       },
-      gap: usersWithOldKeys.length === 0 ? undefined : {
+      gap: (usersReachable && usersWithOldKeys.length === 0) ? undefined : {
         description: 'Stale access keys are routinely used as initial-access vectors. Each listed key should be rotated and ideally replaced with a role.',
         affected_resources: usersWithOldKeys.map<AffectedResource>((k) => ({
           type: 'aws_iam_access_key',
@@ -416,7 +477,7 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
           attributes: { user: k.user, ageDays: k.ageDays },
         })),
       },
-      remediation: usersWithOldKeys.length === 0 ? undefined : {
+      remediation: (usersReachable && usersWithOldKeys.length === 0) ? undefined : {
         summary: 'For each stale key: rotate immediately, then plan replacement with IAM-role-based authentication.',
         options: [
           {
@@ -462,25 +523,29 @@ export async function collectIamAam(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.iam.no_password_users_without_mfa',
-      passed: usersWithPasswordNoMfa.length === 0,
+      passed: usersReachable && credentialReportOk && usersWithPasswordNoMfa.length === 0,
       severity: 'critical',
       current: {
-        summary: usersWithPasswordNoMfa.length === 0
-          ? 'No IAM users have a password without MFA.'
-          : `${usersWithPasswordNoMfa.length} IAM user(s) have console passwords but no MFA — critical exposure.`,
-        observations: { offenders: usersWithPasswordNoMfa },
+        summary: (!usersReachable || !credentialReportOk)
+          ? 'Password-without-MFA status INDETERMINATE — iam:ListUsers or the credential report could not be read.'
+          : usersWithPasswordNoMfa.length === 0
+            ? 'No IAM users have a password without MFA.'
+            : `${usersWithPasswordNoMfa.length} IAM user(s) have console passwords but no MFA — critical exposure.`,
+        observations: { reachable: usersReachable, credential_report_ok: credentialReportOk, offenders: usersWithPasswordNoMfa },
       },
       target: {
         summary: 'Every IAM user with a console password also has an MFA device registered.',
         rationale: 'Direct credential-theft attack path. NIST IA-2(1) requires MFA for all interactive access.',
       },
-      gap: usersWithPasswordNoMfa.length === 0 ? undefined : {
-        description: 'These users can be fully compromised via password theft alone.',
-        affected_resources: usersWithPasswordNoMfa.map<AffectedResource>((u) => ({
-          type: 'aws_iam_user', identifier: `arn:aws:iam::${ctx.account}:user/${u}`, name: u, attributes: {},
-        })),
+      gap: (usersReachable && credentialReportOk && usersWithPasswordNoMfa.length === 0) ? undefined : {
+        description: (!usersReachable || !credentialReportOk)
+          ? 'iam:ListUsers or the credential report could not be read, so password-without-MFA exposure cannot be asserted.'
+          : 'These users can be fully compromised via password theft alone.',
+        affected_resources: usersWithPasswordNoMfa.length ? usersWithPasswordNoMfa.map<AffectedResource>((u) => ({
+          type: 'aws_iam_user', identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:user/${u}`, name: u, attributes: {},
+        })) : [{ type: 'aws_iam_user', identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:user/*`, name: 'credential report / ListUsers unreadable', attributes: {} }],
       },
-      remediation: usersWithPasswordNoMfa.length === 0 ? undefined : {
+      remediation: (usersReachable && credentialReportOk && usersWithPasswordNoMfa.length === 0) ? undefined : {
         summary: 'Apply force-MFA policy (see KSI-IAM-MFA Finding 2) immediately; then plan migration.',
         options: [
           { approach: 'See KSI-IAM-MFA Finding 2', mechanism: 'terraform', owner_team: 'Security', steps: ['Apply the force-MFA deny policy. Once MFA is enrolled, plan migration to Identity Center.'] },
@@ -618,6 +683,7 @@ export async function collectIamApm(c: CollectorContext): Promise<ProviderBlock>
 
   // Cognito user pools (app users)
   const cognitoPools: Array<{ id: string; name: string; mfa: string | undefined }> = [];
+  let cognitoCollected = false;
   try {
     const cog = aws.cognito(ctx.auth);
     let tok: string | undefined;
@@ -630,9 +696,10 @@ export async function collectIamApm(c: CollectorContext): Promise<ProviderBlock>
       }
       tok = lst.NextToken;
     } while (tok);
+    cognitoCollected = true;
     evidence.push(ev('cognito.user_pools_summary', cognitoPools));
   } catch (e: any) {
-    warnings.push(`Cognito listing: ${e.message}`);
+    warnings.push(diagnoseAwsError(e, 'cognito.ListUserPools', 'cognito-idp:ListUserPools'));
   }
 
   const cognitoNoMfa = cognitoPools.filter((p) => p.mfa !== 'ON');
@@ -699,7 +766,7 @@ export async function collectIamApm(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.cognito.app_pools_mfa_required',
-      passed: cognitoNoMfa.length === 0,
+      passed: cognitoCollected && cognitoNoMfa.length === 0,
       severity: 'high',
       current: {
         summary: cognitoPools.length === 0
@@ -710,11 +777,11 @@ export async function collectIamApm(c: CollectorContext): Promise<ProviderBlock>
         observations: cognitoPools,
       },
       target: { summary: 'Every Cognito user pool that authenticates federal end-users has MfaConfiguration=ON.', rationale: 'NIST IA-2(1) for application end-users.' },
-      gap: cognitoNoMfa.length === 0 ? undefined : {
+      gap: (cognitoCollected && cognitoNoMfa.length === 0) ? undefined : {
         description: 'Cognito user pools without MFA expose app end-users to credential theft.',
         affected_resources: cognitoNoMfa.map<AffectedResource>((p) => ({ type: 'aws_cognito_user_pool', identifier: p.id, name: p.name, attributes: { current_mfa: p.mfa ?? 'OFF' } })),
       },
-      remediation: cognitoNoMfa.length === 0 ? undefined : {
+      remediation: (cognitoCollected && cognitoNoMfa.length === 0) ? undefined : {
         summary: 'Set MfaConfiguration to ON for each user pool. Coordinate with product team since this affects sign-in UX.',
         options: [{
           approach: 'Set MfaConfiguration=ON via Terraform.',
@@ -773,6 +840,7 @@ export async function collectIamElp(c: CollectorContext): Promise<ProviderBlock>
   // Wildcard scan in customer-managed policies
   const wildcardPolicies: Array<{ policyArn: string; statementIdx: number; action: unknown; resource: unknown }> = [];
   let policyCount = 0;
+  let policiesCollected = false;
   try {
     let marker: string | undefined;
     do {
@@ -802,42 +870,69 @@ export async function collectIamElp(c: CollectorContext): Promise<ProviderBlock>
             }
           });
         } catch (e: any) {
-          warnings.push(`GetPolicyVersion ${p.Arn}: ${e.message}`);
+          warnings.push(diagnoseAwsError(e, `iam.GetPolicyVersion ${p.Arn}`, 'iam:GetPolicyVersion'));
         }
       }
       { const _nm = out.IsTruncated ? out.Marker : undefined; marker = _nm === marker ? undefined : _nm; }
     } while (marker);
+    policiesCollected = true;
   } catch (e: any) {
-    warnings.push(`ListPolicies: ${e.message}`);
+    warnings.push(diagnoseAwsError(e, 'iam.ListPolicies', 'iam:ListPolicies'));
   }
-  evidence.push(ev('iam.customer_managed_policy_scan', { policy_count: policyCount, wildcards: wildcardPolicies }));
+  evidence.push(ev('iam.customer_managed_policy_scan', { policy_count: policyCount, collected: policiesCollected, wildcards: wildcardPolicies }));
 
-  // Roles + stale-use sample
+  // Roles + stale-use sample. The same ListRoles pass also carries each role's
+  // PermissionsBoundary and trust policy (AssumeRolePolicyDocument), so we harvest
+  // two more least-privilege signals here without any additional API call:
+  //   - roles WITHOUT a permissions boundary (AC-6 privilege-escalation guardrail)
+  //   - cross-account-assumable roles whose trust policy lacks an ExternalId or a
+  //     Condition (confused-deputy exposure, AC-3/AC-6).
+  // `rolesCollected` gates the findings so an unreadable ListRoles never false-passes.
   const staleRoles: Array<{ role: string; daysSinceLastUse: number }> = [];
+  const rolesNoBoundary: string[] = [];
+  const crossAcctNoExternalId: Array<{ role: string; principals: string[] }> = [];
   let roleCount = 0;
+  let rolesCollected = false;
+  const ownAccount = ctx.account ?? '';
   try {
     let marker: string | undefined;
     do {
       const out = await iamClient.send(new ListRolesCommand({ Marker: marker, MaxItems: 100 }));
       for (const r of out.Roles ?? []) {
         roleCount++;
+        const roleName = r.RoleName ?? '?';
+        // Service-linked roles are AWS-managed; exclude from boundary/trust checks.
+        const serviceLinked = (r.Path ?? '').startsWith('/aws-service-role/');
         const last = r.RoleLastUsed?.LastUsedDate;
         if (last) {
           const days = await ageInDays(last) ?? 0;
-          if (days > 90) staleRoles.push({ role: r.RoleName ?? '?', daysSinceLastUse: days });
+          if (days > 90) staleRoles.push({ role: roleName, daysSinceLastUse: days });
+        }
+        if (!serviceLinked && !r.PermissionsBoundary?.PermissionsBoundaryArn) {
+          rolesNoBoundary.push(roleName);
+        }
+        // Trust-policy scan for cross-account principals without ExternalId/Condition.
+        if (!serviceLinked && r.AssumeRolePolicyDocument) {
+          const ext = crossAccountTrustWithoutGuard(r.AssumeRolePolicyDocument, ownAccount);
+          if (ext.length) crossAcctNoExternalId.push({ role: roleName, principals: ext });
         }
       }
       { const _nm = out.IsTruncated ? out.Marker : undefined; marker = _nm === marker ? undefined : _nm; }
     } while (marker);
+    rolesCollected = true;
   } catch (e: any) {
     warnings.push(`ListRoles: ${e.message}`);
   }
-  evidence.push(ev('iam.role_inventory', { role_count: roleCount, stale_role_count: staleRoles.length, stale_sample: staleRoles.slice(0, 10) }));
+  evidence.push(ev('iam.role_inventory', {
+    role_count: roleCount, collected: rolesCollected,
+    stale_role_count: staleRoles.length, stale_sample: staleRoles.slice(0, 10),
+    roles_without_boundary: rolesNoBoundary.length, cross_account_no_external_id: crossAcctNoExternalId.length,
+  }));
 
   const findings = [
     finding({
       rule: 'aws.iam.no_unconditional_admin_wildcards',
-      passed: wildcardPolicies.length === 0,
+      passed: policiesCollected && wildcardPolicies.length === 0,
       severity: 'critical',
       current: {
         summary: wildcardPolicies.length === 0
@@ -846,14 +941,14 @@ export async function collectIamElp(c: CollectorContext): Promise<ProviderBlock>
         observations: { policy_count: policyCount, wildcard_statements: wildcardPolicies },
       },
       target: { summary: 'Zero customer-managed policies with unconditional Action:*/Resource:*/Effect:Allow.', rationale: 'NIST AC-6 (least privilege). Unconditional admin makes every other IAM control meaningless.' },
-      gap: wildcardPolicies.length === 0 ? undefined : {
+      gap: (policiesCollected && wildcardPolicies.length === 0) ? undefined : {
         description: 'Each wildcard policy is an Admin grant.',
         affected_resources: wildcardPolicies.map<AffectedResource>((w) => ({
           type: 'aws_iam_policy', identifier: w.policyArn, name: w.policyArn.split('/').pop() ?? w.policyArn,
           attributes: { statement_index: w.statementIdx, action: w.action, resource: w.resource },
         })),
       },
-      remediation: wildcardPolicies.length === 0 ? undefined : {
+      remediation: (policiesCollected && wildcardPolicies.length === 0) ? undefined : {
         summary: 'Replace each wildcard statement with a scoped Action list + scoped Resource ARNs, OR delete if unused.',
         options: [{
           approach: 'Audit consumers + replace with scoped policy via Terraform.',
@@ -901,7 +996,7 @@ resource "aws_iam_policy" "scoped" {
       gap: staleRoles.length <= 20 ? undefined : {
         description: 'Roles unused for >90 days should be reviewed and either documented (break-glass) or deleted.',
         affected_resources: staleRoles.map<AffectedResource>((r) => ({
-          type: 'aws_iam_role', identifier: `arn:aws:iam::${ctx.account}:role/${r.role}`, name: r.role,
+          type: 'aws_iam_role', identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:role/${r.role}`, name: r.role,
           attributes: { days_since_last_use: r.daysSinceLastUse },
         })),
       },
@@ -922,6 +1017,85 @@ resource "aws_iam_policy" "scoped" {
       nist_controls: ['ac-2','ac-2.3'],
       cross_ksi_dependencies: [
         { ksi_id: 'KSI-IAM-AAM', relationship: 'shares-remediation', note: 'Stale-role hygiene is part of account-lifecycle automation.' },
+      ],
+    }),
+
+    finding({
+      rule: 'aws.iam.roles_have_permissions_boundary',
+      passed: rolesCollected && rolesNoBoundary.length === 0,
+      severity: 'medium',
+      current: {
+        summary: rolesNoBoundary.length === 0
+          ? `All ${roleCount} customer IAM role(s) carry a permissions boundary (or are service-linked).`
+          : `${rolesNoBoundary.length} of ${roleCount} customer IAM role(s) have no permissions boundary — nothing caps their maximum privilege.`,
+        observations: { role_count: roleCount, roles_without_boundary: rolesNoBoundary.slice(0, 50) },
+      },
+      target: { summary: 'Customer-created IAM roles are constrained by a permissions boundary that caps the maximum grantable privilege.', rationale: 'NIST AC-6, AC-6(2). A permissions boundary is the guardrail against privilege escalation via policy attachment.' },
+      gap: (rolesCollected && rolesNoBoundary.length === 0) ? undefined : {
+        description: 'Roles without a permissions boundary can be granted any privilege by anyone who can attach a policy — defeating least privilege.',
+        affected_resources: rolesNoBoundary.map<AffectedResource>((n) => ({
+          type: 'aws_iam_role', identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:role/${n}`, name: n,
+          attributes: { permissions_boundary: null },
+        })),
+      },
+      remediation: (rolesCollected && rolesNoBoundary.length === 0) ? undefined : {
+        summary: 'Attach a permissions boundary to customer roles (especially those that can create/attach policies).',
+        options: [{
+          approach: 'Define an org-standard boundary policy and attach it via Terraform.',
+          mechanism: 'terraform', owner_team: 'Security',
+          cost_impact: { level: 'none', notes: 'Free.' },
+          availability_impact: { level: 'medium', notes: 'A too-tight boundary denies legitimate actions; model against Access Advisor first.' },
+          customer_visible: { level: 'none', notes: 'Internal.' },
+          effort_estimate: { magnitude: 'days', notes: 'Author boundary + roll out per role.' },
+          steps: [
+            'Author a maximum-privilege boundary policy for each role class.',
+            'Set permissions_boundary on aws_iam_role resources.',
+            'Verify no legitimate action is denied, then enforce for new roles via SCP.',
+          ],
+        }],
+      },
+      alternative_satisfiers: [],
+      nist_controls: ['ac-6','ac-6.2'],
+    }),
+
+    finding({
+      rule: 'aws.iam.cross_account_roles_require_external_id',
+      passed: rolesCollected && crossAcctNoExternalId.length === 0,
+      severity: 'high',
+      current: {
+        summary: crossAcctNoExternalId.length === 0
+          ? 'No cross-account-assumable role trusts an external AWS principal without an ExternalId or Condition.'
+          : `${crossAcctNoExternalId.length} role(s) can be assumed by an external AWS account with no ExternalId or Condition — confused-deputy exposure.`,
+        observations: { findings: crossAcctNoExternalId.slice(0, 50) },
+      },
+      target: { summary: 'Every role trusting a third-party/external AWS principal requires an ExternalId (or an equivalent scoping Condition) in its trust policy.', rationale: 'NIST AC-3, AC-6. ExternalId defeats the confused-deputy problem for cross-account access.' },
+      gap: (rolesCollected && crossAcctNoExternalId.length === 0) ? undefined : {
+        description: 'A cross-account role without ExternalId can be assumed by the trusted account on behalf of any of its principals — including attackers who trick it.',
+        affected_resources: crossAcctNoExternalId.map<AffectedResource>((r) => ({
+          type: 'aws_iam_role', identifier: `arn:${aws.awsPartition(ctx.region)}:iam::${ctx.account}:role/${r.role}`, name: r.role,
+          attributes: { external_principals: r.principals },
+        })),
+      },
+      remediation: (rolesCollected && crossAcctNoExternalId.length === 0) ? undefined : {
+        summary: 'Add an sts:ExternalId Condition to each cross-account trust policy (or replace the AWS principal with a scoped one).',
+        options: [{
+          approach: 'Add a Condition requiring a shared-secret ExternalId to the assume-role policy.',
+          mechanism: 'terraform', owner_team: 'Security',
+          cost_impact: { level: 'none', notes: 'Free.' },
+          availability_impact: { level: 'medium', notes: 'The trusting party must send the ExternalId on AssumeRole; coordinate the rollout.' },
+          customer_visible: { level: 'low', notes: 'Third parties must update their integration to pass the ExternalId.' },
+          effort_estimate: { magnitude: 'hours', notes: 'Per role + partner coordination.' },
+          steps: [
+            'Generate a unique ExternalId per external integration.',
+            'Add `condition { test = "StringEquals", variable = "sts:ExternalId", values = [<id>] }` to the trust policy.',
+            'Have the trusting party pass the ExternalId on AssumeRole; verify.',
+          ],
+        }],
+      },
+      alternative_satisfiers: [],
+      nist_controls: ['ac-3','ac-6'],
+      cross_ksi_dependencies: [
+        { ksi_id: 'KSI-IAM-AAM', relationship: 'shares-remediation', note: 'Cross-account trust hygiene is part of account-management automation.' },
       ],
     }),
   ];
@@ -950,6 +1124,7 @@ export async function collectIamJit(c: CollectorContext): Promise<ProviderBlock>
   const ssoa = aws.ssoadmin(ctx.auth);
   const psWithLongSessions: Array<{ permissionSet: string; sessionDuration: string }> = [];
   let allPermSets = 0;
+  let permSetsCollected = false;
   try {
     const insts = await ssoa.send(new ListInstancesCommand({}));
     for (const inst of insts.Instances ?? []) {
@@ -969,9 +1144,10 @@ export async function collectIamJit(c: CollectorContext): Promise<ProviderBlock>
         tok = ps.NextToken;
       } while (tok);
     }
-    evidence.push(ev('sso-admin.permission_set_session_durations', { count: allPermSets, exceeding_8h: psWithLongSessions }));
+    permSetsCollected = true;
+    evidence.push(ev('sso-admin.permission_set_session_durations', { count: allPermSets, collected: permSetsCollected, exceeding_8h: psWithLongSessions }));
   } catch (e: any) {
-    warnings.push(`Permission set inspection: ${e.message}`);
+    warnings.push(diagnoseAwsError(e, 'sso-admin.permission_set_session_durations', 'sso:ListPermissionSets'));
   }
 
   // Session Manager recent sessions
@@ -998,7 +1174,7 @@ export async function collectIamJit(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.identity_center.permission_set_session_duration_<=8h',
-      passed: psWithLongSessions.length === 0,
+      passed: permSetsCollected && psWithLongSessions.length === 0,
       severity: 'high',
       current: {
         summary: psWithLongSessions.length === 0
@@ -1007,14 +1183,16 @@ export async function collectIamJit(c: CollectorContext): Promise<ProviderBlock>
         observations: { all_permission_sets: allPermSets, long_sessions: psWithLongSessions },
       },
       target: { summary: 'No permission set has SessionDuration > 8h. Privileged permission sets target ≤ 1h.', rationale: 'NIST AC-6(7) — periodic review/refresh of privileged access. Long sessions defeat JIT.' },
-      gap: psWithLongSessions.length === 0 ? undefined : {
-        description: 'Long permission-set sessions allow privileged credentials to live in caches and shell environments for too long.',
-        affected_resources: psWithLongSessions.map<AffectedResource>((p) => ({
+      gap: (permSetsCollected && psWithLongSessions.length === 0) ? undefined : {
+        description: !permSetsCollected
+          ? 'Permission-set session durations could not be enumerated (sso:ListPermissionSets failed), so ≤8h compliance cannot be asserted.'
+          : 'Long permission-set sessions allow privileged credentials to live in caches and shell environments for too long.',
+        affected_resources: psWithLongSessions.length ? psWithLongSessions.map<AffectedResource>((p) => ({
           type: 'aws_ssoadmin_permission_set', identifier: p.permissionSet, name: p.permissionSet,
           attributes: { session_duration: p.sessionDuration },
-        })),
+        })) : [{ type: 'aws_ssoadmin_instance', identifier: ctx.account ?? 'account', name: 'Identity Center permission sets unreadable — indeterminate' }],
       },
-      remediation: psWithLongSessions.length === 0 ? undefined : {
+      remediation: (permSetsCollected && psWithLongSessions.length === 0) ? undefined : {
         summary: 'Reduce SessionDuration on each long-session permission set via Terraform.',
         options: [{
           approach: 'Tighten SessionDuration in Identity Center permission set Terraform.',
@@ -1151,7 +1329,7 @@ export async function collectIamMfa(c: CollectorContext): Promise<ProviderBlock>
   }
 
   const userRecords: UserRecord[] = [];
-  const users = await listAllIamUsers(ctx);
+  const { users, reachable: usersReachable } = await listAllIamUsersSafe(ctx, warnings);
   for (const u of users) {
     if (!u.UserName) continue;
     const rec: UserRecord = {
@@ -1407,7 +1585,7 @@ export async function collectIamMfa(c: CollectorContext): Promise<ProviderBlock>
     // ----- Finding 2: Standalone-IAM-user MFA -----
     finding({
       rule: 'aws.iam.console_users_have_mfa',
-      passed: usersWithoutMfa.length === 0,
+      passed: usersReachable && usersWithoutMfa.length === 0,
       severity: 'critical',
       current: {
         summary: usersWithoutMfa.length === 0
@@ -1431,7 +1609,7 @@ export async function collectIamMfa(c: CollectorContext): Promise<ProviderBlock>
         summary: 'Zero console-enabled IAM users without phishing-resistant MFA. Ideally zero standalone IAM users at all (federate via Identity Center / IdP).',
         rationale: 'NIST IA-2 / IA-2(1) require MFA for all interactive access. FedRAMP 20x specifically calls for phishing-resistant MFA (KSI-IAM-MFA).',
       },
-      gap: usersWithoutMfa.length === 0 ? undefined : {
+      gap: (usersReachable && usersWithoutMfa.length === 0) ? undefined : {
         description: 'Console-enabled IAM users without MFA can be compromised through credential theft alone. Each user listed below should either have MFA registered, be migrated to Identity Center, or be deleted if no longer needed.',
         affected_resources: usersWithoutMfa.map<AffectedResource>((u) => ({
           type: 'aws_iam_user',
@@ -1446,7 +1624,7 @@ export async function collectIamMfa(c: CollectorContext): Promise<ProviderBlock>
           tags: u.tags,
         })),
       },
-      remediation: usersWithoutMfa.length === 0 ? undefined : {
+      remediation: (usersReachable && usersWithoutMfa.length === 0) ? undefined : {
         summary: 'Force MFA enrollment via IAM policy (short-term) and migrate to Identity Center (long-term). If the listed users are humans, migrate them to your IdP; if they are service accounts misclassified as users, replace with IAM roles + IRSA / Workload Identity.',
         options: [
           {
@@ -1586,7 +1764,7 @@ resource "aws_ssoadmin_account_assignment" "engineering_readonly_prod" {
     // ----- Finding 3: Virtual-MFA-on-privileged disallowed -----
     finding({
       rule: 'aws.iam.no_virtual_mfa_for_console_users',
-      passed: usersOnVirtualMfa.length === 0,
+      passed: usersReachable && usersOnVirtualMfa.length === 0,
       severity: 'high',
       current: {
         summary: usersOnVirtualMfa.length === 0
@@ -1601,7 +1779,7 @@ resource "aws_ssoadmin_account_assignment" "engineering_readonly_prod" {
         summary: 'Console-enabled users authenticate with FIDO2/WebAuthn security keys (hardware tokens), not virtual TOTP.',
         rationale: 'FedRAMP 20x KSI-IAM-MFA specifically calls for *phishing-resistant* MFA. TOTP can be intercepted by adversary-in-the-middle phishing; FIDO2/WebAuthn bind the credential to the origin and cannot be phished.',
       },
-      gap: usersOnVirtualMfa.length === 0 ? undefined : {
+      gap: (usersReachable && usersOnVirtualMfa.length === 0) ? undefined : {
         description: 'Console users with TOTP MFA are not protected against modern phishing techniques (AitM, EvilGinx, etc.).',
         affected_resources: usersOnVirtualMfa.map<AffectedResource>((u) => ({
           type: 'aws_iam_user_mfa_device',
@@ -1610,7 +1788,7 @@ resource "aws_ssoadmin_account_assignment" "engineering_readonly_prod" {
           attributes: { EnableDate: u.mfaDevices[0]?.EnableDate },
         })),
       },
-      remediation: usersOnVirtualMfa.length === 0 ? undefined : {
+      remediation: (usersReachable && usersOnVirtualMfa.length === 0) ? undefined : {
         summary: 'Replace virtual MFA with FIDO2 security keys for any console-enabled user.',
         options: [
           {
@@ -1666,11 +1844,16 @@ resource "aws_ssoadmin_account_assignment" "engineering_readonly_prod" {
         summary: 'An SCP attached to the prod OU (or the root) denies all actions when the calling principal has not recently authenticated with MFA.',
         rationale: 'Org-level guardrails defend against an IAM policy regression in any single account. NIST IA-2(1) and FedRAMP 20x recommend org-wide MFA enforcement at the SCP layer.',
       },
-      gap: scpsWithMfaDeny.length >= 1 || !orgReachable ? undefined : {
-        description: 'No SCP in the organization denies actions on absence of MultiFactorAuthPresent. A compromised IAM user with old access keys could perform high-impact actions without re-authenticating.',
-        affected_resources: [{ type: 'aws_organizations_policy_attachment', identifier: 'org-root', attributes: { existing_scp_count: allScps.length } }],
+      // passed only when an MFA-deny SCP is found. When the org isn't reachable
+      // (member-account run) the check is INDETERMINATE — represent that with a
+      // gap that names the reason rather than an empty (invariant-violating) one.
+      gap: scpsWithMfaDeny.length >= 1 ? undefined : {
+        description: orgReachable
+          ? 'No SCP in the organization denies actions on absence of MultiFactorAuthPresent. A compromised IAM user with old access keys could perform high-impact actions without re-authenticating.'
+          : 'Organizations API not reachable from this account (member-account run), so org-wide MFA-deny SCP enforcement could not be assessed. Run from the management/delegated-admin account to evaluate.',
+        affected_resources: [{ type: 'aws_organizations_policy_attachment', identifier: orgReachable ? 'org-root' : (ctx.account ?? 'account'), attributes: { existing_scp_count: allScps.length, org_reachable: orgReachable } }],
       },
-      remediation: scpsWithMfaDeny.length >= 1 || !orgReachable ? undefined : {
+      remediation: scpsWithMfaDeny.length >= 1 ? undefined : {
         summary: 'Create an SCP that denies non-trivial actions for principals without recent MFA and attach it to the prod OU.',
         options: [
           {
@@ -2035,6 +2218,7 @@ export async function collectIamSus(c: CollectorContext): Promise<ProviderBlock>
 
   // Security Hub critical IAM findings (informational)
   let shCriticalIamCount = 0;
+  let securityHubCollected = false;
   try {
     const sh = aws.securityhub(ctx.auth);
     const f = await sh.send(new ShGetFindingsCommand({
@@ -2046,9 +2230,12 @@ export async function collectIamSus(c: CollectorContext): Promise<ProviderBlock>
       MaxResults: 100,
     }));
     shCriticalIamCount = f.Findings?.length ?? 0;
-    evidence.push(ev('securityhub.critical_iam_findings', { count: shCriticalIamCount }));
+    securityHubCollected = true;
+    evidence.push(ev('securityhub.critical_iam_findings', { count: shCriticalIamCount, collected: securityHubCollected }));
   } catch (e: any) {
-    warnings.push(`Security Hub: ${e.message}`);
+    // Security Hub not being enabled is a distinct (expected) condition vs a read
+    // failure; either way we cannot assert "no critical findings", so gate the pass.
+    warnings.push(diagnoseAwsError(e, 'securityhub.GetFindings', 'securityhub:GetFindings'));
   }
 
   const altSatisfiers: AlternativeSatisfier[] = [
@@ -2168,7 +2355,7 @@ resource "aws_cloudwatch_event_target" "lambda" {
 
     finding({
       rule: 'aws.security_hub.no_critical_iam_findings_open',
-      passed: shCriticalIamCount === 0,
+      passed: securityHubCollected && shCriticalIamCount === 0,
       severity: 'high',
       current: {
         summary: shCriticalIamCount === 0
@@ -2177,11 +2364,11 @@ resource "aws_cloudwatch_event_target" "lambda" {
         observations: { shCriticalIamCount },
       },
       target: { summary: 'Zero open CRITICAL IAM findings (NEW or NOTIFIED). Resolved or SUPPRESSED with documented justification.', rationale: 'NIST SI-4, IR-4. Critical findings represent active exposures.' },
-      gap: shCriticalIamCount === 0 ? undefined : {
+      gap: (securityHubCollected && shCriticalIamCount === 0) ? undefined : {
         description: 'Open critical findings are unaddressed exposures.',
         affected_resources: [{ type: 'aws_securityhub_finding', identifier: 'aggregate', attributes: { count: shCriticalIamCount } }],
       },
-      remediation: shCriticalIamCount === 0 ? undefined : {
+      remediation: (securityHubCollected && shCriticalIamCount === 0) ? undefined : {
         summary: 'Triage each finding via the Security Hub console.',
         options: [{
           approach: 'Open Security Hub Findings filtered to CRITICAL + IAM + NEW.',
@@ -2234,6 +2421,7 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
   // ---- IAM customer-managed policies with wildcards (re-used pattern from ELP) ----
   const wildcardPolicies: Array<{ policyArn: string; statementIdx: number }> = [];
   let policyCount = 0;
+  let policiesCollected = false;
   try {
     let marker: string | undefined;
     do {
@@ -2262,12 +2450,13 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
               wildcardPolicies.push({ policyArn: p.Arn!, statementIdx: i });
             }
           });
-        } catch { /* ignore */ }
+        } catch (e: any) { warnings.push(diagnoseAwsError(e, `iam.GetPolicyVersion ${p.Arn}`, 'iam:GetPolicyVersion')); }
       }
       { const _nm = out.IsTruncated ? out.Marker : undefined; marker = _nm === marker ? undefined : _nm; }
     } while (marker);
-  } catch (e: any) { warnings.push(`ListPolicies: ${e.message}`); }
-  evidence.push(ev('iam.policy_wildcard_scan', { policy_count: policyCount, wildcards: wildcardPolicies }));
+    policiesCollected = true;
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'iam.ListPolicies', 'iam:ListPolicies')); }
+  evidence.push(ev('iam.policy_wildcard_scan', { policy_count: policyCount, collected: policiesCollected, wildcards: wildcardPolicies }));
 
   // ---- SCPs attached to org / OUs ----
   const scpsTotal: any[] = [];
@@ -2290,10 +2479,13 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
 
   // ---- Access Analyzer external-access findings ----
   let externalAccessFindings = 0;
+  let analyzerCount = 0;
+  let accessAnalyzerCollected = false;
   try {
     const aa = aws.accessanalyzer(ctx.auth);
     const an = await aa.send(new ListAnalyzersCommand({ type: 'ACCOUNT' }));
     for (const analyzer of an.analyzers ?? []) {
+      analyzerCount++;
       let t: string | undefined;
       do {
         const f = await aa.send(new AaListFindingsCommand({
@@ -2306,15 +2498,18 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
         t = f.nextToken;
       } while (t);
     }
-    evidence.push(ev('accessanalyzer.external_access_findings', { count: externalAccessFindings }));
-  } catch (e: any) { warnings.push(`Access Analyzer: ${e.message}`); }
+    // Only trustworthy if the list call succeeded AND an analyzer actually exists
+    // (no analyzer ⇒ external access is unmonitored, not "clean").
+    accessAnalyzerCollected = analyzerCount >= 1;
+    evidence.push(ev('accessanalyzer.external_access_findings', { count: externalAccessFindings, analyzers: analyzerCount }));
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'accessanalyzer.ListFindings', 'access-analyzer:ListFindings')); }
 
   const customerScps = scpsTotal.filter((s) => !s.awsManaged);
 
   const findings = [
     finding({
       rule: 'aws.iam.no_unconditional_admin_wildcards',
-      passed: wildcardPolicies.length === 0,
+      passed: policiesCollected && wildcardPolicies.length === 0,
       severity: 'critical',
       current: {
         summary: wildcardPolicies.length === 0
@@ -2323,14 +2518,14 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
         observations: { policy_count: policyCount, wildcards: wildcardPolicies },
       },
       target: { summary: 'Zero customer-managed policies with unconditional admin.', rationale: 'NIST AC-6 / CM-7. Unconditional admin makes the rest of IAM hygiene moot.' },
-      gap: wildcardPolicies.length === 0 ? undefined : {
+      gap: (policiesCollected && wildcardPolicies.length === 0) ? undefined : {
         description: 'Each wildcard is effectively root-equivalent.',
         affected_resources: wildcardPolicies.map<AffectedResource>((w) => ({
           type: 'aws_iam_policy', identifier: w.policyArn, name: w.policyArn.split('/').pop() ?? w.policyArn,
           attributes: { statement_index: w.statementIdx },
         })),
       },
-      remediation: wildcardPolicies.length === 0 ? undefined : {
+      remediation: (policiesCollected && wildcardPolicies.length === 0) ? undefined : {
         summary: 'Replace each wildcard with scoped Action + Resource lists.',
         options: [{
           approach: 'See KSI-IAM-ELP Finding 1 — same remediation path.',
@@ -2363,11 +2558,13 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
         observations: { orgReachable, total_scps: scpsTotal.length, customer_managed_scps: customerScps.length },
       },
       target: { summary: 'At least one customer-managed SCP attached to the org or prod OU enforces guardrails (deny region, deny root, require MFA, deny CloudTrail-disable, etc.).', rationale: 'NIST CM-7. SCPs are org-wide privilege guardrails; without them, a single account compromise has no org-level safety net.' },
-      gap: (customerScps.length >= 1 || !orgReachable) ? undefined : {
-        description: 'No org-level guardrails defending against account-level mistakes.',
-        affected_resources: [{ type: 'aws_organizations_policy', identifier: 'none-customer-managed', attributes: { total_scps: scpsTotal.length } }],
+      gap: customerScps.length >= 1 ? undefined : {
+        description: orgReachable
+          ? 'No org-level guardrails defending against account-level mistakes.'
+          : 'Organizations API not reachable from this account (member-account run), so org-wide guardrail SCPs could not be assessed. Run from the management/delegated-admin account to evaluate.',
+        affected_resources: [{ type: 'aws_organizations_policy', identifier: orgReachable ? 'none-customer-managed' : (ctx.account ?? 'account'), attributes: { total_scps: scpsTotal.length, org_reachable: orgReachable } }],
       },
-      remediation: (customerScps.length >= 1 || !orgReachable) ? undefined : {
+      remediation: customerScps.length >= 1 ? undefined : {
         summary: 'Deploy a baseline SCP set: deny disable-CloudTrail, deny disable-GuardDuty, deny non-approved regions, deny root usage.',
         options: [{
           approach: 'Deploy baseline SCPs via Terraform.',
@@ -2404,7 +2601,7 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.access_analyzer.no_external_access_findings',
-      passed: externalAccessFindings === 0,
+      passed: accessAnalyzerCollected && externalAccessFindings === 0,
       severity: 'high',
       current: {
         summary: externalAccessFindings === 0
@@ -2413,11 +2610,11 @@ export async function collectCnaDfp(c: CollectorContext): Promise<ProviderBlock>
         observations: { count: externalAccessFindings },
       },
       target: { summary: 'Zero unresolved external-access findings, OR each is documented (intentional cross-account access).', rationale: 'NIST AC-3, AC-4. External access from outside the org / trusted zone needs scrutiny.' },
-      gap: externalAccessFindings === 0 ? undefined : {
+      gap: (accessAnalyzerCollected && externalAccessFindings === 0) ? undefined : {
         description: 'Each finding represents a resource grant to a principal outside the org / trusted zone.',
         affected_resources: [{ type: 'aws_accessanalyzer_finding', identifier: 'aggregate', attributes: { count: externalAccessFindings } }],
       },
-      remediation: externalAccessFindings === 0 ? undefined : {
+      remediation: (accessAnalyzerCollected && externalAccessFindings === 0) ? undefined : {
         summary: 'Triage each finding in the Access Analyzer console — resolve or archive with justification.',
         options: [{
           approach: 'Triage active findings via console + IaC fixes.',

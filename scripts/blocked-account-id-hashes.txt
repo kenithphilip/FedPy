@@ -1,0 +1,13 @@
+# SHA-256 hashes of known real AWS account ids that must NEVER be committed to
+# this PUBLIC repo. Hashes (not the ids themselves) are stored here so this file
+# does not itself disclose the account numbers. scan-account-data.sh hashes each
+# 12-digit candidate token and hard-blocks a match.
+#
+# This is a belt-and-suspenders layer: the scanner already default-denies ANY
+# 12-digit id that is not a documented AWS example (see allowed-account-ids.txt),
+# so a brand-new real account is blocked even without a hash here.
+#
+# To add a real account:  printf '%s' 123456789012 | shasum -a 256
+409f7a7ca57761922e1ac51344740a802833e52b1f30543e0c95b3408f6c4734
+8825a5dd0ab65abaf4d574449e207020a20e0ea142f765b74b99baef324170de
+b4ce332f165321001b143e52646392e3b9ab28e024faa647d0a3bd91e4fa1e93

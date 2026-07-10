@@ -38,6 +38,23 @@ export interface FindingInput {
 }
 
 export function finding(input: FindingInput): Finding {
+  // Enforce the "remediation-grade failing finding" invariant AT CONSTRUCTION,
+  // not just via the ajv if/then at emit time (which is warn-only by default).
+  // A failing finding a 3PAO reads must always say WHAT is wrong (gap +
+  // ≥1 affected resource) and HOW to fix it (≥1 remediation option). Throwing
+  // here fails the collector fast rather than shipping a thin finding.
+  if (input.passed === false) {
+    const affectedCount = input.gap?.affected_resources?.length ?? 0;
+    const optionCount = input.remediation?.options?.length ?? 0;
+    if (!input.gap || affectedCount === 0 || !input.remediation || optionCount === 0) {
+      throw new Error(
+        `finding("${input.rule}"): a failing finding must carry gap.affected_resources (>=1) ` +
+        `and remediation.options (>=1). Got affected_resources=${affectedCount}, ` +
+        `remediation.options=${optionCount}. Populate the real resources/remediation, ` +
+        `or if the check could not be evaluated, name the indeterminate subject explicitly.`,
+      );
+    }
+  }
   return {
     rule: input.rule,
     passed: input.passed,

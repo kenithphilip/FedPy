@@ -20,6 +20,7 @@ import type { ProviderBlock, RawEvidence, AffectedResource, AlternativeSatisfier
 import { finding } from '../../core/findings.ts';
 import type { CollectorContext } from '../../core/ksi-map.ts';
 import { detect as detectThirdParty } from '../../core/detect/third-party-tools.ts';
+import { diagnoseAwsError } from '../../core/error-diagnostics.ts';
 
 function ev(source: string, data: unknown): RawEvidence { return { source, captured_at: new Date().toISOString(), data: data === undefined ? null : data }; }
 
@@ -44,31 +45,63 @@ interface TrailRecord {
   isLogging: boolean;
   eventSelectors: any[];
   insightSelectors: any[];
+  /** GetEventSelectors succeeded for this trail (an empty eventSelectors is real, not a read failure). */
+  eventSelectorsRead: boolean;
+  /** GetInsightSelectors succeeded for this trail. */
+  insightSelectorsRead: boolean;
 }
-async function fetchTrails(ctx: Ctx): Promise<{ trails: TrailRecord[]; warnings: string[]; evidence: RawEvidence[] }> {
+
+/**
+ * Gate a "no violations found" pass on the underlying fetch(es) having actually
+ * succeeded. If any prerequisite source failed to collect (AccessDenied /
+ * throttle / etc.), an empty violation list is INDETERMINATE, not clean — so we
+ * force `passed=false` rather than emit a false PASS. See gatePass usage below.
+ */
+function gatePass(noViolations: boolean, collected: Set<string>, ...required: string[]): boolean {
+  return required.every((r) => collected.has(r)) && noViolations;
+}
+
+async function fetchTrails(ctx: Ctx): Promise<{ trails: TrailRecord[]; warnings: string[]; evidence: RawEvidence[]; collected: Set<string> }> {
   const warnings: string[] = [];
   const evidence: RawEvidence[] = [];
   const trails: TrailRecord[] = [];
+  // Records which fetches SUCCEEDED. A "no violations" finding derived from
+  // trails must be gated on the DescribeTrails call (and, where relevant, the
+  // per-trail event/insight-selector reads) having actually run — otherwise an
+  // AccessDenied that leaves the list empty produces a false PASS.
+  const collected = new Set<string>();
   try {
     const ct = aws.cloudtrail(ctx.auth);
     const r = await ct.send(new DescribeTrailsCommand({}));
+    let allEventSelectorsRead = true;
+    let allInsightSelectorsRead = true;
     for (const t of r.trailList ?? []) {
       if (!t.TrailARN || !t.Name) continue;
       let isLogging = false;
       let es: any[] = [];
       let is: any[] = [];
+      let eventSelectorsRead = false;
+      let insightSelectorsRead = false;
       try {
         const status = await ct.send(new GetTrailStatusCommand({ Name: t.TrailARN }));
         isLogging = !!status.IsLogging;
-      } catch (e: any) { warnings.push(`GetTrailStatus ${t.Name}: ${e.message}`); }
+      } catch (e: any) { warnings.push(diagnoseAwsError(e, `cloudtrail.GetTrailStatus ${t.Name}`, 'cloudtrail:GetTrailStatus')); }
       try {
         const sels = await ct.send(new GetEventSelectorsCommand({ TrailName: t.TrailARN }));
         es = sels.EventSelectors ?? sels.AdvancedEventSelectors ?? [];
-      } catch (e: any) { warnings.push(`GetEventSelectors ${t.Name}: ${e.message}`); }
+        eventSelectorsRead = true;
+      } catch (e: any) { allEventSelectorsRead = false; warnings.push(diagnoseAwsError(e, `cloudtrail.GetEventSelectors ${t.Name}`, 'cloudtrail:GetEventSelectors')); }
       try {
         const ins = await ct.send(new GetInsightSelectorsCommand({ TrailName: t.TrailARN }));
         is = ins.InsightSelectors ?? [];
-      } catch { /* may not be supported */ }
+        insightSelectorsRead = true;
+      } catch (e: any) {
+        // InsightSelectors are not configured on many trails; the API returns an
+        // error in that case. Distinguish a read failure (denied/throttle) from
+        // "not configured" so a permission gap does not masquerade as "no insights".
+        allInsightSelectorsRead = false;
+        warnings.push(diagnoseAwsError(e, `cloudtrail.GetInsightSelectors ${t.Name}`, 'cloudtrail:GetInsightSelectors'));
+      }
       trails.push({
         arn: t.TrailARN,
         name: t.Name,
@@ -80,11 +113,16 @@ async function fetchTrails(ctx: Ctx): Promise<{ trails: TrailRecord[]; warnings:
         isLogging,
         eventSelectors: es,
         insightSelectors: is,
+        eventSelectorsRead,
+        insightSelectorsRead,
       });
     }
+    collected.add('trails');
+    if (allEventSelectorsRead) collected.add('eventSelectors');
+    if (allInsightSelectorsRead) collected.add('insightSelectors');
     evidence.push(ev('cloudtrail.trail_inventory', trails));
-  } catch (e: any) { warnings.push(`CloudTrail: ${e.message}`); }
-  return { trails, warnings, evidence };
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'cloudtrail.DescribeTrails', 'cloudtrail:DescribeTrails')); }
+  return { trails, warnings, evidence, collected };
 }
 
 // =====================================================================
@@ -92,7 +130,7 @@ async function fetchTrails(ctx: Ctx): Promise<{ trails: TrailRecord[]; warnings:
 // =====================================================================
 export async function collectCmtLmc(c: CollectorContext): Promise<ProviderBlock> {
   const ctx = await setupCtx(c);
-  const { trails, warnings, evidence } = await fetchTrails(ctx);
+  const { trails, warnings, evidence, collected } = await fetchTrails(ctx);
 
   // Inspect destination buckets for the trails
   interface BucketAudit { bucket: string; versioning: string | null; objectLock: boolean; sseAlgo: string | null; }
@@ -214,9 +252,11 @@ export async function collectCmtLmc(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'All trails have LogFileValidationEnabled=true.', rationale: 'NIST AU-9 (protection of audit info). Without log-file validation, log tampering is undetectable.' },
       gap: (trails.length > 0 && trailsWithValidation.length === trails.length) ? undefined : {
         description: 'Log integrity cannot be verified.',
-        affected_resources: trails.filter((t) => !t.logFileValidationEnabled).map<AffectedResource>((t) => ({
-          type: 'aws_cloudtrail', identifier: t.arn, name: t.name, attributes: {},
-        })),
+        affected_resources: trails.length === 0
+          ? [{ type: 'aws_account', identifier: ctx.account ?? 'account', name: 'no CloudTrail trail present', attributes: {} }]
+          : trails.filter((t) => !t.logFileValidationEnabled).map<AffectedResource>((t) => ({
+              type: 'aws_cloudtrail', identifier: t.arn, name: t.name, attributes: {},
+            })),
       },
       remediation: (trails.length > 0 && trailsWithValidation.length === trails.length) ? undefined : {
         summary: 'Set enable_log_file_validation=true on each trail.',
@@ -237,7 +277,7 @@ export async function collectCmtLmc(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.cloudtrail.bucket_object_lock_and_kms',
-      passed: bucketsWithoutLock.length === 0 && bucketsWithoutKms.length === 0,
+      passed: gatePass(bucketsWithoutLock.length === 0 && bucketsWithoutKms.length === 0, collected, 'trails'),
       severity: 'high',
       current: {
         summary: bucketsWithoutLock.length === 0 && bucketsWithoutKms.length === 0
@@ -344,7 +384,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
 // =====================================================================
 export async function collectMlaAla(c: CollectorContext): Promise<ProviderBlock> {
   const ctx = await setupCtx(c);
-  const { trails, warnings, evidence } = await fetchTrails(ctx);
+  const { trails, warnings, evidence, collected } = await fetchTrails(ctx);
 
   // Inspect destination-bucket policies for over-broad principals
   const s3 = aws.s3(ctx.auth);
@@ -400,7 +440,7 @@ export async function collectMlaAla(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.audit_buckets.no_broad_principal',
-      passed: offendingBuckets.length === 0,
+      passed: gatePass(offendingBuckets.length === 0, collected, 'trails'),
       severity: 'critical',
       current: {
         summary: offendingBuckets.length === 0
@@ -485,6 +525,7 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
   let newCount = 0;
   let notifiedCount = 0;
   let suppressedCount = 0;
+  let securityHubCollected = false;
   try {
     const sh = aws.securityhub(ctx.auth);
     for (const status of ['NEW', 'NOTIFIED', 'SUPPRESSED']) {
@@ -497,8 +538,9 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
       else if (status === 'NOTIFIED') notifiedCount = count;
       else if (status === 'SUPPRESSED') suppressedCount = count;
     }
+    securityHubCollected = true;
     evidence.push(ev('securityhub.finding_lifecycle', { new: newCount, notified: notifiedCount, suppressed: suppressedCount }));
-  } catch (e: any) { warnings.push(`Security Hub: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'securityhub.GetFindings', 'securityhub:GetFindings')); }
 
   const totalActive = newCount + notifiedCount;
   const triagedPercent = totalActive > 0 ? Math.round((notifiedCount / totalActive) * 100) : 100;
@@ -518,7 +560,7 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.security_hub.finding_triage_lifecycle_active',
-      passed: totalActive === 0 || triagedPercent >= 50,
+      passed: securityHubCollected && (totalActive === 0 || triagedPercent >= 50),
       severity: 'medium',
       current: {
         summary: `${newCount} NEW + ${notifiedCount} NOTIFIED + ${suppressedCount} SUPPRESSED Security Hub findings. ${triagedPercent}% of active findings have moved to NOTIFIED (triage activity).`,
@@ -563,7 +605,7 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'CI pipelines run IaC scanners (tfsec, Checkov, cfn-nag) as gates.', rationale: 'NIST CM-3.2. IaC evaluation must happen pre-deploy.' },
       gap: codeBuildProjectCount >= 1 ? undefined : {
         description: 'No AWS-native CI pipelines detected. If CI runs off-AWS, attach the alternative-satisfier evidence; otherwise pipelines do not exist.',
-        affected_resources: [],
+        affected_resources: [{ type: 'aws_account', identifier: ctx.account ?? 'account', name: 'no CodeBuild project present', attributes: {} }],
       },
       remediation: codeBuildProjectCount >= 1 ? undefined : {
         summary: 'Either attach off-AWS pipeline evidence (preferred) or set up an in-AWS CI project.',
@@ -610,13 +652,22 @@ export async function collectMlaEvc(c: CollectorContext): Promise<ProviderBlock>
 // =====================================================================
 export async function collectMlaLet(c: CollectorContext): Promise<ProviderBlock> {
   const ctx = await setupCtx(c);
-  const { trails, warnings, evidence } = await fetchTrails(ctx);
+  const { trails, warnings, evidence, collected } = await fetchTrails(ctx);
 
   // CloudTrail data events (S3, Lambda, DynamoDB)
   let trailsWithDataEvents = 0;
   for (const t of trails) {
     if (t.eventSelectors.some((es: any) => (es.DataResources ?? []).length > 0)) trailsWithDataEvents++;
   }
+
+  // A trail logs management events if it has an explicit selector saying so, OR
+  // it has NO event selectors AND we successfully read them (empty selectors ==
+  // AWS default of "all management events on"). A trail whose GetEventSelectors
+  // FAILED must NOT count as "management on" — an unread selector is indeterminate.
+  const managementEventsLogged = trails.some((t) =>
+    (t.eventSelectorsRead && t.eventSelectors.length === 0)
+    || t.eventSelectors.some((es: any) => es.IncludeManagementEvents !== false)
+  );
 
   // Other AWS logging sources to inventory:
   // - VPC Flow Logs (already covered by CNA-RNT but flag here too)
@@ -627,18 +678,18 @@ export async function collectMlaLet(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.cloudtrail.management_events_logged',
-      passed: trails.some((t) => t.eventSelectors.length === 0 || t.eventSelectors.some((es: any) => es.IncludeManagementEvents !== false)),
+      passed: gatePass(managementEventsLogged, collected, 'trails'),
       severity: 'critical',
       current: {
         summary: `${trails.length} trail(s); ${trailsWithDataEvents} with explicit data-event selectors.`,
         observations: { trail_summary: trails.map((t) => ({ name: t.name, has_event_selectors: t.eventSelectors.length > 0 })) },
       },
       target: { summary: 'CloudTrail management events on for all in-scope accounts; data events on for in-scope S3 buckets, Lambda functions, DynamoDB tables.', rationale: 'NIST AU-2, AU-12. Management events are the API change-log; data events are the data-access log.' },
-      gap: trails.some((t) => t.eventSelectors.length === 0 || t.eventSelectors.some((es: any) => es.IncludeManagementEvents !== false)) ? undefined : {
+      gap: managementEventsLogged ? undefined : {
         description: 'No CloudTrail trail captures management events — the API audit log is absent.',
         affected_resources: [{ type: 'aws_cloudtrail', identifier: 'no-management-events', attributes: { trail_count: trails.length } }],
       },
-      remediation: trails.some((t) => t.eventSelectors.length === 0 || t.eventSelectors.some((es: any) => es.IncludeManagementEvents !== false)) ? undefined : {
+      remediation: managementEventsLogged ? undefined : {
         summary: 'Provision an org-wide multi-region CloudTrail with management events on.',
         options: [{
           approach: 'Provision via Terraform.',

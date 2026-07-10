@@ -315,7 +315,9 @@ export async function collectRplRro(c: CollectorContext): Promise<ProviderBlock>
     },
     gap: passed ? undefined : {
       description: 'Instances without automated backups have no codified RPO to review against objectives.',
-      affected_resources: withoutBackups.map<AffectedResource>((n) => ({ type: 'gcp_sql_instance', identifier: n, name: n, attributes: { automated_backups: false } })),
+      affected_resources: withoutBackups.length
+        ? withoutBackups.map<AffectedResource>((n) => ({ type: 'gcp_sql_instance', identifier: n, name: n, attributes: { automated_backups: false } }))
+        : [{ type: 'gcp_project', identifier: ctx.project ?? 'project', name: 'no Cloud SQL instance present — no codified RPO to review', attributes: {} }],
     },
     remediation: passed ? undefined : {
       summary: 'Enable automated backups with a retention window matching your RPO.',

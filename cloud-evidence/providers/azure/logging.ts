@@ -402,7 +402,7 @@ export async function collectCmtLmc(ctx: CollectorContext): Promise<ProviderBloc
       summary: 'Every in-scope subscription has a diagnostic setting at subscription scope exporting the Activity Log to a Log Analytics workspace, Storage Account, or Event Hub.',
       rationale: 'NIST AU-2, AU-3, AU-12, CM-3(1), CM-5(1). Configuration changes must be logged.',
     },
-    gap: { description: 'One or more subscriptions are not exporting the Activity Log — configuration changes for those subscriptions are not being captured beyond Azure\'s default 90-day Activity Log buffer.', affected_resources: [...subs].filter((s) => !coveredSubs.has(s)).slice(0, 50).map((s) => ({ type: 'azure_subscription', identifier: s, attributes: {} })) },
+    gap: { description: 'One or more subscriptions are not exporting the Activity Log — configuration changes for those subscriptions are not being captured beyond Azure\'s default 90-day Activity Log buffer.', affected_resources: (() => { const offenders = [...subs].filter((s) => !coveredSubs.has(s)).slice(0, 50).map((s) => ({ type: 'azure_subscription', identifier: s, attributes: {} })); return offenders.length ? offenders : [{ type: 'azure_subscription', identifier: 'subscription', name: 'no subscription configured to evaluate — Activity Log export indeterminate', attributes: { subscriptions_configured: subs.length } }]; })() },
     remediation: {
       summary: 'Create a subscription-scope diagnostic setting on every subscription pointing at the central Log Analytics workspace.',
       options: [

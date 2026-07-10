@@ -1,0 +1,21 @@
+# Copy this file to  scripts/blocked-terms.local  (git-ignored) and add
+# case-insensitive extended-regex patterns for your environment/company
+# identifiers — account nicknames, SSO role names, internal product/cluster
+# names — that must never be committed to this public repo. The pre-commit hook
+# (scan-account-data.sh) reads blocked-terms.local and blocks any staged content
+# that matches. One pattern per line; text after '#' is a comment.
+#
+# blocked-terms.local is git-ignored on purpose: the sensitive terms live only on
+# your machine, never in the repo. CI never sees the file, so this is a LOCAL
+# guard layered on top of the always-on account-id / secret / hash scan.
+#
+# Keep patterns PRECISE so they don't collide with generic English. Do NOT add a
+# bare word like "harness" or "traceable": those appear in normal prose
+# ("test harness", "traceable to evidence") and would flag legitimate content.
+# Anchor to the distinguishing form instead.
+#
+# Illustrative fictional examples (replace with your own in blocked-terms.local):
+# acme-prod-[a-z0-9-]+
+# acme\.internal
+# acme-readonly-role
+# \bAcmeWidgets\b

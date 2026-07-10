@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Pre-commit guard: block real cloud account ids / credentials / scan outputs
+# from entering this PUBLIC repo. Enable once per clone with:
+#     git config core.hooksPath .githooks
+# Bypass in a genuine emergency with `git commit --no-verify` (discouraged).
+exec "$(git rev-parse --show-toplevel)/scripts/scan-account-data.sh" --staged

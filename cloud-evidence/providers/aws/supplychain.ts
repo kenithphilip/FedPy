@@ -17,6 +17,7 @@ import type { ProviderBlock, RawEvidence, AffectedResource, AlternativeSatisfier
 import { finding } from '../../core/findings.ts';
 import type { CollectorContext } from '../../core/ksi-map.ts';
 import { detect as detectThirdParty } from '../../core/detect/third-party-tools.ts';
+import { diagnoseAwsError } from '../../core/error-diagnostics.ts';
 
 function ev(source: string, data: unknown): RawEvidence { return { source, captured_at: new Date().toISOString(), data: data === undefined ? null : data }; }
 
@@ -40,6 +41,7 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
   // ECR repositories — immutability check
   interface RepoStatus { name: string; mutability: string; scanOnPush: boolean; }
   const ecrRepos: RepoStatus[] = [];
+  let ecrCollected = false;
   try {
     const ecr = aws.ecr(ctx.auth);
     let tok: string | undefined;
@@ -54,13 +56,15 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
       }
       tok = r.nextToken;
     } while (tok);
+    ecrCollected = true;
     evidence.push(ev('ecr.DescribeRepositories', ecrRepos));
-  } catch (e: any) { warnings.push(`ECR: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ecr.DescribeRepositories', 'ecr:DescribeRepositories')); }
 
   // Launch templates + ASG version pinning
   let launchTemplateCount = 0;
   let asgsUsingLatest: string[] = [];
   let asgsTotal = 0;
+  let asgCollected = false;
   try {
     const ec2 = aws.ec2(ctx.auth);
     const lt = await ec2.send(new DescribeLaunchTemplatesCommand({ MaxResults: 200 }));
@@ -76,12 +80,14 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
       const v = lts?.Version ?? mip?.Version;
       if (v === '$Latest' || v === '$Default') asgsUsingLatest.push(g.AutoScalingGroupName ?? '?');
     }
+    asgCollected = true;
     evidence.push(ev('autoscaling.version_pinning', { total: asgsTotal, using_floating_version: asgsUsingLatest }));
-  } catch (e: any) { warnings.push(`Launch templates / ASGs: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'autoscaling.DescribeAutoScalingGroups', 'autoscaling:DescribeAutoScalingGroups + ec2:DescribeLaunchTemplates')); }
 
   // Lambda code signing
   let lambdaTotal = 0;
   let lambdaWithCodeSigning = 0;
+  let lambdaCollected = false;
   try {
     const lambda = aws.lambda(ctx.auth);
     let tok: string | undefined;
@@ -97,8 +103,9 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
       }
       tok = r.NextMarker;
     } while (tok);
+    lambdaCollected = true;
     evidence.push(ev('lambda.code_signing', { total: lambdaTotal, with_signing: lambdaWithCodeSigning }));
-  } catch (e: any) { warnings.push(`Lambda: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'lambda.ListFunctions', 'lambda:ListFunctions')); }
 
   // Signer profiles
   let signingProfileCount = 0;
@@ -114,7 +121,7 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.ecr.image_tag_immutable',
-      passed: mutableRepos.length === 0,
+      passed: ecrCollected && mutableRepos.length === 0,
       severity: 'high',
       current: {
         summary: ecrRepos.length === 0
@@ -160,7 +167,7 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.asg.version_pinning_not_latest',
-      passed: asgsUsingLatest.length === 0,
+      passed: asgCollected && asgsUsingLatest.length === 0,
       severity: 'high',
       current: {
         summary: asgsUsingLatest.length === 0
@@ -200,8 +207,9 @@ export async function collectCmtRmv(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.lambda.code_signing_in_use',
-      // Vacuously satisfied when there are no Lambdas (nothing to sign).
-      passed: lambdaTotal === 0 || lambdaWithCodeSigning >= 1,
+      // Vacuously satisfied when there are no Lambdas (nothing to sign) — but only
+      // once ListFunctions actually succeeded; an unread list is not "no Lambdas".
+      passed: lambdaCollected && (lambdaTotal === 0 || lambdaWithCodeSigning >= 1),
       severity: 'medium',
       current: {
         summary: lambdaWithCodeSigning === 0 && lambdaTotal === 0
@@ -257,6 +265,7 @@ export async function collectCmtVtd(c: CollectorContext): Promise<ProviderBlock>
   // CodePipeline inventory + stage analysis
   interface PipelineRecord { name: string; stages: Array<{ name: string; actions: string[] }>; hasTestStage: boolean; hasScanStage: boolean; hasManualApproval: boolean; }
   const pipelines: PipelineRecord[] = [];
+  let pipelinesCollected = false;
   try {
     const cp = aws.codepipeline(ctx.auth);
     const lst = await cp.send(new ListPipelinesCommand({}));
@@ -278,10 +287,11 @@ export async function collectCmtVtd(c: CollectorContext): Promise<ProviderBlock>
           hasManualApproval: actionCategories.some((a) => /Approval/.test(a)),
         };
         pipelines.push(rec);
-      } catch (e: any) { warnings.push(`GetPipeline ${p.name}: ${e.message}`); }
+      } catch (e: any) { warnings.push(diagnoseAwsError(e, `codepipeline.GetPipeline ${p.name}`, 'codepipeline:GetPipeline')); }
     }
+    pipelinesCollected = true;
     evidence.push(ev('codepipeline.pipeline_audit', pipelines));
-  } catch (e: any) { warnings.push(`CodePipeline: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'codepipeline.ListPipelines', 'codepipeline:ListPipelines')); }
 
   // CodeBuild projects — surface count + buildspec source pointer
   interface BuildProjectInfo { name: string; source: string | null; }
@@ -342,7 +352,7 @@ export async function collectCmtVtd(c: CollectorContext): Promise<ProviderBlock>
   const findings = [
     finding({
       rule: 'aws.codepipeline.prod_pipelines_have_test_stage',
-      passed: pipelines.length === 0 || prodPipelinesWithoutTest.length === 0,
+      passed: pipelinesCollected && (pipelines.length === 0 || prodPipelinesWithoutTest.length === 0),
       severity: 'high',
       current: {
         summary: pipelines.length === 0
@@ -379,7 +389,7 @@ export async function collectCmtVtd(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.codepipeline.prod_pipelines_have_scan_stage',
-      passed: pipelines.length === 0 || prodPipelinesWithoutScan.length === 0,
+      passed: pipelinesCollected && (pipelines.length === 0 || prodPipelinesWithoutScan.length === 0),
       severity: 'high',
       current: {
         summary: pipelines.length === 0
@@ -495,6 +505,7 @@ export async function collectScrMon(c: CollectorContext): Promise<ProviderBlock>
   // ECR scan-on-push
   let ecrReposTotal = 0;
   let ecrReposWithScanOnPush = 0;
+  let ecrCollected = false;
   try {
     const ecr = aws.ecr(ctx.auth);
     const r = await ecr.send(new DescribeRepositoriesCommand({ maxResults: 100 }));
@@ -502,8 +513,9 @@ export async function collectScrMon(c: CollectorContext): Promise<ProviderBlock>
       ecrReposTotal++;
       if (repo.imageScanningConfiguration?.scanOnPush) ecrReposWithScanOnPush++;
     }
+    ecrCollected = true;
     evidence.push(ev('ecr.scan_on_push_audit', { total: ecrReposTotal, with_scan: ecrReposWithScanOnPush }));
-  } catch (e: any) { warnings.push(`ECR scan audit: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ecr.DescribeRepositories', 'ecr:DescribeRepositories')); }
 
   const altSatisfiers: AlternativeSatisfier[] = [
     {
@@ -560,7 +572,7 @@ export async function collectScrMon(c: CollectorContext): Promise<ProviderBlock>
 
     finding({
       rule: 'aws.ecr.scan_on_push_enabled',
-      passed: ecrReposTotal === 0 || ecrReposWithScanOnPush === ecrReposTotal,
+      passed: ecrCollected && (ecrReposTotal === 0 || ecrReposWithScanOnPush === ecrReposTotal),
       severity: 'high',
       current: {
         summary: ecrReposTotal === 0

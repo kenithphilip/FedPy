@@ -1,0 +1,20 @@
+{
+  "name": "fedramp-inventory-export",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Consolidated full-inventory + FedRAMP 20x/Rev5 compliance export (XLSX + CSV), built from a FedPy cloud-evidence run.",
+  "scripts": {
+    "export": "tsx src/cli.ts",
+    "export:collect": "tsx src/cli.ts --collect",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

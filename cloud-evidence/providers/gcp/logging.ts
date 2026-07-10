@@ -97,9 +97,11 @@ export async function collectCmtLmc(c: CollectorContext): Promise<ProviderBlock>
       target: { summary: 'The `_Required` log bucket has `locked=true` and retention ≥ 400 days, with CMEK encryption.', rationale: 'NIST AU-9, AU-11. Tamper-resistant audit-log storage with sufficient retention for FedRAMP audit cycles.' },
       gap: requiredLocked.length >= 1 ? undefined : {
         description: 'Without a locked _Required bucket, audit logs can be modified or deleted before audit.',
-        affected_resources: requiredLockedBuckets.map<AffectedResource>((b: any) => ({
-          type: 'google_logging_project_bucket_config', identifier: b.name, name: b.name, attributes: { locked: b.locked, retentionDays: b.retentionDays },
-        })),
+        affected_resources: requiredLockedBuckets.length
+          ? requiredLockedBuckets.map<AffectedResource>((b: any) => ({
+              type: 'google_logging_project_bucket_config', identifier: b.name, name: b.name, attributes: { locked: b.locked, retentionDays: b.retentionDays },
+            }))
+          : [{ type: 'gcp_project', identifier: ctx.project ?? 'project', name: 'no locked _Required log bucket present', attributes: {} }],
       },
       remediation: requiredLocked.length >= 1 ? undefined : {
         summary: 'Configure `_Required` log bucket with locked retention via Terraform.',
@@ -150,9 +152,11 @@ resource "google_logging_project_cmek_settings" "this" {
       target: { summary: 'Every in-scope log bucket has CMEK encryption.', rationale: 'NIST SC-13. Encrypt audit logs with org-controlled keys.' },
       gap: (bucketsWithCmek.length === inv.logBuckets.length && inv.logBuckets.length > 0) ? undefined : {
         description: 'Log buckets without CMEK use Google-managed encryption keys.',
-        affected_resources: inv.logBuckets.filter((b: any) => !b.cmekSettings?.kmsKeyName).map<AffectedResource>((b: any) => ({
-          type: 'google_logging_project_bucket_config', identifier: b.name, name: b.name, attributes: {},
-        })),
+        affected_resources: inv.logBuckets.length
+          ? inv.logBuckets.filter((b: any) => !b.cmekSettings?.kmsKeyName).map<AffectedResource>((b: any) => ({
+              type: 'google_logging_project_bucket_config', identifier: b.name, name: b.name, attributes: {},
+            }))
+          : [{ type: 'gcp_project', identifier: ctx.project ?? 'project', name: 'no log bucket present — CMEK posture indeterminate', attributes: {} }],
       },
       remediation: (bucketsWithCmek.length === inv.logBuckets.length && inv.logBuckets.length > 0) ? undefined : {
         summary: 'Set cmekSettings on each log bucket.',

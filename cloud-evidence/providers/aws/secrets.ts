@@ -18,6 +18,7 @@ import type { ProviderBlock, RawEvidence, AffectedResource, AlternativeSatisfier
 import { finding } from '../../core/findings.ts';
 import type { CollectorContext } from '../../core/ksi-map.ts';
 import { detect as detectThirdParty } from '../../core/detect/third-party-tools.ts';
+import { diagnoseAwsError } from '../../core/error-diagnostics.ts';
 
 function ev(source: string, data: unknown): RawEvidence { return { source, captured_at: new Date().toISOString(), data: data === undefined ? null : data }; }
 
@@ -51,6 +52,7 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
   }
   const secrets: SecretRecord[] = [];
   let totalSecrets = 0;
+  let secretsCollected = false;
   try {
     const sm = aws.secretsmanager(ctx.auth);
     let tok: string | undefined;
@@ -81,8 +83,9 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
       }
       tok = r.NextToken;
     } while (tok);
+    secretsCollected = true;
     evidence.push(ev('secretsmanager.secret_inventory', secrets));
-  } catch (e: any) { warnings.push(`Secrets Manager: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'secretsmanager.ListSecrets', 'secretsmanager:ListSecrets')); }
 
   const rotationConfigured = secrets.filter((s) => s.RotationEnabled);
   const rotationStale = secrets.filter((s) => s.rotationStale);
@@ -91,6 +94,7 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
   // ---- SSM Parameter Store SecureStrings ----
   let secureStringParamCount = 0;
   let secureStringsWithDefaultKey = 0;
+  let ssmParamsCollected = false;
   try {
     const ssm = aws.ssm(ctx.auth);
     let tok: string | undefined;
@@ -106,14 +110,17 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
       }
       tok = r.NextToken;
     } while (tok);
+    ssmParamsCollected = true;
     evidence.push(ev('ssm.securestring_parameters', { total: secureStringParamCount, with_default_key: secureStringsWithDefaultKey }));
-  } catch (e: any) { warnings.push(`SSM Parameter Store: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'ssm.DescribeParameters', 'ssm:DescribeParameters')); }
 
   // ---- KMS CMKs + rotation ----
   interface KmsKeyRecord { KeyId: string; KeyManager: string; KeyState: string; RotationEnabled: boolean; }
   const kmsKeys: KmsKeyRecord[] = [];
   let customerKeyCount = 0;
   let customerKeysWithoutRotation: string[] = [];
+  let kmsCollected = false;
+  let kmsRotationReadFailures = 0;
   try {
     const kms = aws.kms(ctx.auth);
     let marker: string | undefined;
@@ -132,21 +139,33 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
               const r2 = await kms.send(new GetKeyRotationStatusCommand({ KeyId: k.KeyId }));
               rotEnabled = !!r2.KeyRotationEnabled;
               if (!rotEnabled) customerKeysWithoutRotation.push(k.KeyId);
-            } catch { /* asymmetric keys don't support rotation */ }
+            } catch (e: any) {
+              // UnsupportedOperationException = asymmetric key (rotation N/A — expected).
+              // Anything else is a read failure that must NOT be silently treated as
+              // "rotation fine" — count it so the pass is gated.
+              const code = e?.name ?? e?.code ?? '';
+              if (code !== 'UnsupportedOperationException') {
+                kmsRotationReadFailures++;
+                warnings.push(diagnoseAwsError(e, `kms.GetKeyRotationStatus ${k.KeyId}`, 'kms:GetKeyRotationStatus'));
+              }
+            }
           }
           kmsKeys.push({ KeyId: k.KeyId, KeyManager: mgr, KeyState: state, RotationEnabled: rotEnabled });
-        } catch (e: any) { warnings.push(`DescribeKey ${k.KeyId}: ${e.message}`); }
+        } catch (e: any) { warnings.push(diagnoseAwsError(e, `kms.DescribeKey ${k.KeyId}`, 'kms:DescribeKey')); }
       }
       marker = r.NextMarker;
     } while (marker);
-    evidence.push(ev('kms.key_inventory', { total_keys: kmsKeys.length, customer_managed: customerKeyCount, customer_without_rotation: customerKeysWithoutRotation }));
-  } catch (e: any) { warnings.push(`KMS: ${e.message}`); }
+    kmsCollected = kmsRotationReadFailures === 0;
+    evidence.push(ev('kms.key_inventory', { total_keys: kmsKeys.length, customer_managed: customerKeyCount, customer_without_rotation: customerKeysWithoutRotation, rotation_read_failures: kmsRotationReadFailures }));
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'kms.ListKeys', 'kms:ListKeys')); }
 
   // ---- ACM certificates ----
   interface CertRecord { Arn: string; DomainName: string; Status: string; NotAfter?: Date; DaysToExpiry?: number; RenewalStatus?: string; }
   const certs: CertRecord[] = [];
   let acmTotal = 0;
   let certsExpiringSoonNoRenewal: CertRecord[] = [];
+  let acmCollected = false;
+  let acmReadFailures = 0;
   try {
     const a = aws.acm(ctx.auth);
     let tok: string | undefined;
@@ -169,12 +188,13 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
           };
           certs.push(rec);
           if (days !== undefined && days < 30 && rec.RenewalStatus !== 'SUCCESS') certsExpiringSoonNoRenewal.push(rec);
-        } catch (e: any) { warnings.push(`DescribeCertificate ${cert.CertificateArn}: ${e.message}`); }
+        } catch (e: any) { acmReadFailures++; warnings.push(diagnoseAwsError(e, `acm.DescribeCertificate ${cert.CertificateArn}`, 'acm:DescribeCertificate')); }
       }
       tok = r.NextToken;
     } while (tok);
+    acmCollected = acmReadFailures === 0;
     evidence.push(ev('acm.cert_inventory', certs.map((c2) => ({ DomainName: c2.DomainName, Status: c2.Status, DaysToExpiry: c2.DaysToExpiry, RenewalStatus: c2.RenewalStatus }))));
-  } catch (e: any) { warnings.push(`ACM: ${e.message}`); }
+  } catch (e: any) { warnings.push(diagnoseAwsError(e, 'acm.ListCertificates', 'acm:ListCertificates')); }
 
   // ---- Alternative satisfiers ----
   const altSatisfiers: AlternativeSatisfier[] = [
@@ -234,25 +254,30 @@ export async function collectSvcAsm(c: CollectorContext): Promise<ProviderBlock>
       nist_controls: ['ia-5','sc-12'],
     }),
 
-    // L2: Rotation configured
+    // L2: Rotation configured. Gate on the fetch having succeeded — else "≥80%
+    // configured" is vacuous (an empty list looks compliant).
     finding({
       rule: 'aws.secretsmanager.rotation_configured',
-      passed: totalSecrets === 0 || (rotationConfigured.length / totalSecrets) >= 0.8,
+      passed: secretsCollected && (totalSecrets === 0 || (rotationConfigured.length / totalSecrets) >= 0.8),
       severity: 'high',
       current: {
-        summary: totalSecrets === 0
-          ? 'No secrets to evaluate rotation on.'
-          : `${rotationConfigured.length} of ${totalSecrets} (${Math.round(rotationConfigured.length / totalSecrets * 100)}%) secrets have rotation configured.`,
-        observations: { secrets_with_rotation: rotationConfigured.length, secrets_without_rotation: secretsWithoutRotation.map((s) => s.Name) },
+        summary: !secretsCollected
+          ? 'Secret rotation status INDETERMINATE — Secrets Manager could not be listed.'
+          : totalSecrets === 0
+            ? 'No secrets to evaluate rotation on.'
+            : `${rotationConfigured.length} of ${totalSecrets} (${Math.round(rotationConfigured.length / totalSecrets * 100)}%) secrets have rotation configured.`,
+        observations: { collected: secretsCollected, secrets_with_rotation: rotationConfigured.length, secrets_without_rotation: secretsWithoutRotation.map((s) => s.Name) },
       },
       target: { summary: '≥80% of secrets have RotationEnabled. Remaining are documented exceptions (e.g. partner-issued API keys with vendor-controlled lifecycle).', rationale: 'NIST IA-5(1). Static long-lived secrets accumulate compromise risk.' },
-      gap: (totalSecrets === 0 || (rotationConfigured.length / totalSecrets) >= 0.8) ? undefined : {
-        description: 'Secrets without rotation are long-lived; if leaked, full lifetime of the secret is the blast radius.',
-        affected_resources: secretsWithoutRotation.map<AffectedResource>((s) => ({
+      gap: (secretsCollected && (totalSecrets === 0 || (rotationConfigured.length / totalSecrets) >= 0.8)) ? undefined : {
+        description: !secretsCollected
+          ? 'Secrets Manager could not be listed (permission/throttle), so rotation coverage cannot be asserted.'
+          : 'Secrets without rotation are long-lived; if leaked, full lifetime of the secret is the blast radius.',
+        affected_resources: secretsWithoutRotation.length ? secretsWithoutRotation.map<AffectedResource>((s) => ({
           type: 'aws_secretsmanager_secret', identifier: s.ARN, name: s.Name, attributes: { LastChangedDate: s.LastChangedDate },
-        })),
+        })) : [{ type: 'aws_secretsmanager_secret', identifier: 'unread', name: 'secrets:ListSecrets failed' }],
       },
-      remediation: (totalSecrets === 0 || (rotationConfigured.length / totalSecrets) >= 0.8) ? undefined : {
+      remediation: (secretsCollected && (totalSecrets === 0 || (rotationConfigured.length / totalSecrets) >= 0.8)) ? undefined : {
         summary: 'Configure rotation Lambda + RotationRules on each secret.',
         options: [{
           approach: 'Attach AWS-managed rotation Lambda for supported secret types (RDS, DocumentDB, Redshift).',
@@ -283,7 +308,7 @@ resource "aws_secretsmanager_secret_rotation" "db" {
     // L3: Rotation actually happens
     finding({
       rule: 'aws.secretsmanager.rotation_freshness',
-      passed: rotationStale.length === 0,
+      passed: secretsCollected && rotationStale.length === 0,
       severity: 'high',
       current: {
         summary: rotationStale.length === 0
@@ -292,14 +317,14 @@ resource "aws_secretsmanager_secret_rotation" "db" {
         observations: { stale_rotations: rotationStale.map((s) => ({ Name: s.Name, period: s.RotationRulesAutomaticallyAfterDays, daysSince: s.DaysSinceLastRotation })) },
       },
       target: { summary: 'For every secret with rotation enabled, LastRotatedDate is within RotationPeriod + 7 days.', rationale: 'Configured rotation is meaningless if it isn\'t actually happening. NIST IA-5(1).' },
-      gap: rotationStale.length === 0 ? undefined : {
+      gap: (secretsCollected && rotationStale.length === 0) ? undefined : {
         description: 'Rotation is scheduled but hasn\'t completed — Lambda failures, missing permissions, or upstream system unreachable.',
         affected_resources: rotationStale.map<AffectedResource>((s) => ({
           type: 'aws_secretsmanager_secret', identifier: s.ARN, name: s.Name,
           attributes: { rotation_period_days: s.RotationRulesAutomaticallyAfterDays, days_since_last_rotation: s.DaysSinceLastRotation, last_rotated: s.LastRotatedDate },
         })),
       },
-      remediation: rotationStale.length === 0 ? undefined : {
+      remediation: (secretsCollected && rotationStale.length === 0) ? undefined : {
         summary: 'Investigate rotation Lambda failures; manually trigger rotation if needed.',
         options: [{
           approach: 'Check rotation Lambda logs + retry.',
@@ -324,7 +349,7 @@ resource "aws_secretsmanager_secret_rotation" "db" {
     // KMS CMK rotation
     finding({
       rule: 'aws.kms.cmk_rotation_enabled',
-      passed: customerKeysWithoutRotation.length === 0,
+      passed: kmsCollected && customerKeysWithoutRotation.length === 0,
       severity: 'high',
       current: {
         summary: customerKeyCount === 0
@@ -335,13 +360,13 @@ resource "aws_secretsmanager_secret_rotation" "db" {
         observations: { customer_managed_keys: customerKeyCount, without_rotation: customerKeysWithoutRotation, total_keys: kmsKeys.length },
       },
       target: { summary: 'Every customer-managed CMK (symmetric, encryption-purpose) has automatic annual rotation enabled.', rationale: 'NIST SC-12. KMS rotation is one-line; absence indicates configuration oversight.' },
-      gap: customerKeysWithoutRotation.length === 0 ? undefined : {
+      gap: (kmsCollected && customerKeysWithoutRotation.length === 0) ? undefined : {
         description: 'Static CMK material increases blast radius if compromised.',
         affected_resources: customerKeysWithoutRotation.map<AffectedResource>((kid) => ({
           type: 'aws_kms_key', identifier: kid, name: kid, attributes: { rotation_enabled: false },
         })),
       },
-      remediation: customerKeysWithoutRotation.length === 0 ? undefined : {
+      remediation: (kmsCollected && customerKeysWithoutRotation.length === 0) ? undefined : {
         summary: 'Enable rotation on each CMK via EnableKeyRotation API.',
         options: [{
           approach: 'Set enable_key_rotation=true via Terraform.',
@@ -369,7 +394,7 @@ resource "aws_secretsmanager_secret_rotation" "db" {
     // ACM certs expiring without renewal
     finding({
       rule: 'aws.acm.no_certs_expiring_without_renewal',
-      passed: certsExpiringSoonNoRenewal.length === 0,
+      passed: acmCollected && certsExpiringSoonNoRenewal.length === 0,
       severity: 'high',
       current: {
         summary: certsExpiringSoonNoRenewal.length === 0
@@ -378,14 +403,14 @@ resource "aws_secretsmanager_secret_rotation" "db" {
         observations: { total_certs: acmTotal, expiring_no_renewal: certsExpiringSoonNoRenewal.map((c2) => ({ domain: c2.DomainName, days: c2.DaysToExpiry, renewal: c2.RenewalStatus })) },
       },
       target: { summary: 'No cert expires in <30 days unless it has RenewalStatus=SUCCESS (auto-renewal succeeded).', rationale: 'NIST SC-12. Cert expiry = outage; failed auto-renewal = manual intervention needed.' },
-      gap: certsExpiringSoonNoRenewal.length === 0 ? undefined : {
+      gap: (acmCollected && certsExpiringSoonNoRenewal.length === 0) ? undefined : {
         description: 'Cert outage imminent if no manual action.',
         affected_resources: certsExpiringSoonNoRenewal.map<AffectedResource>((c2) => ({
           type: 'aws_acm_certificate', identifier: c2.Arn, name: c2.DomainName,
           attributes: { NotAfter: c2.NotAfter, DaysToExpiry: c2.DaysToExpiry, RenewalStatus: c2.RenewalStatus },
         })),
       },
-      remediation: certsExpiringSoonNoRenewal.length === 0 ? undefined : {
+      remediation: (acmCollected && certsExpiringSoonNoRenewal.length === 0) ? undefined : {
         summary: 'Investigate per-cert renewal failure; check DNS validation records and CT log issues.',
         options: [{
           approach: 'Per-cert investigation.',
@@ -412,7 +437,7 @@ resource "aws_secretsmanager_secret_rotation" "db" {
     // SSM SecureString CMK hygiene
     finding({
       rule: 'aws.ssm.securestring_uses_cmk',
-      passed: secureStringParamCount === 0 || (secureStringsWithDefaultKey / secureStringParamCount) < 0.5,
+      passed: ssmParamsCollected && (secureStringParamCount === 0 || (secureStringsWithDefaultKey / secureStringParamCount) < 0.5),
       severity: 'medium',
       current: {
         summary: secureStringParamCount === 0
@@ -421,11 +446,11 @@ resource "aws_secretsmanager_secret_rotation" "db" {
         observations: { total: secureStringParamCount, with_default_key: secureStringsWithDefaultKey },
       },
       target: { summary: 'Most SecureString parameters use a customer-managed CMK (so key access can be policy-controlled).', rationale: 'NIST SC-13. AWS-managed default key has no key-policy control beyond IAM.' },
-      gap: (secureStringParamCount === 0 || (secureStringsWithDefaultKey / secureStringParamCount) < 0.5) ? undefined : {
+      gap: (ssmParamsCollected && (secureStringParamCount === 0 || (secureStringsWithDefaultKey / secureStringParamCount) < 0.5)) ? undefined : {
         description: 'Default-key SecureStrings cannot be access-controlled via key policy.',
         affected_resources: [{ type: 'aws_ssm_parameter', identifier: 'aggregate', attributes: { with_default_key: secureStringsWithDefaultKey } }],
       },
-      remediation: (secureStringParamCount === 0 || (secureStringsWithDefaultKey / secureStringParamCount) < 0.5) ? undefined : {
+      remediation: (ssmParamsCollected && (secureStringParamCount === 0 || (secureStringsWithDefaultKey / secureStringParamCount) < 0.5)) ? undefined : {
         summary: 'Recreate SecureStrings with KeyId = customer CMK.',
         options: [{
           approach: 'Migrate parameters to CMK encryption.',
