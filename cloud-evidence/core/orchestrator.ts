@@ -109,6 +109,10 @@ import {
   emitAuthCoverLetterDocx,
   type AtoRequestType, type CspExecutiveSignatory, type ThirdPartyAssessorLead, type AoAddressee,
 } from './auth-cover-letter-emit.ts';
+import {
+  emitBaselineConfigDocx,
+  type BaselineConfigApprover, type BaselineConfigItemOverride,
+} from './baseline-config-emit.ts';
 import { emitProhibitedVendorsCatalog } from './prohibited-vendors-catalog.ts';
 import { emitProhibitedVendorsScreen } from './prohibited-vendors-screen-emit.ts';
 import { emitSection8891bdReports } from './section889-1bd-reporter.ts';
@@ -328,6 +332,18 @@ interface Args {
   authCoverLetter: boolean;
   /** Requested authorization action for --auth-cover-letter (default initial-ato). */
   authRequestType: AtoRequestType | null;
+  /**
+   * When true (LOOP-C.C9), render the CM-2 Baseline Configuration document
+   * (out/baseline-config.docx). §3 Baseline Configuration Items is grouped from
+   * the real inventory.json (CM-8); §4 Reference Architecture is grep-read from
+   * providers/{aws,gcp,azure}/reference-arch.ts source; §5 Deviations from
+   * Baseline is a pure diff of the two. Runs BEFORE --cmp so the CMP §5 baseline
+   * cross-link (--cmp-baseline-config-href) auto-resolves to baseline-config.docx,
+   * and BEFORE signing so the .docx is covered by the submission bundle. Approver
+   * / deviation-log / review-cadence come from config.yaml:baseline_config.* and
+   * are never auto-signed.
+   */
+  baselineConfig: boolean;
   /** Optional RoE href to populate in the AP's back-matter + terms-and-conditions. */
   apRoeHref: string | null;
   /** Optional sampling-methodology href to populate in the AP's back-matter. */
@@ -555,6 +571,7 @@ function parseArgs(argv: string[]): Args {
     conmonStrategy: process.env.CLOUD_EVIDENCE_CONMON_STRATEGY === '1',
     rms: process.env.CLOUD_EVIDENCE_RMS === '1',
     authCoverLetter: process.env.CLOUD_EVIDENCE_AUTH_COVER_LETTER === '1',
+    baselineConfig: process.env.CLOUD_EVIDENCE_BASELINE_CONFIG === '1',
     authRequestType: (process.env.CLOUD_EVIDENCE_AUTH_REQUEST_TYPE as AtoRequestType) ?? null,
     apRoeHref: process.env.CLOUD_EVIDENCE_AP_ROE_HREF ?? null,
     apSamplingMethodologyHref: process.env.CLOUD_EVIDENCE_AP_SAMPLING_HREF ?? null,
@@ -797,6 +814,10 @@ function parseArgs(argv: string[]): Args {
       case '--auth-cover-letter':
         // LOOP-C.C8: emit the authorization-request cover letter (PM-10).
         args.authCoverLetter = true;
+        break;
+      case '--baseline-config':
+        // LOOP-C.C9: emit the CM-2 Baseline Configuration document.
+        args.baselineConfig = true;
         break;
       case '--auth-request-type': {
         const v = (argv[++i] ?? '').toLowerCase();
@@ -1194,6 +1215,16 @@ Post-run artifacts:
   --auth-request-type <t> Requested authorization action for --auth-cover-letter: initial-ato
                          (default) | continued-ato | reauthorization
                          (env: CLOUD_EVIDENCE_AUTH_REQUEST_TYPE)
+  --baseline-config      Emit the CM-2 Baseline Configuration document (out/baseline-config.docx)
+                         — the approved baseline of record the CMP §5 cross-links to, distinct
+                         from the CM-8 inventory. §3 Baseline Configuration Items groups the real
+                         out/inventory.json; §4 Reference Architecture is grep-read from
+                         providers/{aws,gcp,azure}/reference-arch.ts source; §5 Deviations is a pure
+                         diff of the two (severity from the anchoring reference finding). Runs
+                         BEFORE --cmp (auto-resolves --cmp-baseline-config-href) + BEFORE signing.
+                         Approver / deviation-log / review-cadence come from
+                         config.yaml: baseline_config.* (never auto-signed) (LOOP-C.C9).
+                         (env: CLOUD_EVIDENCE_BASELINE_CONFIG)
   --system-name <name>   System name for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_NAME)
   --system-id <id>       System identifier for the OSCAL SSP (env: CLOUD_EVIDENCE_SYSTEM_ID)
   --oscal-org <name>     Organization name to embed in OSCAL metadata (env: CLOUD_EVIDENCE_ORG_NAME)
@@ -1581,6 +1612,19 @@ interface Config {
     technical_contact?: { name: string; title?: string; email?: string; phone?: string };
     tpa?: { organization?: string; lead?: ThirdPartyAssessorLead };
     ao_addressee?: AoAddressee;
+  };
+  /**
+   * Baseline Configuration document operator config (LOOP-C.C9). Consumed only
+   * when --baseline-config is set. §3/§4/§5 auto-derive from the run's real
+   * inventory.json + reference-arch.ts source; only the operator identity fields
+   * below are human-supplied (REO Rule 4). The approval signature is never
+   * auto-signed.
+   */
+  baseline_config?: {
+    approver?: BaselineConfigApprover;
+    deviation_log?: string;
+    review_cadence?: 'monthly' | 'quarterly' | 'annually';
+    configuration_items_override?: BaselineConfigItemOverride[];
   };
 }
 
@@ -2808,6 +2852,57 @@ export async function main(): Promise<void> {
     }
   }
 
+  // ---- Baseline Configuration document (LOOP-C.C9) — the CM-2 baseline of
+  // record (out/baseline-config.docx). §3 Baseline Configuration Items is grouped
+  // from the real inventory.json (CM-8); §4 Reference Architecture is grep-read
+  // from providers/{aws,gcp,azure}/reference-arch.ts source; §5 Deviations is a
+  // pure diff of the two (severity from the anchoring reference finding). Runs
+  // BEFORE --cmp so the CMP §5 baseline cross-link (--cmp-baseline-config-href)
+  // auto-resolves to baseline-config.docx, and BEFORE signing so the .docx is
+  // covered by the submission bundle. Approver / deviation-log / review-cadence
+  // come from config.yaml:baseline_config.* and are never auto-signed. ----
+  if (args.baselineConfig) {
+    try {
+      const bc = config.baseline_config;
+      const r = emitBaselineConfigDocx({
+        outDir: args.outDir,
+        runId,
+        frmrVersion: config.frmr_version,
+        impactLevel,
+        systemName: args.systemName ?? undefined,
+        systemId: args.systemId ?? undefined,
+        cspOrganization: args.oscalOrgName ?? undefined,
+        baselineApprover: bc?.approver,
+        deviationLogLocation: bc?.deviation_log,
+        baselineReviewCadence: bc?.review_cadence,
+        configurationItemsOverride: bc?.configuration_items_override,
+      });
+      const sig = r.ready_for_signature ? '✓ ready for signature' : `⚠ ${r.requires_operator_input.length} operator input(s) needed`;
+      console.log(
+        `Baseline Configuration (draft): ${r.path} (${(r.bytes / 1024).toFixed(0)} KB, ${r.baseline_item_count} item group(s) over ${r.asset_count} asset(s), ${r.reference_entry_count} reference expectation(s), ${r.deviation_count} deviation(s); ${sig})`
+      );
+      if (!r.inventory_present) {
+        console.log('  inventory.json not present — §3 Baseline Configuration Items requires the inventory pass (run collection so out/inventory.json exists first).');
+      }
+      if (!r.ready_for_signature) {
+        console.log(`  Operator inputs still needed: ${r.requires_operator_input.join(', ')}`);
+      }
+      ledger.record('baseline-config.emit', {
+        status: 'info',
+        ready_for_signature: r.ready_for_signature,
+        inventory_present: r.inventory_present,
+        baseline_item_count: r.baseline_item_count,
+        asset_count: r.asset_count,
+        reference_entry_count: r.reference_entry_count,
+        deviation_count: r.deviation_count,
+        requires_operator_input_count: r.requires_operator_input.length,
+      });
+    } catch (e: any) {
+      console.error(`Baseline Configuration emission failed: ${e.message}`);
+      log.error({ event: 'baseline-config.fail', err_message: e?.message });
+    }
+  }
+
   // ---- Configuration Management Plan (LOOP-C.C1) — an 11-section CM-9 Word
   // document (out/cmp.docx). The §4 Configuration Items table is auto-derived
   // from the real inventory.json (CM-8); the §7 Configuration Monitoring list
@@ -2827,7 +2922,11 @@ export async function main(): Promise<void> {
         approvalWorkflowNarrative: args.cmpApprovalNarrative ?? config.cmp?.approval_narrative ?? undefined,
         rollbackAuthority: args.cmpRollbackAuthority ?? config.cmp?.rollback_authority ?? undefined,
         changeWindowsDescription: args.cmpChangeWindows ?? config.cmp?.change_windows ?? undefined,
-        baselineConfigHref: args.cmpBaselineConfigHref ?? config.cmp?.baseline_config_href ?? undefined,
+        // Auto-resolve the CMP §5 baseline cross-link to the C.C9 document when it
+        // was co-emitted this run (--baseline-config runs first) and no operator
+        // href was supplied.
+        baselineConfigHref: args.cmpBaselineConfigHref ?? config.cmp?.baseline_config_href ??
+          (existsSync(resolve(args.outDir, 'baseline-config.docx')) ? 'baseline-config.docx' : undefined),
         ccbRoster: config.cmp?.ccb_roster ?? undefined,
         cmTooling: config.cmp?.tooling ?? undefined,
       });

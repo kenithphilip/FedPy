@@ -1085,7 +1085,7 @@ LOOP-C is **complete** when ALL of the following are true:
 | C.C6 | ConMon Strategy + Plan | done | `a6ea46c` | 2026-07-07 |
 | C.C7 | Risk Management Strategy (RMS) | done | `ea68fea` | 2026-07-08 |
 | C.C8 | Authorization request cover letter | done | `f669531` | 2026-07-10 |
-| C.C9 | Baseline Configuration | pending | — | — |
+| C.C9 | Baseline Configuration | done | `TBDCOMMIT` | 2026-07-11 |
 
 ---
 

@@ -1,0 +1,17 @@
+# Operator config fixture for the LOOP-C.C9 Baseline Configuration document.
+# Mirrors the config.yaml: baseline_config.* block the orchestrator reads. Every
+# value here is operator-supplied (REO Rule 4) — the §3/§4/§5 content itself
+# auto-derives from the real inventory.json + reference-arch.ts source.
+baseline_config:
+  # §8 Approval Signatures — the human who formally reviews + approves the
+  # baseline of record (NIST SP 800-128 §3.2). Never auto-signed.
+  approver:
+    name: Dana Baseline
+    role: Configuration Control Board Chair
+    org: Acme Corp
+    date: 2026-07-11
+  # §7 Deviation Approval Process — where accepted deviations are logged.
+  deviation_log: https://cmdb.acme.example/baseline/deviations
+  # §6 Baseline Maintenance — review cadence (CM-2(b)); tightened from the
+  # annually default.
+  review_cadence: quarterly

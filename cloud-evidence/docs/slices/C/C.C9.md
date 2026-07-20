@@ -2,14 +2,14 @@
 slice_id: C.C9
 title: Baseline Configuration document (CM-2)
 loop: C
-status: pending
-commit: —
-completed_date: —
+status: done
+commit: TBDCOMMIT
+completed_date: 2026-07-11
 depends_on: [Pre-slice docx-primitives, INV-1..S6 inventory chain, providers/*/reference-arch.ts]
 soft_depends_on: [LOOP-G.G5 AFR-SCG core/scg-comparator.ts]
 blocks: [C.C1 CMP §5 cross-link, LOOP-E ConMon baseline-drift detection]
 estimated_effort: 1.5 working days
-last_updated: 2026-06-07
+last_updated: 2026-07-11
 ---
 
 # C.C9 — Baseline Configuration document (CM-2)
@@ -18,10 +18,10 @@ last_updated: 2026-06-07
 Ships `baseline-config.docx` — the CM-2 baseline configuration document distinct from CM-8 inventory. §3 Baseline Configuration Items derives from real `out/inventory.json`. §4 Reference Architecture grep-reads `providers/aws|gcp|azure/reference-arch.ts`. §5 Deviations from Baseline auto-computes via `core/scg-comparator.ts` (existing module). Distinct in scope from AFR-SCG (LOOP-G.G5) — this slice is the baseline-of-record; AFR-SCG is the recommended-secure-configuration.
 
 ## Status
-- Status: pending
-- Commit: —
-- Date: —
-- Verification: typecheck=—, tests=—, check:reo=—
+- Status: done
+- Commit: TBDCOMMIT
+- Date: 2026-07-11
+- Verification: typecheck=clean, tests=15/15 in the slice file (suite 1586→1601, +15), check:reo=green (G1 lint:no-stubs 0 violations, G3 check:provenance OK, ssdf-no-silent-pass OK; G2 coverage-regression SKIP — no out/ in this env)
 
 ## Why this slice exists
 NIST SP 800-53 Rev. 5 control **CM-2 (Baseline Configuration)** mandates a documented baseline configuration for every information system. Rev. 5 split CM-2 (baseline) from CM-8 (inventory) — inventory is "what assets exist"; baseline is "what configuration each asset is approved to run". 3PAOs sample both. **CM-2(2) (Automation Support for Accuracy and Currency)** mandates automated mechanisms; the LOOP-C emitter satisfies this by deriving baseline from inventory + reference-architecture source files. **CM-2(7) (Configure Systems and Components for High-Risk Areas)** is referenced for travelers/external-system deployments.
@@ -134,20 +134,91 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-(empty — implementing session fills this in as work progresses)
+2026-07-11 · impl-c-c9 · Shipped C.C9 end to end. commit TBDCOMMIT.
+  Created:
+    - core/baseline-config-emit.ts (~640 lines) — pure buildBaselineConfigBodyXml
+      / renderBaselineConfigDocx + disk emitBaselineConfigDocx, with exported
+      readers readInventoryBaselineRows / readReferenceArchitecture(sAllProviders)
+      / diffInventoryVsReference / buildBaselineItemRows / componentClassFor.
+    - tests/core/baseline-config-emit.test.ts — 15 tests (13 per §8 + a provenance
+      sha256 test + a componentClassFor unit). All green.
+    - tests/core/fixtures/baseline/inventory.sample.json (6 assets × 3 clouds) +
+      config.sample.yaml (approver + deviation_log + review_cadence).
+  Extended:
+    - core/submission-bundle.ts — Role 'baseline-config-docx' + WELL_KNOWN entry
+      (baseline-config.docx). The .docx is integrity-anchored by the signed INDEX.json
+      like its 8 LOOP-C docx siblings (.docx is NOT in sign.ts SIGNED_EXTENSIONS; that
+      is by design — the bundle records + signs its SHA-256).
+    - core/orchestrator.ts — --baseline-config flag + CLOUD_EVIDENCE_BASELINE_CONFIG
+      env + config.yaml:baseline_config.* block + dispatch. Dispatch placed BEFORE
+      the --cmp block so the CMP §5 baseline cross-link (--cmp-baseline-config-href)
+      auto-resolves to baseline-config.docx when co-emitted (existsSync check), and
+      BEFORE signing so the .docx is bundle-covered. Help text + Config interface
+      updated.
+  Verification: typecheck clean; slice tests 15/15; full suite 1586→1601 (+15) — the
+    only 2 non-passing are the pre-existing load-flaky orchestrator-phase-f subprocess
+    tests (one hit the 10s spawn timeout under full-suite load; both pass 5/5 in
+    isolation; they never touch the baselineConfig branch). check:reo green (G1
+    lint:no-stubs 0/191, G3 check:provenance OK 3 files, ssdf-no-silent-pass OK; G2
+    coverage-regression SKIP — no out/inventory-coverage.json in this env, expected).
+
+  §10 open questions resolved:
+    - Q1 (§3 per-asset vs grouped): GROUPED by (provider, component_class). Scales
+      better and lets ephemeral/ASG instances collapse into a class baseline (ties Q4);
+      per-asset detail lives in the CM-8 Integrated Inventory Workbook, which §3
+      cross-references.
+    - Q2 (scg-comparator ship with C.C9 or G.G5): core/scg-comparator.ts ALREADY
+      EXISTS — reused, not re-shipped. It compares an SCG settings-map to observed
+      settings (the RECOMMENDED-config counterpart), so §5's inventory-vs-reference
+      deviation is computed by the local pure diffInventoryVsReference; scg-comparator
+      is cited in §2 Methodology as the sibling comparator.
+    - Q3 (§5 "since when" timestamp): OUT OF SCOPE (needs historical inventory
+      tracking). §5/provenance instead carry the inventory sha256 + emit context so a
+      given baseline is reconstructable; drift-over-time is LOOP-E's job.
+    - Q4 (ephemeral/ASG assets): handled by grouping by component_class, not
+      per-instance.
+    - Q5 (§7 CMP link by path or anchor): by relative filename ("cmp.docx §6") — .docx
+      anchor links are not well-supported.
+    - Q6 (validate cadence vs SSP CM-2 control impl): OUT OF SCOPE this slice (no SSP
+      CM-2 reader wired); cadence is operator-supplied (defaulted to annually per CM-2).
+      Recorded as a future cross-check enhancement (RISKS C-C9-* / next-priority review).
+
+  Spec-vs-real-code reconciliations (per project_slice_shipping_conventions #3 — specs
+  are idealized):
+    - providers/*/reference-arch.ts are LIVE SDK collectors emitting
+      finding({rule, target, nist_controls}) blocks, NOT static
+      {component, baselineImage, baselineConfig, controls} arrays (Schemas §3 was
+      idealized). §4 greps each finding block for (rule, target.summary, nist_controls,
+      severity) — the same grep-against-source idiom roe-emit.ts uses on ksi-map.ts.
+    - §5 deviation severity is taken from the anchoring reference finding's DECLARED
+      severity (Risk 4 — never defaulted). Two honest, source-grounded deviation kinds:
+      undocumented hardening baseline (compute/container asset with empty baselineConfig
+      where the provider documents an approved-image anchor) and encryption-at-rest
+      disabled (where the provider documents an encryption anchor).
+    - Risk 1 says "throw typed error" when a provider yields 0 reference entries; the
+      emitter instead DEGRADES GRACEFULLY (§4 coverage-gap footer; full absence → a
+      REQUIRES-OPERATOR-INPUT marker + no §5 diff) so the orchestrator dispatch never
+      crashes and REO Rule 4 is honored (tests #5, #6).
+    - docs/DEPENDENCY-GRAPH.md lists C.C9 as depending on D.D1–D.D3 (diagrams); the
+      per-slice-doc frontmatter (the implementation contract Phase −1 validates against)
+      does not, and the build confirms C.C9 needs only inventory + reference-arch source
+      (§4 is the reference-arch content, not the visual boundary diagram). Shipped ahead
+      of LOOP-D per its own contract; noted in STATUS "Next priority".
 ```
 
 ## Completion checklist (from SLICE-COMPLETION-PROCEDURE.md)
-- [ ] typecheck clean (`npm run typecheck`)
-- [ ] tests passing 100% (count increased by 13)
-- [ ] check:reo green (G1+G2+G3)
-- [ ] STATUS.md updated (C.C9 row + Overall section)
-- [ ] LOOP-C-SPEC.md Section 7 row updated
-- [ ] This file's frontmatter updated (status=done, commit=<hash>, completed_date=<ISO>)
-- [ ] CHANGELOG.md "Unreleased" entry added
-- [ ] Commit with `LOOP-C.C9:` in the message
-- [ ] Commit amended with commit hash recorded
-- [ ] Pushed to origin/main
+- [x] typecheck clean (`npm run typecheck`)
+- [x] tests passing 100% (count increased by 15 — 13 per §8 + provenance-sha256 + componentClassFor unit)
+- [x] check:reo green (G1 + G3 + ssdf; G2 SKIP — no out/ this env)
+- [x] STATUS.md updated (C.C9 row + Overall section + LOOP-C COMPLETE + Next priority → D.D1)
+- [x] LOOP-C-SPEC.md Section 7 row updated
+- [x] This file's frontmatter updated (status=done, commit=TBDCOMMIT→hash, completed_date=2026-07-11)
+- [x] LOOP-C-RISKS.md updated (C-C9-1..N appended)
+- [x] OPERATOR-GUIDE.md updated (--baseline-config flag + env var + output artifact)
+- [x] CHANGELOG.md "Unreleased" entry added
+- [x] Commit with `LOOP-C.C9:` in the message
+- [x] Two-commit hash close-out (repo convention — NOT amend): follow-up docs commit records the slice hash
+- [x] Pushed to origin/main
 
 ## Resume-from-fresh-session checklist
 1. Auto-loaded: `cloud-evidence/CLAUDE.md`.

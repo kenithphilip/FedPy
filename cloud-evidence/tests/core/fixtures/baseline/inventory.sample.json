@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-07-02T00:00:00.000Z",
+  "asset_count": 6,
+  "edge_count": 0,
+  "by_provider": { "aws": 3, "gcp": 1, "azure": 2 },
+  "by_type": {
+    "Compute Instance": 2,
+    "Object Storage": 1,
+    "Relational Database Instance": 1,
+    "Virtual Machine": 1,
+    "Blob Storage": 1
+  },
+  "assets": [
+    {
+      "provider": "aws",
+      "uniqueId": "arn:aws:ec2:us-east-1:111111111111:instance/i-0aaaa1111bbbb2222",
+      "assetType": "Compute Instance",
+      "resourceType": "AWS::EC2::Instance",
+      "imageId": "ami-0c55b159cbfafe1f0",
+      "hardwareMakeModel": "AWS EC2 t3.large",
+      "baselineConfig": null,
+      "osNameVersion": null,
+      "encryptionAtRest": true,
+      "state": "running",
+      "function": "Application server"
+    },
+    {
+      "provider": "aws",
+      "uniqueId": "arn:aws:s3:::acme-prod-evidence-bucket",
+      "assetType": "Object Storage",
+      "resourceType": "AWS::S3::Bucket",
+      "imageId": null,
+      "hardwareMakeModel": null,
+      "baselineConfig": "AWS S3 secure-bucket baseline (block public access, SSE-KMS, versioning)",
+      "osNameVersion": null,
+      "encryptionAtRest": true,
+      "state": "available",
+      "function": "Evidence object storage"
+    },
+    {
+      "provider": "aws",
+      "uniqueId": "arn:aws:rds:us-east-1:111111111111:db:acme-prod-db",
+      "assetType": "Relational Database Instance",
+      "resourceType": "AWS::RDS::DBInstance",
+      "imageId": null,
+      "hardwareMakeModel": "AWS RDS db.r6g.large (PostgreSQL 15)",
+      "baselineConfig": "CIS PostgreSQL Benchmark",
+      "osNameVersion": "PostgreSQL 15.4",
+      "encryptionAtRest": false,
+      "state": "available",
+      "function": "Primary application database"
+    },
+    {
+      "provider": "gcp",
+      "uniqueId": "//compute.googleapis.com/projects/acme-prod/zones/us-central1-a/instances/app-1",
+      "assetType": "Compute Instance",
+      "resourceType": "compute.googleapis.com/Instance",
+      "imageId": "projects/acme-prod/global/images/hardened-cos-1-3",
+      "hardwareMakeModel": "GCP e2-standard-4",
+      "baselineConfig": "CIS GCP Foundation Benchmark 1.3.0",
+      "osNameVersion": "Container-Optimized OS 105",
+      "encryptionAtRest": true,
+      "state": "running",
+      "function": "Application server"
+    },
+    {
+      "provider": "azure",
+      "uniqueId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/acme/providers/Microsoft.Compute/virtualMachines/app-vm-1",
+      "assetType": "Virtual Machine",
+      "resourceType": "Microsoft.Compute/virtualMachines",
+      "imageId": "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest",
+      "hardwareMakeModel": "Azure Standard_D4s_v5",
+      "baselineConfig": "CIS Microsoft Azure Foundations Benchmark 1.5.0",
+      "osNameVersion": "Ubuntu 22.04 LTS",
+      "encryptionAtRest": true,
+      "state": "running",
+      "function": "Application server"
+    },
+    {
+      "provider": "azure",
+      "uniqueId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/acme/providers/Microsoft.Storage/storageAccounts/acmeprodblob",
+      "assetType": "Blob Storage",
+      "resourceType": "Microsoft.Storage/storageAccounts",
+      "imageId": null,
+      "hardwareMakeModel": null,
+      "baselineConfig": "Azure storage secure baseline (HTTPS-only, CMK, private endpoint)",
+      "osNameVersion": null,
+      "encryptionAtRest": true,
+      "state": "available",
+      "function": "Blob object storage"
+    }
+  ],
+  "edges": []
+}
