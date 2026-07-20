@@ -3,7 +3,7 @@ slice_id: C.C9
 title: Baseline Configuration document (CM-2)
 loop: C
 status: done
-commit: TBDCOMMIT
+commit: 315d5ad
 completed_date: 2026-07-11
 depends_on: [Pre-slice docx-primitives, INV-1..S6 inventory chain, providers/*/reference-arch.ts]
 soft_depends_on: [LOOP-G.G5 AFR-SCG core/scg-comparator.ts]
@@ -19,7 +19,7 @@ Ships `baseline-config.docx` — the CM-2 baseline configuration document distin
 
 ## Status
 - Status: done
-- Commit: TBDCOMMIT
+- Commit: 315d5ad
 - Date: 2026-07-11
 - Verification: typecheck=clean, tests=15/15 in the slice file (suite 1586→1601, +15), check:reo=green (G1 lint:no-stubs 0 violations, G3 check:provenance OK, ssdf-no-silent-pass OK; G2 coverage-regression SKIP — no out/ in this env)
 
@@ -134,7 +134,7 @@ npm run check:provenance
 
 ## Implementation log (running journal — implementing session updates)
 ```
-2026-07-11 · impl-c-c9 · Shipped C.C9 end to end. commit TBDCOMMIT.
+2026-07-11 · impl-c-c9 · Shipped C.C9 end to end. commit 315d5ad.
   Created:
     - core/baseline-config-emit.ts (~640 lines) — pure buildBaselineConfigBodyXml
       / renderBaselineConfigDocx + disk emitBaselineConfigDocx, with exported
@@ -212,7 +212,7 @@ npm run check:provenance
 - [x] check:reo green (G1 + G3 + ssdf; G2 SKIP — no out/ this env)
 - [x] STATUS.md updated (C.C9 row + Overall section + LOOP-C COMPLETE + Next priority → D.D1)
 - [x] LOOP-C-SPEC.md Section 7 row updated
-- [x] This file's frontmatter updated (status=done, commit=TBDCOMMIT→hash, completed_date=2026-07-11)
+- [x] This file's frontmatter updated (status=done, commit=315d5ad→hash, completed_date=2026-07-11)
 - [x] LOOP-C-RISKS.md updated (C-C9-1..N appended)
 - [x] OPERATOR-GUIDE.md updated (--baseline-config flag + env var + output artifact)
 - [x] CHANGELOG.md "Unreleased" entry added
